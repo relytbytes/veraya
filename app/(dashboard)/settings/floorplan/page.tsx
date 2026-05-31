@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Save, Loader2, Plus, Trash2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -116,7 +118,7 @@ export default function FloorPlanEditorPage() {
     const cap = parseInt(newTableCap);
     if (!num || !cap) return;
     if (tables.some((t) => t.number === num)) {
-      alert(`Table ${num} already exists`);
+      toast.error(`Table ${num} already exists`);
       return;
     }
     setAddingTable(true);
@@ -136,7 +138,7 @@ export default function FloorPlanEditorPage() {
   }
 
   async function deleteTable(id: string) {
-    if (!confirm("Permanently delete this table? This cannot be undone.")) return;
+    if (!(await confirmDialog("Permanently delete this table? This cannot be undone."))) return;
     setDeletingId(id);
     const res = await fetch(`/api/tables/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -145,7 +147,7 @@ export default function FloorPlanEditorPage() {
       setDirty(true);
     } else {
       const data = await res.json().catch(() => ({}));
-      alert((data as { error?: string }).error ?? "Failed to delete table — it may have active orders.");
+      toast.error((data as { error?: string }).error ?? "Failed to delete table — it may have active orders.");
     }
     setDeletingId(null);
   }

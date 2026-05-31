@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Loader2, X, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -201,7 +203,7 @@ export default function MenuPage() {
     setSavingModifier(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert((data as { error?: string }).error ?? "Failed to save modifier.");
+      toast.error((data as { error?: string }).error ?? "Failed to save modifier.");
       return;
     }
     setAddModifierOpen(false);
@@ -210,7 +212,7 @@ export default function MenuPage() {
 
   async function deleteModifier(modifierId: string) {
     if (!editItem) return;
-    if (!confirm("Delete this modifier?")) return;
+    if (!(await confirmDialog("Delete this modifier?"))) return;
     await fetch(`/api/modifiers/${modifierId}`, { method: "DELETE" });
     loadModifiers(editItem.id);
   }
@@ -248,7 +250,7 @@ export default function MenuPage() {
     setSaving(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert((data as { error?: string }).error ?? "Failed to save menu item. Please try again.");
+      toast.error((data as { error?: string }).error ?? "Failed to save menu item. Please try again.");
       return;
     }
     setDialogOpen(false);

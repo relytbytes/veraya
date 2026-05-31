@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -426,7 +427,7 @@ function ReservationRow({ reservation, tables, onRefresh }: ReservationRowProps)
   }
 
   async function deleteReservation() {
-    if (!confirm("Delete this reservation?")) return;
+    if (!(await confirmDialog("Delete this reservation?"))) return;
     setActing(true);
     await fetch(`/api/reservations/${reservation.id}`, { method: "DELETE" });
     setActing(false);

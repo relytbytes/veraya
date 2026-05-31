@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -184,7 +185,7 @@ function EventRow({ event, onRefresh }: EventRowProps) {
   }
 
   async function deleteEvent() {
-    if (!confirm(`Delete "${event.name}"? This cannot be undone.`)) return;
+    if (!(await confirmDialog(`Delete "${event.name}"? This cannot be undone.`))) return;
     await fetch(`/api/events/${event.id}`, { method: "DELETE" });
     onRefresh();
   }

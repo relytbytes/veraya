@@ -8,6 +8,7 @@ import {
 import { VeraMark } from "@/components/brand/vera-mark";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +140,7 @@ export default function InventoryPage() {
       body: JSON.stringify({ ingredientId: adjItem.ingredientId, quantity: parseFloat(adjQty), type: adjType, notes: adjNotes }),
     });
     setAdjSaving(false);
-    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? "Failed"); return; }
+    if (!res.ok) { toast.error((await res.json().catch(() => ({}))).error ?? "Failed"); return; }
     setAdjOpen(false);
     loadAll();
   }
@@ -160,7 +161,7 @@ export default function InventoryPage() {
       }),
     });
     setAddSaving(false);
-    if (!res.ok) { alert((await res.json().catch(() => ({}))).error ?? "Failed"); return; }
+    if (!res.ok) { toast.error((await res.json().catch(() => ({}))).error ?? "Failed"); return; }
     const created = await res.json() as { id: string };
     setAddOpen(false);
     setNewIng({ name: "", unit: "kg", costPerUnit: "", minThreshold: "", supplierId: "" });

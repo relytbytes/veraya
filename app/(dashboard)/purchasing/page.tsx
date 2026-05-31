@@ -11,6 +11,8 @@ import { IngredientCombobox } from "@/components/purchasing/ingredient-combobox"
 import { ScanDialog, type ScannedIngredient } from "@/components/purchasing/scan-dialog";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -423,11 +425,11 @@ export default function PurchasingPage() {
   // ── Supplier actions ──
 
   async function deleteSupplier(id: string, name: string) {
-    if (!confirm(`Delete supplier "${name}"? This cannot be undone.`)) return;
+    if (!(await confirmDialog(`Delete supplier "${name}"? This cannot be undone.`))) return;
     const res = await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert((data as { error?: string }).error ?? "Failed to delete supplier.");
+      toast.error((data as { error?: string }).error ?? "Failed to delete supplier.");
       return;
     }
     loadAll();

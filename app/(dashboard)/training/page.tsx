@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -578,8 +579,8 @@ function TemplateCard({
           <Button
             variant="ghost" size="sm"
             className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
-            onClick={() => {
-              if (confirm(`Delete template "${template.name}"? This cannot be undone.`)) onDelete(template.id);
+            onClick={async () => {
+              if (await confirmDialog({ message: `Delete template "${template.name}"? This cannot be undone.`, destructive: true, confirmText: "Delete" })) onDelete(template.id);
             }}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -610,8 +611,8 @@ function TemplateCard({
               </div>
               <button
                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500"
-                onClick={() => {
-                  if (confirm("Remove this checklist item?")) onItemDelete(item.id);
+                onClick={async () => {
+                  if (await confirmDialog({ message: "Remove this checklist item?", destructive: true, confirmText: "Remove" })) onItemDelete(item.id);
                 }}
               >
                 <X className="h-3.5 w-3.5" />
@@ -781,7 +782,7 @@ function AssignmentsTab({
                 <Button
                   variant="ghost" size="sm"
                   className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => { if (confirm("Remove this assignment?")) onDelete(a.id); }}
+                  onClick={async () => { if (await confirmDialog({ message: "Remove this assignment?", destructive: true, confirmText: "Remove" })) onDelete(a.id); }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

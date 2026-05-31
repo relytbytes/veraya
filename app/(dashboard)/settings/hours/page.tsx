@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { Save, Loader2, Plus, Trash2, Clock, Ban } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -221,10 +223,10 @@ export default function HoursSettingsPage() {
         setHoursSaved(true);
         setTimeout(() => setHoursSaved(false), 2000);
       } else {
-        alert("Failed to save hours. Please try again.");
+        toast.error("Failed to save hours. Please try again.");
       }
     } catch {
-      alert("Network error — hours not saved.");
+      toast.error("Network error — hours not saved.");
     } finally {
       setHoursSaving(false);
     }
@@ -270,17 +272,17 @@ export default function HoursSettingsPage() {
         setBlocks(updated);
         setBlockDialog(false);
       } else {
-        alert("Failed to save block. Please try again.");
+        toast.error("Failed to save block. Please try again.");
       }
     } catch {
-      alert("Network error — block not saved.");
+      toast.error("Network error — block not saved.");
     } finally {
       setBlockSaving(false);
     }
   }
 
   async function deleteBlock(id: string) {
-    if (!confirm("Remove this table block?")) return;
+    if (!(await confirmDialog("Remove this table block?"))) return;
     const updated = blocks.filter((b) => b.id !== id);
     try {
       const res = await fetch("/api/settings", {
@@ -291,10 +293,10 @@ export default function HoursSettingsPage() {
       if (res.ok) {
         setBlocks(updated);
       } else {
-        alert("Failed to remove block. Please try again.");
+        toast.error("Failed to remove block. Please try again.");
       }
     } catch {
-      alert("Network error — block not removed.");
+      toast.error("Network error — block not removed.");
     }
   }
 

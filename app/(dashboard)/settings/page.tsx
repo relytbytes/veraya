@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,7 +78,7 @@ export default function SettingsPage() {
   }
 
   async function clearSimulation() {
-    if (!confirm("Delete all simulated orders? This cannot be undone.")) return;
+    if (!(await confirmDialog("Delete all simulated orders? This cannot be undone."))) return;
     setSimRunning(true);
     setSimResult(null);
     try {
@@ -186,7 +187,7 @@ export default function SettingsPage() {
   }
 
   async function deleteTable(id: string) {
-    if (!confirm("Delete this table? This cannot be undone.")) return;
+    if (!(await confirmDialog("Delete this table? This cannot be undone."))) return;
     await fetch(`/api/tables/${id}`, { method: "DELETE" });
     loadTables();
   }

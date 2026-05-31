@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -234,7 +235,7 @@ export default function BeveragePage() {
   }
 
   async function deleteProfile(id: string) {
-    if (!confirm("Delete this beverage profile?")) return;
+    if (!(await confirmDialog("Delete this beverage profile?"))) return;
     await fetch(`/api/beverage-profiles/${id}`, { method: "DELETE" });
     loadProfiles();
     loadReport(range.from, range.to);

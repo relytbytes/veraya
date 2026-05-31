@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { Toaster } from "@/components/ui/toast";
+import { ConfirmHost } from "@/components/ui/confirm";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -17,6 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <main className="flex-1 overflow-y-auto">{children}</main>
       <CommandPalette role={role} />
       <Toaster />
+      <ConfirmHost />
     </div>
   );
 }
