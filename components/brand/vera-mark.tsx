@@ -37,15 +37,24 @@ export function VeraMark({
 }
 
 /**
+ * Vera's gold sparkle — drop it next to any "Vera" mention to brand the action.
+ */
+export function VeraSpark({ className = "h-3 w-3", color = "#FFB703" }: { className?: string; color?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
+      <path d="M8 1 L9.2 5.2 L13 6.4 L9.2 7.6 L8 11.8 L6.8 7.6 L3 6.4 L6.8 5.2 Z" fill={color} />
+    </svg>
+  );
+}
+
+/**
  * "Vera" wordmark + sparkle, for inline headers. Pairs with VeraMark.
  */
 export function VeraWordmark({ className }: { className?: string }) {
   return (
     <span className={className} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
       Vera
-      <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3" aria-hidden="true">
-        <path d="M8 1 L9.2 5.2 L13 6.4 L9.2 7.6 L8 11.8 L6.8 7.6 L3 6.4 L6.8 5.2 Z" fill="#FFB703" />
-      </svg>
+      <VeraSpark />
     </span>
   );
 }

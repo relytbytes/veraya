@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Search, Trash2, Loader2, Check, Sparkles, ChevronRight, X, CheckCircle2, SkipForward, AlertCircle } from "lucide-react";
+import { VeraMark, VeraSpark } from "@/components/brand/vera-mark";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -453,7 +454,7 @@ export default function RecipesPage() {
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white"
               size="sm"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <VeraSpark className="h-3.5 w-3.5" />
               Suggest with Vera
               {itemsWithoutRecipes.length > 0 && (
                 <span className="ml-1 bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
@@ -476,11 +477,11 @@ export default function RecipesPage() {
           {/* Suggest header bar */}
           <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-amber-50">
             <div className="flex items-center gap-3">
-              <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
+              <VeraMark className="h-7 w-7 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-gray-900">Vera&apos;s Recipe Suggestions</p>
                 <p className="text-xs text-gray-500">
-                  GPT will suggest ingredients from your library. Review, adjust quantities, then approve.
+                  Vera suggests ingredients from your library. Review, adjust quantities, then approve.
                 </p>
               </div>
             </div>

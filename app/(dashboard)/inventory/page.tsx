@@ -5,6 +5,7 @@ import {
   Plus, Search, AlertTriangle, ArrowUp, Loader2, Package,
   Camera, Barcode, Sparkles, Check, X, ChevronRight, AlertCircle, Upload,
 } from "lucide-react";
+import { VeraMark } from "@/components/brand/vera-mark";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -768,7 +769,7 @@ export default function InventoryPage() {
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
+              <VeraMark className="h-6 w-6" />
               Recipe Addition Suggestions
             </DialogTitle>
           </DialogHeader>

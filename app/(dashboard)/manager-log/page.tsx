@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Plus, Loader2, ClipboardList, AlertTriangle, Wrench,
-  DollarSign, FileText, CheckCircle2, Clock, Trash2, Pencil, Sparkles,
+  DollarSign, FileText, CheckCircle2, Clock, Trash2, Pencil,
 } from "lucide-react";
+import { VeraMark, VeraSpark } from "@/components/brand/vera-mark";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -412,7 +413,7 @@ export default function ManagerLogPage() {
               disabled={aiSummaryLoading}
               className="gap-1.5"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <VeraSpark className="h-3.5 w-3.5" />
               {aiSummaryLoading ? "Analyzing…" : "Shift Summary"}
             </Button>
             <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setShowTemplates(true); setDialogOpen(true); }}>
@@ -892,7 +893,7 @@ export default function ManagerLogPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-500" />
+              <VeraMark className="h-5 w-5" />
               Shift Summary
             </DialogTitle>
           </DialogHeader>
@@ -906,7 +907,7 @@ export default function ManagerLogPage() {
             <div className="space-y-4">
               {aiSummary.aiPowered && (
                 <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5">
-                  <Sparkles className="h-3 w-3" />
+                  <VeraSpark className="h-3 w-3" />
                   Summarized by Vera
                 </div>
               )}
