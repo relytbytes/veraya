@@ -8,7 +8,6 @@ import {
   Users,
   MapPin,
   Clock,
-  DollarSign,
   Copy,
   Check,
   ChevronDown,
@@ -38,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12 } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,12 +78,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatTime(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
-}
 
 function todayStr(): string {
   return new Date().toISOString().split("T")[0];
@@ -211,8 +204,8 @@ function EventRow({ event, onRefresh }: EventRowProps) {
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {formatTime(event.startTime)}
-              {event.endTime ? ` – ${formatTime(event.endTime)}` : ""}
+              {formatTime12(event.startTime)}
+              {event.endTime ? ` – ${formatTime12(event.endTime)}` : ""}
             </span>
             {event.venue && (
               <span className="flex items-center gap-1">

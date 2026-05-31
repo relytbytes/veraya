@@ -5,7 +5,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Header } from "@/components/layout/header";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, TrendingUp, ShoppingBag, BarChart3, Users, RefreshCw, Download, ChevronDown, ChevronUp, Printer, Clock, TrendingDown, AlertTriangle, Sparkles, Send, X, ThumbsUp, ThumbsDown } from "lucide-react";
+import { DollarSign, TrendingUp, ShoppingBag, BarChart3, Users, RefreshCw, Download, ChevronDown, ChevronUp, Printer, Clock, AlertTriangle, Sparkles, Send, X, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {

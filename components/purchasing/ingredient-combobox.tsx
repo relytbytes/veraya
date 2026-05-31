@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Plus, ChevronDown, Check, Loader2 } from "lucide-react";
+import { Search, Plus, ChevronDown, Check } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
 export interface IngredientOption {

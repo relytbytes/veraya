@@ -6,7 +6,6 @@ import {
   LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
   Timer, Flame, AlertCircle, CheckCircle2, Users, Search,
 } from "lucide-react";
-import { Header } from "@/components/layout/header";
 import { useRealtime } from "@/lib/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";

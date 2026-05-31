@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatTime12 } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin, Users, ArrowLeft } from "lucide-react";
@@ -15,12 +16,6 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatTime(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${displayH}:${String(m).padStart(2, "0")} ${period}`;
-}
 
 export default async function PublicEventDetailPage({
   params,
@@ -111,9 +106,9 @@ export default async function PublicEventDetailPage({
               <div className="flex items-center gap-3">
                 <Clock size={18} style={{ color: "#d4a853", flexShrink: 0 }} />
                 <span className="text-base" style={{ color: "#f5f0e8" }}>
-                  {formatTime(event.startTime)}
+                  {formatTime12(event.startTime)}
                   {event.endTime ? (
-                    <span style={{ color: "#8a7a60" }}> – {formatTime(event.endTime)}</span>
+                    <span style={{ color: "#8a7a60" }}> – {formatTime12(event.endTime)}</span>
                   ) : null}
                 </span>
               </div>

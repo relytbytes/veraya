@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Plus, Search, AlertTriangle, ArrowUp, Loader2, Package,
-  Camera, Barcode, Sparkles, Check, X, ChevronRight, AlertCircle, Upload,
+  Camera, Barcode, Sparkles, Check, ChevronRight, AlertCircle, Upload,
 } from "lucide-react";
 import { VeraMark } from "@/components/brand/vera-mark";
 import { Header } from "@/components/layout/header";

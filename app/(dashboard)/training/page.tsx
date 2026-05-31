@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Plus, GraduationCap, Loader2, Pencil, Trash2, X,
   ChevronDown, ChevronRight, CheckCircle2, Circle,
-  Users, CalendarDays, ClipboardList, BookOpen,
+  Users, ClipboardList, BookOpen,
   GripVertical, AlertTriangle, Search, UserCheck,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
@@ -13,7 +13,6 @@ import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
