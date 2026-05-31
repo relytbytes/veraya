@@ -1,0 +1,2330 @@
+"use client";
+
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  Plus, Minus, X, ShoppingCart, CreditCard, Loader2,
+  LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
+  Timer, Flame, AlertCircle, CheckCircle2, Users, Search,
+} from "lucide-react";
+import { Header } from "@/components/layout/header";
+import { useRealtime } from "@/lib/use-realtime";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { cn, formatCurrency } from "@/lib/utils";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface Category { id: string; name: string }
+interface MenuItem {
+  id: string; name: string; description: string | null;
+  price: string; categoryId: string; prepTime: number | null; imageUrl: string | null;
+  trackCount: boolean; countRemaining: number | null;
+}
+interface TableRow { id: string; number: number; capacity: number; status: string; serviceStage: string | null; floorX: number | null; floorY: number | null; rotation: number; shape: string; }
+
+interface SelectedModifier { modifierId: string; optionId: string; optionName: string; priceAdj: number }
+interface ModifierOption { id: string; name: string; priceAdj: string; sortOrder: number }
+interface Modifier { id: string; name: string; isRequired: boolean; maxSelect: number; sortOrder: number; options: ModifierOption[] }
+
+interface CartItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  notes?: string;
+  selectedModifiers?: SelectedModifier[];
+  held?: boolean; // When true: item is held back from kitchen until explicitly fired
+}
+
+interface OpenOrder {
+  id: string;
+  status: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  type: string;
+  tableId: string | null;
+  table: { number: number } | null;
+  createdAt: string;
+  items: { id: string; quantity: number; unitPrice: number; heldForFire: boolean; voided: boolean; comped: boolean; menuItem: { name: string } }[];
+  payments: { id: string; amount: number; method: string; tip: number }[];
+}
+
+interface CompletedOrder {
+  id: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  tip: number;
+  type: string;
+  tableNumber?: number;
+  items: CartItem[];
+  payMethod: string;
+  change: number;
+}
+
+const TABLE_STATUS_COLORS: Record<string, string> = {
+  AVAILABLE: "bg-green-100 border-green-300 text-green-800",
+  OCCUPIED:  "bg-red-100 border-red-300 text-red-800",
+  RESERVED:  "bg-amber-100 border-amber-300 text-amber-800",
+  DIRTY:     "bg-gray-100 border-gray-300 text-gray-600",
+};
+
+// ── Stage abbreviations ────────────────────────────────────────────────────────
+const STAGE_ABBREV: Record<string, string> = {
+  SEATED: "STD", APPS: "APP", ENTREES: "ENT", DESSERT: "DST",
+  CHECK_DROPPED: "CHK", CHECK_PAID: "PD", BUSSING: "BUS",
+};
+
+function elapsedLabel(createdAt: string) {
+  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+type POSView = "order" | "floorplan" | "checks";
+type TipPreset = "15" | "18" | "20" | "custom" | "none";
+
+// ── Tip Section Component ──────────────────────────────────────────────────────
+
+function TipSection({
+  subtotal,
+  tipPreset,
+  setTipPreset,
+  customTip,
+  setCustomTip,
+  tipAmount,
+}: {
+  subtotal: number;
+  tipPreset: TipPreset;
+  setTipPreset: (p: TipPreset) => void;
+  customTip: string;
+  setCustomTip: (v: string) => void;
+  tipAmount: number;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>Tip</Label>
+      <div className="grid grid-cols-4 gap-2">
+        {(["15", "18", "20"] as const).map((pct) => (
+          <button
+            key={pct}
+            onClick={() => { setTipPreset(pct); setCustomTip(""); }}
+            className={cn(
+              "rounded-lg border py-2 text-sm font-medium transition-colors",
+              tipPreset === pct
+                ? "border-amber-500 bg-amber-50 text-amber-700"
+                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+            )}
+          >
+            {pct}%
+          </button>
+        ))}
+        <button
+          onClick={() => setTipPreset("custom")}
+          className={cn(
+            "rounded-lg border py-2 text-sm font-medium transition-colors",
+            tipPreset === "custom"
+              ? "border-amber-500 bg-amber-50 text-amber-700"
+              : "border-gray-200 text-gray-600 hover:bg-gray-50"
+          )}
+        >
+          Custom
+        </button>
+      </div>
+      {tipPreset === "custom" && (
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="Tip amount ($)"
+          value={customTip}
+          onChange={(e) => setCustomTip(e.target.value)}
+        />
+      )}
+      {tipAmount > 0 && (
+        <p className="text-sm text-gray-500">
+          Tip: <span className="font-medium text-gray-800">{formatCurrency(tipAmount)}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function computeTip(preset: TipPreset, customTip: string, subtotal: number): number {
+  if (preset === "none") return 0;
+  if (preset === "15") return Math.round(subtotal * 0.15 * 100) / 100;
+  if (preset === "18") return Math.round(subtotal * 0.18 * 100) / 100;
+  if (preset === "20") return Math.round(subtotal * 0.20 * 100) / 100;
+  if (preset === "custom") return Math.max(0, Number(customTip) || 0);
+  return 0;
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+
+export default function POSPage() {
+  const [view, setView] = useState<POSView>("floorplan");
+
+  // Honour ?view= query param
+  useEffect(() => {
+    const v = new URLSearchParams(window.location.search).get("view") as POSView | null;
+    if (v && ["order", "floorplan", "checks"].includes(v)) setView(v);
+  }, []);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [eightySixIds, setEightySixIds] = useState<Set<string>>(new Set());
+  const [floorObjects, setFloorObjects] = useState<{ id: string; type: string; label: string; x: number; y: number; width: number; height: number; rotation: number; color: string }[]>([]);
+  const [tables, setTables] = useState<TableRow[]>([]);
+  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
+  const [activeCat, setActiveCat] = useState("all");
+  // When set: we're adding items to an existing order (not creating a new one)
+  const [addingToOrder, setAddingToOrder] = useState<OpenOrder | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderType, setOrderType] = useState<"DINE_IN" | "TAKEOUT">("DINE_IN");
+  const [tableId, setTableId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [taxRate, setTaxRate] = useState(0.0875);
+
+  // Takeout payment dialog
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState<"CASH" | "CREDIT" | "DEBIT">("CREDIT");
+  const [cashReceived, setCashReceived] = useState("");
+  const [placing, setPlacing] = useState(false);
+
+  // Takeout tip state
+  const [checkoutTipPreset, setCheckoutTipPreset] = useState<TipPreset>("none");
+  const [checkoutCustomTip, setCheckoutCustomTip] = useState("");
+
+  // Receipt / success dialog
+  const [completedOrder, setCompletedOrder] = useState<CompletedOrder | null>(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
+
+  // Recall / close check dialog (occupied table)
+  const [recallOrder, setRecallOrder] = useState<OpenOrder | null>(null);
+  const [recallOpen, setRecallOpen] = useState(false);
+  const [recallPayMethod, setRecallPayMethod] = useState<"CASH" | "CREDIT" | "DEBIT">("CREDIT");
+  const [recallCash, setRecallCash] = useState("");
+  const [closing, setClosing] = useState(false);
+
+  // Recall tip state
+  const [recallTipPreset, setRecallTipPreset] = useState<TipPreset>("none");
+  const [recallCustomTip, setRecallCustomTip] = useState("");
+
+  // Split bill state
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitWays, setSplitWays] = useState(2);
+  const [splitMethods, setSplitMethods] = useState<("CASH" | "CREDIT" | "DEBIT")[]>(["CREDIT", "CREDIT"]);
+  const [splitPaidCount, setSplitPaidCount] = useState(0);
+  const [splitChargingIdx, setSplitChargingIdx] = useState<number | null>(null);
+
+  // Void order
+  const [voiding, setVoiding] = useState(false);
+
+  // Per-item notes
+  const [editingNoteFor, setEditingNoteFor] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState("");
+
+  // Hold / Fire state
+  const [holdMode, setHoldMode] = useState(false); // When true: tapping cart items toggles their held state
+  const [firing, setFiring] = useState(false);
+  const [voidingItemId, setVoidingItemId] = useState<string | null>(null);
+  const [compingItemId, setCompingItemId] = useState<string | null>(null);
+  const [compingCheck, setCompingCheck] = useState(false);
+
+  // Modifier selection dialog
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [customizeItem, setCustomizeItem] = useState<MenuItem | null>(null);
+  const [customizeModifiers, setCustomizeModifiers] = useState<Modifier[]>([]);
+  const [customizeSelections, setCustomizeSelections] = useState<Record<string, Set<string>>>({});
+
+  // ── Toast notifications ────────────────────────────────────────────────────
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: "error" | "success" | "warn" } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const showToast = useCallback((text: string, type: "error" | "success" | "warn" = "error") => {
+    clearTimeout(toastTimerRef.current);
+    setToastMsg({ text, type });
+    toastTimerRef.current = setTimeout(() => setToastMsg(null), 5000);
+  }, []);
+
+  // ── Confirm dialog ─────────────────────────────────────────────────────────
+  const [confirmState, setConfirmState] = useState<{
+    title: string; message: string; onConfirm: () => void; destructive?: boolean;
+  } | null>(null);
+
+  const showConfirm = useCallback((title: string, message: string, onConfirm: () => void, destructive = true) => {
+    setConfirmState({ title, message, onConfirm, destructive });
+  }, []);
+
+  // ── Guest count ────────────────────────────────────────────────────────────
+  const [guestCount, setGuestCount] = useState(2);
+
+  const loadTables = useCallback(async () => {
+    const res = await fetch("/api/tables");
+    if (res.ok) setTables(await res.json());
+  }, []);
+
+  const loadOpenOrders = useCallback(async () => {
+    const res = await fetch("/api/orders?status=OPEN,IN_PROGRESS,READY");
+    if (res.ok) {
+      const all: OpenOrder[] = await res.json();
+      setOpenOrders(all.filter((o) => o.tableId));
+    }
+  }, []);
+
+  const loadEightySix = useCallback(async () => {
+    try {
+      const res = await fetch("/api/eightysix");
+      if (res.ok) {
+        const items: { menuItemId: string }[] = await res.json();
+        setEightySixIds(new Set(items.map((i) => i.menuItemId)));
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [catsRes, itemsRes, settingsRes] = await Promise.all([
+          fetch("/api/categories"),
+          fetch("/api/menu"),
+          fetch("/api/settings"),
+        ]);
+        if (!catsRes.ok || !itemsRes.ok) throw new Error("Failed to load menu data");
+        setCategories(await catsRes.json());
+        setMenuItems(await itemsRes.json());
+        if (settingsRes.ok) {
+          const s = await settingsRes.json();
+          if (s.taxRate) setTaxRate(Number(s.taxRate) / 100);
+          if (s.floorPlanObjects) {
+            try { setFloorObjects(JSON.parse(s.floorPlanObjects)); } catch { /* ignore */ }
+          }
+        }
+        await Promise.all([loadTables(), loadOpenOrders(), loadEightySix()]);
+      } catch {
+        setLoadError(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [loadTables, loadOpenOrders, loadEightySix]);
+
+  // Live: reflect floor changes (seating/moves from the host stand), kitchen
+  // bumps, and 86 changes from other terminals without a manual refresh.
+  useRealtime(["floor", "kitchen"], () => { loadTables(); loadOpenOrders(); loadEightySix(); });
+
+  // ── Cart helpers ───────────────────────────────────────────────────────────
+
+  async function addToCart(item: MenuItem) {
+    // Fetch modifiers for this item; if any exist, open the customize dialog
+    try {
+      const res = await fetch(`/api/modifiers?menuItemId=${item.id}`);
+      if (res.ok) {
+        const mods: Modifier[] = await res.json();
+        if (mods.length > 0) {
+          setCustomizeItem(item);
+          setCustomizeModifiers(mods);
+          // Pre-select first option for each required radio modifier
+          const initial: Record<string, Set<string>> = {};
+          for (const m of mods) {
+            initial[m.id] = new Set();
+            if (m.isRequired && m.maxSelect === 1 && m.options.length > 0) {
+              initial[m.id].add(m.options[0].id);
+            }
+          }
+          setCustomizeSelections(initial);
+          setCustomizeOpen(true);
+          return;
+        }
+      }
+    } catch { /* fall through to direct add */ }
+    // No modifiers — add directly
+    setCart((prev) => {
+      const existing = prev.find((c) => c.menuItemId === item.id && !c.selectedModifiers?.length);
+      if (existing) return prev.map((c) => c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+      return [...prev, { menuItemId: item.id, name: item.name, price: Number(item.price), quantity: 1 }];
+    });
+  }
+
+  function toggleModifierOption(mod: Modifier, optionId: string) {
+    setCustomizeSelections((prev) => {
+      const current = new Set(prev[mod.id] ?? []);
+      if (mod.maxSelect === 1) {
+        current.clear();
+        current.add(optionId);
+      } else {
+        if (current.has(optionId)) current.delete(optionId);
+        else if (current.size < mod.maxSelect) current.add(optionId);
+      }
+      return { ...prev, [mod.id]: current };
+    });
+  }
+
+  function confirmCustomize() {
+    if (!customizeItem) return;
+    const selected: SelectedModifier[] = [];
+    let priceAdj = 0;
+    for (const mod of customizeModifiers) {
+      for (const optId of customizeSelections[mod.id] ?? []) {
+        const opt = mod.options.find((o) => o.id === optId);
+        if (opt) {
+          selected.push({ modifierId: mod.id, optionId: opt.id, optionName: opt.name, priceAdj: Number(opt.priceAdj) });
+          priceAdj += Number(opt.priceAdj);
+        }
+      }
+    }
+    const basePrice = Number(customizeItem.price);
+    setCart((prev) => [
+      ...prev,
+      { menuItemId: customizeItem.id, name: customizeItem.name, price: basePrice + priceAdj, quantity: 1, selectedModifiers: selected },
+    ]);
+    setCustomizeOpen(false);
+    setCustomizeItem(null);
+  }
+
+  function saveNote(menuItemId: string) {
+    setCart((prev) => prev.map((c) => c.menuItemId === menuItemId ? { ...c, notes: noteInput.trim() || undefined } : c));
+    setEditingNoteFor(null);
+    setNoteInput("");
+  }
+
+  function updateQty(menuItemId: string, delta: number) {
+    setCart((prev) =>
+      prev.map((c) => c.menuItemId === menuItemId ? { ...c, quantity: c.quantity + delta } : c)
+          .filter((c) => c.quantity > 0)
+    );
+  }
+
+  function toggleHeld(idx: number) {
+    setCart((prev) => prev.map((c, i) => i === idx ? { ...c, held: !c.held } : c));
+  }
+
+  async function fireHeldItems(orderId: string, itemIds: string[]) {
+    setFiring(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fireItemIds: itemIds }),
+      });
+      if (res.ok) {
+        // Optimistically clear held status in recall dialog
+        setRecallOrder((prev) =>
+          prev ? { ...prev, items: prev.items.map((i) => itemIds.includes(i.id) ? { ...i, heldForFire: false } : i) } : null
+        );
+        await loadOpenOrders();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to fire items.");
+      }
+    } catch {
+      showToast("Network error. Could not fire items.");
+    } finally {
+      setFiring(false);
+    }
+  }
+
+  async function voidOrderItem(itemId: string) {
+    if (!recallOrder) return;
+    setVoidingItemId(itemId);
+    try {
+      const res = await fetch(`/api/orders/${recallOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voidItem: { itemId } }),
+      });
+      if (res.ok) {
+        setRecallOrder(await res.json());
+        await loadOpenOrders();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to void item.");
+      }
+    } catch { showToast("Network error."); }
+    finally { setVoidingItemId(null); }
+  }
+
+  async function compOrderItem(itemId: string) {
+    if (!recallOrder) return;
+    setCompingItemId(itemId);
+    try {
+      const res = await fetch(`/api/orders/${recallOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ compItem: { itemId } }),
+      });
+      if (res.ok) {
+        setRecallOrder(await res.json());
+        await loadOpenOrders();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to comp item.");
+      }
+    } catch { showToast("Network error."); }
+    finally { setCompingItemId(null); }
+  }
+
+  async function compEntireCheck() {
+    if (!recallOrder) return;
+    showConfirm(
+      "Comp Entire Check",
+      "Comp this entire check? The order will be closed at $0.",
+      async () => {
+        setCompingCheck(true);
+        try {
+          const res = await fetch(`/api/orders/${recallOrder!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ compCheck: {} }),
+          });
+          if (res.ok) {
+            setRecallOpen(false);
+            setCompletedOrder({
+              id: recallOrder!.id,
+              total: 0, subtotal: 0, tax: 0, tip: 0,
+              type: recallOrder!.type,
+              tableNumber: recallOrder!.table?.number,
+              items: recallOrder!.items.map((i) => ({ menuItemId: i.id, name: i.menuItem.name, price: 0, quantity: i.quantity })),
+              payMethod: "COMP",
+              change: 0,
+            });
+            setRecallOrder(null);
+            setSuccessOpen(true);
+            await Promise.all([loadTables(), loadOpenOrders()]);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            showToast((err as { error?: string }).error ?? "Failed to comp check.");
+          }
+        } catch { showToast("Network error."); }
+        finally { setCompingCheck(false); }
+      }
+    );
+  }
+
+  const subtotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
+  const tax = subtotal * taxRate;
+  const total = subtotal + tax;
+  const checkoutTip = computeTip(checkoutTipPreset, checkoutCustomTip, subtotal);
+  const checkoutGrandTotal = total + checkoutTip;
+  const change = payMethod === "CASH" && cashReceived
+    ? Number(cashReceived) - checkoutGrandTotal
+    : 0;
+
+  // ── Recall helpers ─────────────────────────────────────────────────────────
+
+  const openRecallDialog = useCallback((order: OpenOrder) => {
+    setRecallOrder(order);
+    setRecallPayMethod("CREDIT");
+    setRecallCash("");
+    setRecallTipPreset("none");
+    setRecallCustomTip("");
+    setSplitEnabled(false);
+    setSplitWays(2);
+    setSplitMethods(["CREDIT", "CREDIT"]);
+    setSplitPaidCount(0);
+    setSplitChargingIdx(null);
+    setRecallOpen(true);
+  }, []);
+
+  // ── Floor plan callbacks ────────────────────────────────────────────────────
+
+  function onStartOrder(t: TableRow) {
+    setTableId(t.id);
+    setOrderType("DINE_IN");
+    setView("order");
+  }
+
+  async function onForceRelease(t: TableRow) {
+    await fetch(`/api/tables/${t.id}?force=true`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "AVAILABLE" }),
+    });
+    await Promise.all([loadTables(), loadOpenOrders()]);
+  }
+
+  async function onMarkAvailable(t: TableRow) {
+    await fetch(`/api/tables/${t.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "AVAILABLE" }),
+    });
+    await Promise.all([loadTables(), loadOpenOrders()]);
+  }
+
+  // ── Floor plan: click occupied table → recall check ────────────────────────
+
+  async function selectTableFromFloorPlan(t: TableRow) {
+    if (t.status === "OCCUPIED") {
+      // Try to find an open order in our already-loaded list first (instant)
+      const cached = openOrders.find((o) => o.tableId === t.id);
+      if (cached) { openRecallDialog(cached); return; }
+      // Fallback: fetch from API (cross-day orders, stale state, etc.)
+      try {
+        const res = await fetch(`/api/orders?tableId=${t.id}`);
+        if (!res.ok) throw new Error();
+        const orders: OpenOrder[] = await res.json();
+        const open = orders.find((o) => ["OPEN", "IN_PROGRESS", "READY", "COMPLETED"].includes(o.status));
+        if (open) { openRecallDialog(open); return; }
+        await Promise.all([loadTables(), loadOpenOrders()]);
+        showToast(`No open order found for Table ${t.number}. Status refreshed.`, "warn");
+      } catch {
+        showToast(`Could not load orders for Table ${t.number}. Check connection.`);
+      }
+      return;
+    }
+    setTableId(t.id);
+    setOrderType("DINE_IN");
+    setView("order");
+  }
+
+  // ── DINE_IN: send to kitchen (no payment yet) ──────────────────────────────
+  // Also handles "add items to existing order" when addingToOrder is set.
+
+  async function sendToKitchen() {
+    setPlacing(true);
+    try {
+      if (addingToOrder) {
+        // Adding items to an existing open check
+        const res = await fetch(`/api/orders/${addingToOrder.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            addItems: cart.map((c) => ({
+              menuItemId: c.menuItemId,
+              quantity: c.quantity,
+              unitPrice: c.price,
+              notes: c.notes,
+              modifierIds: c.selectedModifiers?.map((m) => m.optionId) ?? [],
+              held: c.held ?? false,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showToast((err as { error?: string }).error ?? "Failed to add items to check. Please try again.");
+          return;
+        }
+        setCart([]);
+        setHoldMode(false);
+        setAddingToOrder(null);
+        await Promise.all([loadTables(), loadOpenOrders()]);
+        setCompletedOrder(null);
+        setSuccessOpen(true);
+      } else {
+        // Creating a new order
+        const res = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tableId: tableId || null,
+            type: "DINE_IN",
+            items: cart.map((c) => ({
+              menuItemId: c.menuItemId,
+              quantity: c.quantity,
+              unitPrice: c.price,
+              notes: c.notes,
+              modifierIds: c.selectedModifiers?.map((m) => m.optionId) ?? [],
+              held: c.held ?? false,
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showToast((err as { error?: string }).error ?? "Failed to send order to kitchen. Please try again.");
+          return;
+        }
+        setCart([]);
+        setTableId("");
+        setHoldMode(false);
+        setGuestCount(2);
+        await Promise.all([loadTables(), loadOpenOrders()]);
+        setCompletedOrder(null);
+        setSuccessOpen(true);
+      }
+    } catch {
+      showToast("Network error. Please check your connection and try again.");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  // ── TAKEOUT: create order + immediately complete with payment ──────────────
+
+  async function completeTakeout() {
+    setPlacing(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId: null,
+          type: "TAKEOUT",
+          items: cart.map((c) => ({
+            menuItemId: c.menuItemId,
+            quantity: c.quantity,
+            unitPrice: c.price,
+            notes: c.notes,
+            modifierIds: c.selectedModifiers?.map((m) => m.optionId) ?? [],
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to create order. Please try again.");
+        return;
+      }
+      const order = await res.json();
+
+      const patchRes = await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "COMPLETED",
+          payment: { amount: total, method: payMethod, tip: checkoutTip },
+        }),
+      });
+      if (!patchRes.ok) {
+        showToast("Order created but payment failed. Please close the check manually.", "warn");
+        return;
+      }
+
+      setCompletedOrder({
+        id: order.id, total: checkoutGrandTotal, subtotal, tax,
+        tip: checkoutTip,
+        type: "TAKEOUT",
+        items: [...cart],
+        payMethod,
+        change: change > 0 ? change : 0,
+      });
+      setCheckoutOpen(false);
+      setSuccessOpen(true);
+      setCart([]);
+      setTableId("");
+      await Promise.all([loadTables(), loadOpenOrders()]);
+    } catch {
+      showToast("Network error. Please check your connection and try again.");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  // ── Close check (recall dialog) ────────────────────────────────────────────
+
+  async function closeCheck() {
+    if (!recallOrder) return;
+    setClosing(true);
+    const recallSubtotal = Number(recallOrder.subtotal);
+    const recallTotal = Number(recallOrder.total);
+    const recallTip = computeTip(recallTipPreset, recallCustomTip, recallSubtotal);
+    const recallGrandTotal = recallTotal + recallTip;
+    const recallChange = recallPayMethod === "CASH" && recallCash
+      ? Number(recallCash) - recallGrandTotal
+      : 0;
+
+    try {
+      const res = await fetch(`/api/orders/${recallOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "COMPLETED",
+          payment: { amount: recallTotal, method: recallPayMethod, tip: recallTip },
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to close check. Please try again.");
+        return;
+      }
+
+      setRecallOpen(false);
+      setCompletedOrder({
+        id: recallOrder.id,
+        total: recallGrandTotal,
+        subtotal: recallSubtotal,
+        tax: Number(recallOrder.tax),
+        tip: recallTip,
+        type: recallOrder.type,
+        tableNumber: recallOrder.table?.number,
+        items: recallOrder.items.map((i) => ({
+          menuItemId: i.id,
+          name: i.menuItem.name,
+          price: Number(i.unitPrice),
+          quantity: i.quantity,
+        })),
+        payMethod: recallPayMethod,
+        change: recallChange > 0 ? recallChange : 0,
+      });
+      setSuccessOpen(true);
+      setRecallOrder(null);
+      await Promise.all([loadTables(), loadOpenOrders()]);
+    } catch {
+      showToast("Network error. Please check your connection and try again.");
+    } finally {
+      setClosing(false);
+    }
+  }
+
+  // ── Split bill: charge one split ──────────────────────────────────────────
+
+  async function chargeSplit(idx: number) {
+    if (!recallOrder) return;
+    setSplitChargingIdx(idx);
+
+    const recallSubtotal = Number(recallOrder.subtotal);
+    const recallTotal = Number(recallOrder.total);
+    const recallTip = computeTip(recallTipPreset, recallCustomTip, recallSubtotal);
+    const grandTotal = recallTotal + recallTip;
+    const perSplit = Math.round((grandTotal / splitWays) * 100) / 100;
+    const isLastSplit = idx === splitWays - 1;
+
+    // Tip on the last split only; last split absorbs any rounding remainder
+    const splitTip = isLastSplit ? recallTip : 0;
+    const splitBase = isLastSplit
+      ? Math.round((grandTotal - perSplit * (splitWays - 1)) * 100) / 100
+      : perSplit;
+
+    try {
+      const isLastPayment = idx === splitWays - 1;
+      const res = await fetch(`/api/orders/${recallOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(isLastPayment && { status: "COMPLETED" }),
+          payment: {
+            amount: splitBase,
+            method: splitMethods[idx],
+            tip: splitTip,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast((err as { error?: string }).error ?? "Failed to charge split. Please try again.");
+        return;
+      }
+
+      const newPaidCount = splitPaidCount + 1;
+      setSplitPaidCount(newPaidCount);
+
+      if (newPaidCount >= splitWays) {
+        setRecallOpen(false);
+        setCompletedOrder({
+          id: recallOrder.id,
+          total: grandTotal,
+          subtotal: recallSubtotal,
+          tax: Number(recallOrder.tax),
+          tip: recallTip,
+          type: recallOrder.type,
+          tableNumber: recallOrder.table?.number,
+          items: recallOrder.items.map((i) => ({
+            menuItemId: i.id,
+            name: i.menuItem.name,
+            price: Number(i.unitPrice),
+            quantity: i.quantity,
+          })),
+          payMethod: "Split",
+          change: 0,
+        });
+        setSuccessOpen(true);
+        setRecallOrder(null);
+        await Promise.all([loadTables(), loadOpenOrders()]);
+      }
+    } catch {
+      showToast("Network error. Please check your connection and try again.");
+    } finally {
+      setSplitChargingIdx(null);
+    }
+  }
+
+  function voidOrder() {
+    if (!recallOrder) return;
+    showConfirm(
+      "Void Order",
+      "Void this order? This action cannot be undone.",
+      async () => {
+        setVoiding(true);
+        try {
+          const res = await fetch(`/api/orders/${recallOrder!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "VOID" }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast((err as { error?: string }).error ?? "Failed to void order.");
+            return;
+          }
+          setRecallOpen(false);
+          setRecallOrder(null);
+          await Promise.all([loadTables(), loadOpenOrders()]);
+        } catch {
+          showToast("Network error.");
+        } finally {
+          setVoiding(false);
+        }
+      }
+    );
+  }
+
+  function printReceipt() {
+    if (!receiptRef.current) return;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Receipt</title>
+      <style>
+        body{font-family:'Courier New',monospace;font-size:13px;margin:0;padding:16px;max-width:300px}
+        .center{text-align:center}.bold{font-weight:bold}.line{border-top:1px dashed #000;margin:8px 0}
+        .row{display:flex;justify-content:space-between;margin:2px 0}
+        .total-row{display:flex;justify-content:space-between;font-weight:bold;font-size:15px}
+        h2{margin:0 0 4px;font-size:18px}p{margin:2px 0}
+      </style></head>
+      <body>${receiptRef.current.innerHTML}
+      <script>window.onload=function(){window.print();window.close()}<\/script>
+      </body></html>
+    `);
+    win.document.close();
+  }
+
+  const visibleItems = activeCat === "all" ? menuItems : menuItems.filter((i) => i.categoryId === activeCat);
+  // Title for the "Send to Kitchen" button changes when adding to an existing order
+  const addingToOrderLabel = addingToOrder?.table
+    ? `Adding to Table ${addingToOrder.table.number}`
+    : addingToOrder
+    ? "Adding to Check"
+    : null;
+
+  // Derived values for recall dialog
+  const recallSubtotalVal = recallOrder ? Number(recallOrder.subtotal) : 0;
+  const recallTotalVal = recallOrder ? Number(recallOrder.total) : 0;
+  const recallTipVal = computeTip(recallTipPreset, recallCustomTip, recallSubtotalVal);
+  const recallGrandTotalVal = recallTotalVal + recallTipVal;
+  const recallChangeVal = recallPayMethod === "CASH" && recallCash
+    ? Number(recallCash) - recallGrandTotalVal
+    : 0;
+  const splitAmountVal = splitWays > 0
+    ? Math.round((recallGrandTotalVal / splitWays) * 100) / 100
+    : 0;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* View toggle */}
+      <div className="border-b border-gray-200 bg-white px-4 py-2 flex items-center gap-2">
+        <button
+          onClick={() => setView("floorplan")}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            view === "floorplan" ? "bg-amber-500 text-white" : "text-gray-600 hover:bg-gray-100")}
+        >
+          <LayoutGrid className="h-4 w-4" /> Floor Plan
+        </button>
+        <button
+          onClick={() => setView("checks")}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors relative",
+            view === "checks" ? "bg-amber-500 text-white" : "text-gray-600 hover:bg-gray-100")}
+        >
+          <Receipt className="h-4 w-4" /> Checks
+          {openOrders.length > 0 && (
+            <span className={cn(
+              "absolute -top-1 -right-1 h-4 min-w-[16px] rounded-full text-[10px] font-bold flex items-center justify-center px-1",
+              view === "checks" ? "bg-white text-amber-600" : "bg-amber-500 text-white"
+            )}>
+              {openOrders.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setView("order")}
+          className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            view === "order" ? "bg-amber-500 text-white" : "text-gray-600 hover:bg-gray-100")}
+        >
+          <UtensilsCrossed className="h-4 w-4" /> New Order
+        </button>
+        {addingToOrder && (
+          <Badge className="ml-2 bg-blue-100 text-blue-700 border-blue-200">
+            Adding to T{addingToOrder.table?.number ?? "—"}
+          </Badge>
+        )}
+        {tableId && view === "order" && !addingToOrder && (
+          <Badge className="ml-2 bg-amber-100 text-amber-700 border-amber-200">
+            Table {tables.find((t) => t.id === tableId)?.number}
+          </Badge>
+        )}
+      </div>
+
+      {view === "floorplan" ? (
+        <FloorPlanView
+          tables={tables}
+          floorObjects={floorObjects}
+          onSelectTable={selectTableFromFloorPlan}
+          selectedTableId={tableId}
+          openOrders={openOrders}
+          onStartOrder={onStartOrder}
+          onForceRelease={onForceRelease}
+          onMarkAvailable={onMarkAvailable}
+          onFireHeld={fireHeldItems}
+          firing={firing}
+        />
+      ) : view === "checks" ? (
+        <ChecksTab
+          openOrders={openOrders}
+          tables={tables}
+          onRecall={openRecallDialog}
+          onNewOrder={(t) => { setTableId(t.id); setOrderType("DINE_IN"); setView("order"); }}
+          loading={loading}
+        />
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left: Menu */}
+          <div className="flex flex-1 flex-col overflow-hidden bg-gray-50">
+            {/* Adding-to-order mode banner */}
+            {addingToOrder && (
+              <div className="border-b border-blue-200 bg-blue-50 px-4 py-2 flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-blue-700">
+                  {addingToOrderLabel} — select items to add, then tap &quot;Send to Kitchen&quot;
+                </span>
+                <button
+                  onClick={() => { setAddingToOrder(null); setCart([]); setHoldMode(false); }}
+                  className="text-xs text-blue-500 hover:text-blue-700 underline shrink-0"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Open checks banner — driven by actual open orders, not just table status */}
+            {openOrders.length > 0 && !addingToOrder && (
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-semibold text-amber-700 shrink-0">Open checks:</span>
+                {openOrders
+                  .sort((a, b) => (a.table?.number ?? 0) - (b.table?.number ?? 0))
+                  .map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => openRecallDialog(o)}
+                      className="px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-xs font-medium text-amber-800 hover:bg-amber-200 transition-colors"
+                    >
+                      T{o.table?.number} · {formatCurrency(Number(o.total))}
+                    </button>
+                  ))}
+              </div>
+            )}
+            <div className="border-b border-gray-200 bg-white px-4 py-3">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setActiveCat("all")}
+                  className={cn("shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    activeCat === "all" ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
+                >
+                  All
+                </button>
+                {categories.map((cat) => (
+                  <button key={cat.id} onClick={() => setActiveCat(cat.id)}
+                    className={cn("shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
+                      activeCat === cat.id ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : loadError ? (
+              <div className="flex items-center justify-center h-64 text-gray-400">
+                <p>Failed to load POS data. <button className="underline text-amber-600" onClick={() => window.location.reload()}>Reload</button></p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                  {visibleItems.map((item) => {
+                    const is86 = eightySixIds.has(item.id);
+                    const soldOut = item.trackCount && item.countRemaining !== null && item.countRemaining <= 0;
+                    const disabled = is86 || soldOut;
+                    const lowCount = item.trackCount && item.countRemaining !== null && item.countRemaining > 0 && item.countRemaining <= 5;
+                    return (
+                    <button
+                      key={item.id}
+                      onClick={() => !disabled && addToCart(item)}
+                      disabled={disabled}
+                      className={cn(
+                        "group flex flex-col items-start rounded-xl border overflow-hidden text-left shadow-sm transition-all relative",
+                        disabled
+                          ? "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed"
+                          : "bg-white border-gray-200 hover:border-amber-300 hover:shadow-md active:scale-95"
+                      )}
+                    >
+                      {item.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.imageUrl} alt={item.name} className={cn("w-full h-24 object-cover", disabled && "grayscale")} />
+                      )}
+                      {is86 && (
+                        <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">86&apos;d</span>
+                      )}
+                      {soldOut && !is86 && (
+                        <span className="absolute top-2 right-2 bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">SOLD OUT</span>
+                      )}
+                      {lowCount && (
+                        <span className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          {item.countRemaining} left
+                        </span>
+                      )}
+                      {item.trackCount && !lowCount && !soldOut && item.countRemaining !== null && (
+                        <span className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                          {item.countRemaining} left
+                        </span>
+                      )}
+                      <div className="p-3 w-full">
+                        <p className={cn("font-medium text-sm leading-tight", disabled ? "text-gray-400 line-through" : "text-gray-900")}>{item.name}</p>
+                        {item.prepTime && <p className="text-xs text-gray-400 mt-0.5">{item.prepTime} min</p>}
+                        <p className={cn("mt-1.5 text-base font-bold", disabled ? "text-gray-400" : "text-amber-600")}>{formatCurrency(Number(item.price))}</p>
+                      </div>
+                    </button>
+                    );
+                  })}
+                  {visibleItems.length === 0 && (
+                    <p className="col-span-full text-center text-gray-400 py-8 text-sm">No items in this category</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Cart */}
+          <div className="flex w-80 shrink-0 flex-col border-l border-gray-200 bg-white">
+            <div className="border-b border-gray-100 p-4 space-y-3">
+              <div className="flex gap-2">
+                {(["DINE_IN", "TAKEOUT"] as const).map((t) => (
+                  <button key={t} onClick={() => setOrderType(t)}
+                    className={cn("flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
+                      orderType === t ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600")}
+                  >
+                    {t === "DINE_IN" ? "Dine In" : "Takeout"}
+                  </button>
+                ))}
+              </div>
+              {orderType === "DINE_IN" && (
+                <>
+                  <Select value={tableId} onValueChange={setTableId}>
+                    <SelectTrigger><SelectValue placeholder="Select table (optional)…" /></SelectTrigger>
+                    <SelectContent>
+                      {tables.filter((t) => t.status === "AVAILABLE" || t.id === tableId).map((t) => (
+                        <SelectItem key={t.id} value={t.id}>Table {t.number} (seats {t.capacity})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!addingToOrder && (
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
+                        <Users className="h-3.5 w-3.5" /> Guests
+                      </span>
+                      <div className="flex items-center gap-1 ml-auto">
+                        <button onClick={() => setGuestCount(g => Math.max(1, g - 1))}
+                          className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold">{guestCount}</span>
+                        <button onClick={() => setGuestCount(g => g + 1)}
+                          className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+                  <ShoppingCart className="h-8 w-8" />
+                  <p className="text-sm">Cart is empty</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {cart.map((item, idx) => (
+                    <div
+                      key={`${item.menuItemId}-${idx}`}
+                      className={cn(
+                        "px-4 py-2.5 transition-colors",
+                        item.held && "bg-amber-50",
+                        holdMode && "cursor-pointer hover:bg-amber-100 select-none",
+                      )}
+                      onClick={holdMode ? () => toggleHeld(idx) : undefined}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                            {item.held && (
+                              <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800 uppercase tracking-wide">
+                                <Timer className="h-2.5 w-2.5" /> Hold
+                              </span>
+                            )}
+                          </div>
+                          {item.selectedModifiers?.length ? (
+                            <p className="text-[10px] text-gray-400 truncate">
+                              {item.selectedModifiers.map((m) => m.optionName).join(", ")}
+                            </p>
+                          ) : null}
+                          {item.notes && <p className="text-[10px] italic text-amber-600 truncate">{item.notes}</p>}
+                          <p className="text-xs text-gray-400">{formatCurrency(item.price)} each</p>
+                        </div>
+                        {/* Note editor toggle — hidden in hold mode to avoid accidental taps */}
+                        {!holdMode && <button
+                          onClick={() => { setEditingNoteFor(`${item.menuItemId}-${idx}`); setNoteInput(item.notes ?? ""); }}
+                          className={cn("p-1 rounded", item.notes ? "text-amber-500" : "text-gray-300 hover:text-gray-500")}
+                          title="Add note"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>}
+                        {!holdMode && <>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateQty(item.menuItemId, -1)}
+                              className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-5 text-center text-sm font-medium">{item.quantity}</span>
+                            <button onClick={() => updateQty(item.menuItemId, 1)}
+                              className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <p className="w-14 text-right text-sm font-semibold">{formatCurrency(item.price * item.quantity)}</p>
+                          <button onClick={() => updateQty(item.menuItemId, -999)}>
+                            <X className="h-3.5 w-3.5 text-gray-400 hover:text-gray-700" />
+                          </button>
+                        </>}
+                        {holdMode && <p className="w-14 text-right text-sm font-semibold text-gray-400">{item.quantity}×</p>}
+                      </div>
+                      {/* Inline note editor */}
+                      {editingNoteFor === `${item.menuItemId}-${idx}` && (
+                        <div className="mt-1.5 flex gap-1.5">
+                          <Input
+                            autoFocus
+                            className="h-7 text-xs py-1"
+                            placeholder="Special instructions…"
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveNote(item.menuItemId);
+                              if (e.key === "Escape") { setEditingNoteFor(null); setNoteInput(""); }
+                            }}
+                          />
+                          <Button size="sm" className="h-7 text-xs px-2" onClick={() => saveNote(item.menuItemId)}>OK</Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-gray-200 p-4 space-y-3">
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                <div className="flex justify-between text-gray-500"><span>Tax (8.75%)</span><span>{formatCurrency(tax)}</span></div>
+                <div className="flex justify-between text-base font-bold text-gray-900 pt-1 border-t border-gray-100">
+                  <span>Total</span><span>{formatCurrency(total)}</span>
+                </div>
+              </div>
+
+              {orderType === "DINE_IN" ? (
+                /* Dine-in: send to kitchen, collect payment later when table is recalled */
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setHoldMode((v) => !v)}
+                    disabled={cart.length === 0}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors shrink-0 disabled:opacity-40",
+                      holdMode
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "border-gray-200 text-gray-600 hover:border-amber-400 hover:text-amber-600"
+                    )}
+                    title={holdMode ? "Exit hold mode" : "Select items to hold back from kitchen"}
+                  >
+                    <Timer className="h-4 w-4" />
+                    {holdMode ? "Done" : "Hold"}
+                  </button>
+                  <Button
+                    className={cn("flex-1", addingToOrder && "bg-blue-600 hover:bg-blue-700")}
+                    disabled={cart.length === 0 || placing || holdMode}
+                    onClick={sendToKitchen}
+                  >
+                    {placing ? <Loader2 className="h-4 w-4 animate-spin" /> : <UtensilsCrossed className="h-4 w-4" />}
+                    {addingToOrder
+                      ? `Add ${cart.reduce((s, c) => s + c.quantity, 0)} Item${cart.reduce((s, c) => s + c.quantity, 0) !== 1 ? "s" : ""} to Check`
+                      : cart.some((c) => c.held) && !cart.every((c) => c.held)
+                      ? `Fire ${cart.filter((c) => !c.held).length} · Hold ${cart.filter((c) => c.held).length}`
+                      : cart.every((c) => c.held)
+                      ? "Send Held Order"
+                      : "Send to Kitchen"}
+                  </Button>
+                </div>
+              ) : (
+                /* Takeout: charge immediately */
+                <Button
+                  className="w-full"
+                  disabled={cart.length === 0}
+                  onClick={() => setCheckoutOpen(true)}
+                >
+                  <CreditCard className="h-4 w-4" /> Charge {formatCurrency(total)}
+                </Button>
+              )}
+
+              {cart.length > 0 && !holdMode && (
+                <Button variant="outline" size="sm" className="w-full" onClick={() => { setCart([]); setHoldMode(false); }}>
+                  Clear Cart
+                </Button>
+              )}
+              {holdMode && (
+                <p className="text-center text-xs text-amber-600 font-medium">
+                  Tap items above to hold/unhold · press Done when finished
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast Notification ────────────────────────────────────────────── */}
+      {toastMsg && (
+        <div className={cn(
+          "fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-sm font-medium max-w-sm w-full",
+          toastMsg.type === "error" ? "bg-red-600 text-white" :
+          toastMsg.type === "success" ? "bg-green-600 text-white" :
+          "bg-amber-600 text-white"
+        )}>
+          {toastMsg.type === "error"   ? <AlertCircle className="h-4 w-4 shrink-0" /> :
+           toastMsg.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> :
+           <AlertCircle className="h-4 w-4 shrink-0" />}
+          <span className="flex-1">{toastMsg.text}</span>
+          <button onClick={() => setToastMsg(null)} className="text-white/70 hover:text-white shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Confirm Dialog ────────────────────────────────────────────────── */}
+      <Dialog open={!!confirmState} onOpenChange={(o) => { if (!o) setConfirmState(null); }}>
+        <DialogContent className="max-w-sm">
+          {confirmState && (
+            <>
+              <DialogHeader><DialogTitle>{confirmState.title}</DialogTitle></DialogHeader>
+              <p className="text-sm text-gray-600">{confirmState.message}</p>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setConfirmState(null)}>Cancel</Button>
+                <Button
+                  variant={confirmState.destructive ? "destructive" : "default"}
+                  onClick={() => { confirmState.onConfirm(); setConfirmState(null); }}
+                >
+                  Confirm
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── TAKEOUT Payment Dialog ─────────────────────────────────────────── */}
+      <Dialog open={checkoutOpen} onOpenChange={(o) => { if (!o) { setCheckoutOpen(false); setCheckoutTipPreset("none"); setCheckoutCustomTip(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Payment — Takeout</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
+                  <button key={m} onClick={() => setPayMethod(m)}
+                    className={cn("rounded-lg border py-2 text-sm font-medium transition-colors",
+                      payMethod === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
+                  >
+                    {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <TipSection
+              subtotal={subtotal}
+              tipPreset={checkoutTipPreset}
+              setTipPreset={setCheckoutTipPreset}
+              customTip={checkoutCustomTip}
+              setCustomTip={setCheckoutCustomTip}
+              tipAmount={checkoutTip}
+            />
+
+            {/* Running total */}
+            <div className="bg-amber-50 rounded-lg p-4 space-y-1 text-sm">
+              <div className="flex justify-between text-amber-700">
+                <span>Subtotal</span><span>{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>Tax</span><span>{formatCurrency(tax)}</span>
+              </div>
+              {checkoutTip > 0 && (
+                <div className="flex justify-between text-amber-700">
+                  <span>Tip</span><span>{formatCurrency(checkoutTip)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-amber-800 text-base pt-1 border-t border-amber-200">
+                <span>Total</span><span>{formatCurrency(checkoutGrandTotal)}</span>
+              </div>
+            </div>
+
+            {payMethod === "CASH" && (
+              <div className="space-y-1.5">
+                <Label>Cash Received</Label>
+                <Input type="number" step="0.01" placeholder="0.00" value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)} />
+                {cashReceived && Number(cashReceived) >= checkoutGrandTotal && (
+                  <p className="text-sm font-medium text-green-600">Change: {formatCurrency(Number(cashReceived) - checkoutGrandTotal)}</p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCheckoutOpen(false); setCheckoutTipPreset("none"); setCheckoutCustomTip(""); }}>Cancel</Button>
+            <Button onClick={completeTakeout} disabled={placing}>
+              {placing && <Loader2 className="h-4 w-4 animate-spin" />} Complete Sale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Recall / Close Check Dialog (occupied table) ──────────────────── */}
+      <Dialog open={recallOpen} onOpenChange={(o) => { if (!o) setRecallOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-amber-500" />
+              {recallOrder?.table ? `Table ${recallOrder.table.number} — Close Check` : "Close Check"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {recallOrder && (
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              {/* Order items — void/comp/fire controls */}
+              <div className="rounded-lg border border-gray-100 divide-y divide-gray-50">
+                {recallOrder.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 text-sm",
+                      item.voided && "bg-gray-50 opacity-60",
+                      item.heldForFire && !item.voided && "bg-amber-50",
+                      item.comped && !item.voided && "bg-green-50",
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {item.heldForFire && !item.voided && <Timer className="h-3 w-3 text-amber-500 shrink-0" />}
+                      <span className={cn("text-gray-700 truncate", item.voided && "line-through text-gray-400")}>
+                        {item.quantity}× {item.menuItem.name}
+                      </span>
+                      {item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-gray-200 text-gray-600 px-1 py-0.5 rounded shrink-0">VOID</span>}
+                      {item.comped && !item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-green-200 text-green-700 px-1 py-0.5 rounded shrink-0">COMP</span>}
+                      {item.heldForFire && !item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-200 text-amber-800 px-1 py-0.5 rounded shrink-0">HELD</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={cn("font-medium w-14 text-right", (item.voided || item.comped) ? "text-gray-400 line-through" : "text-gray-600")}>
+                        {formatCurrency(Number(item.unitPrice) * item.quantity)}
+                      </span>
+                      {/* Fire held */}
+                      {item.heldForFire && !item.voided && (
+                        <button
+                          disabled={firing}
+                          onClick={() => fireHeldItems(recallOrder.id, [item.id])}
+                          className="flex items-center gap-0.5 px-1.5 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-bold disabled:opacity-50"
+                        >
+                          <Flame className="h-2.5 w-2.5" /> Fire
+                        </button>
+                      )}
+                      {/* Comp item */}
+                      {!item.voided && !item.comped && !item.heldForFire && (
+                        <button
+                          disabled={compingItemId === item.id}
+                          onClick={() => compOrderItem(item.id)}
+                          className="flex items-center gap-0.5 px-1.5 py-1 rounded bg-green-100 hover:bg-green-200 text-green-700 text-[10px] font-bold border border-green-200 disabled:opacity-50"
+                          title="Comp this item (house on it)"
+                        >
+                          {compingItemId === item.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Comp"}
+                        </button>
+                      )}
+                      {/* Void item */}
+                      {!item.voided && (
+                        <button
+                          disabled={voidingItemId === item.id}
+                          onClick={() => voidOrderItem(item.id)}
+                          className="flex items-center gap-0.5 px-1.5 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 text-[10px] font-bold border border-red-200 disabled:opacity-50"
+                          title="Void this item (remove from bill)"
+                        >
+                          {voidingItemId === item.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Void"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fire all held */}
+              {recallOrder.items.some((i) => i.heldForFire && !i.voided) && (
+                <button
+                  disabled={firing}
+                  onClick={() => fireHeldItems(recallOrder.id, recallOrder.items.filter((i) => i.heldForFire && !i.voided).map((i) => i.id))}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold transition-colors disabled:opacity-50"
+                >
+                  {firing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+                  Fire All Held ({recallOrder.items.filter((i) => i.heldForFire && !i.voided).length} items)
+                </button>
+              )}
+
+              {/* Totals */}
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal</span><span>{formatCurrency(recallSubtotalVal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Tax</span><span>{formatCurrency(Number(recallOrder.tax))}</span>
+                </div>
+                {recallTipVal > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Tip</span><span>{formatCurrency(recallTipVal)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-base pt-1 border-t border-gray-100">
+                  <span>Total</span><span>{formatCurrency(recallGrandTotalVal)}</span>
+                </div>
+              </div>
+
+              {/* Status badge */}
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>Status:</span>
+                <span className={cn("font-medium px-2 py-0.5 rounded-full",
+                  recallOrder.status === "READY" ? "bg-green-100 text-green-700" :
+                  recallOrder.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-700" :
+                  "bg-blue-100 text-blue-700"
+                )}>
+                  {recallOrder.status.replace("_", " ")}
+                </span>
+              </div>
+
+              {/* Tip section */}
+              <TipSection
+                subtotal={recallSubtotalVal}
+                tipPreset={recallTipPreset}
+                setTipPreset={setRecallTipPreset}
+                customTip={recallCustomTip}
+                setCustomTip={setRecallCustomTip}
+                tipAmount={recallTipVal}
+              />
+
+              {/* Split bill toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setSplitEnabled((v) => !v);
+                    setSplitPaidCount(0);
+                    setSplitWays(2);
+                    setSplitMethods(["CREDIT", "CREDIT"]);
+                  }}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+                    splitEnabled
+                      ? "border-amber-500 bg-amber-50 text-amber-700"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  Split Bill
+                </button>
+                {splitEnabled && (
+                  <span className="text-xs text-gray-500">Each: {formatCurrency(splitAmountVal)}</span>
+                )}
+              </div>
+
+              {splitEnabled ? (
+                /* Split bill mode */
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Label className="shrink-0">Split into</Label>
+                    <Input
+                      type="number"
+                      min={2}
+                      max={10}
+                      value={splitWays}
+                      className="w-20"
+                      onChange={(e) => {
+                        const n = Math.min(10, Math.max(2, Number(e.target.value) || 2));
+                        setSplitWays(n);
+                        setSplitMethods((prev) => {
+                          const arr = [...prev];
+                          while (arr.length < n) arr.push("CREDIT");
+                          return arr.slice(0, n);
+                        });
+                        setSplitPaidCount(0);
+                      }}
+                    />
+                    <span className="text-sm text-gray-500">ways</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {Array.from({ length: splitWays }).map((_, idx) => {
+                      const isPaid = idx < splitPaidCount;
+                      return (
+                        <div key={idx} className={cn("rounded-lg border p-3 space-y-2", isPaid ? "border-green-200 bg-green-50" : "border-gray-200")}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                              Split {idx + 1} — {formatCurrency(splitAmountVal)}
+                            </span>
+                            {isPaid && <span className="text-xs text-green-600 font-medium">Paid</span>}
+                          </div>
+                          {!isPaid && (
+                            <>
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
+                                  <button
+                                    key={m}
+                                    onClick={() => setSplitMethods((prev) => {
+                                      const arr = [...prev];
+                                      arr[idx] = m;
+                                      return arr;
+                                    })}
+                                    className={cn(
+                                      "rounded-lg border py-1.5 text-xs font-medium transition-colors",
+                                      splitMethods[idx] === m
+                                        ? "border-amber-500 bg-amber-50 text-amber-700"
+                                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                    )}
+                                  >
+                                    {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
+                                  </button>
+                                ))}
+                              </div>
+                              <Button
+                                size="sm"
+                                className="w-full"
+                                disabled={splitChargingIdx !== null}
+                                onClick={() => chargeSplit(idx)}
+                              >
+                                {splitChargingIdx === idx && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Charge Split {idx + 1}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* Normal single payment */
+                <div className="space-y-2">
+                  <Label>Payment Method</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
+                      <button key={m} onClick={() => setRecallPayMethod(m)}
+                        className={cn("rounded-lg border py-2 text-sm font-medium transition-colors",
+                          recallPayMethod === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
+                      >
+                        {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
+                      </button>
+                    ))}
+                  </div>
+                  {recallPayMethod === "CASH" && (
+                    <div className="space-y-1.5">
+                      <Label>Cash Received</Label>
+                      <Input type="number" step="0.01" placeholder="0.00" value={recallCash}
+                        onChange={(e) => setRecallCash(e.target.value)} />
+                      {recallCash && Number(recallCash) >= recallGrandTotalVal && (
+                        <p className="text-sm font-medium text-green-600">
+                          Change: {formatCurrency(Number(recallCash) - recallGrandTotalVal)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            {recallOrder?.status === "COMPLETED" ? (
+              <Button variant="destructive" onClick={voidOrder} disabled={voiding}>
+                {voiding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} Void Order
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setRecallOpen(false)}>Cancel</Button>
+            )}
+            {recallOrder?.status !== "COMPLETED" && (
+              <>
+                <Button
+                  variant="outline"
+                  className="text-blue-700 border-blue-300 hover:bg-blue-50"
+                  onClick={() => {
+                    const order = recallOrder!;
+                    setRecallOpen(false);
+                    setRecallOrder(null);
+                    setCart([]);
+                    setHoldMode(false);
+                    setAddingToOrder(order);
+                    setView("order");
+                  }}
+                >
+                  <Plus className="h-4 w-4" /> Add Items
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-green-700 border-green-300 hover:bg-green-50"
+                  onClick={compEntireCheck}
+                  disabled={compingCheck}
+                >
+                  {compingCheck ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Comp Check
+                </Button>
+              </>
+            )}
+            {!splitEnabled && recallOrder?.status !== "COMPLETED" && (
+              <Button onClick={closeCheck} disabled={closing}>
+                {closing && <Loader2 className="h-4 w-4 animate-spin" />}
+                <CreditCard className="h-4 w-4" /> Charge & Close
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Customize Dialog (modifier selection) ──────────────────────────── */}
+      <Dialog open={customizeOpen} onOpenChange={(o) => { if (!o) setCustomizeOpen(false); }}>
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Customize — {customizeItem?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            {customizeModifiers.map((mod) => (
+              <div key={mod.id} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-800">{mod.name}</p>
+                  {mod.isRequired && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Required</Badge>}
+                  {mod.maxSelect > 1 && <span className="text-[10px] text-gray-400">pick up to {mod.maxSelect}</span>}
+                </div>
+                <div className="space-y-1.5">
+                  {mod.options.map((opt) => {
+                    const selected = customizeSelections[mod.id]?.has(opt.id) ?? false;
+                    const isRadio = mod.maxSelect === 1;
+                    return (
+                      <button key={opt.id} type="button" onClick={() => toggleModifierOption(mod, opt.id)}
+                        className={cn("w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors",
+                          selected ? "border-amber-400 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50")}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-4 w-4 shrink-0 border-2 flex items-center justify-center",
+                            isRadio ? "rounded-full" : "rounded",
+                            selected ? "border-amber-500 bg-amber-500" : "border-gray-300"
+                          )}>
+                            {selected && isRadio && <span className="h-1.5 w-1.5 rounded-full bg-white inline-block" />}
+                            {selected && !isRadio && <span className="text-white text-[10px] leading-none">✓</span>}
+                          </span>
+                          <span>{opt.name}</span>
+                        </div>
+                        {Number(opt.priceAdj) !== 0 && (
+                          <span className={cn("text-xs font-medium", Number(opt.priceAdj) > 0 ? "text-green-600" : "text-red-500")}>
+                            {Number(opt.priceAdj) > 0 ? "+" : ""}{formatCurrency(Number(opt.priceAdj))}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomizeOpen(false)}>Cancel</Button>
+            <Button
+              onClick={confirmCustomize}
+              disabled={customizeModifiers.some((m) => m.isRequired && !(customizeSelections[m.id]?.size > 0))}
+            >
+              Add to Cart
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Success / Receipt Dialog ───────────────────────────────────────── */}
+      <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {completedOrder ? "Sale Complete" : "Order Sent to Kitchen"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!completedOrder ? (
+            /* Dine-in sent to kitchen — no receipt */
+            <div className="text-center py-4">
+              <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3">
+                <UtensilsCrossed className="h-6 w-6 text-amber-600" />
+              </div>
+              <p className="font-semibold text-gray-900">Order sent to the kitchen!</p>
+              <p className="text-sm text-gray-400 mt-1">Recall the check from the floor plan when the guest is ready to pay.</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                  <span className="text-2xl">✓</span>
+                </div>
+                <p className="font-bold text-gray-900">{formatCurrency(completedOrder.total)} charged</p>
+                {completedOrder.change > 0 && (
+                  <p className="text-sm text-green-600 mt-1">Change: {formatCurrency(completedOrder.change)}</p>
+                )}
+              </div>
+
+              {/* Receipt Preview */}
+              <div ref={receiptRef} className="border border-dashed border-gray-300 rounded-lg p-4 font-mono text-xs">
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontWeight: "bold", fontSize: "15px" }}>RECEIPT</p>
+                  <p>{new Date().toLocaleString()}</p>
+                  {completedOrder.tableNumber && <p>Table {completedOrder.tableNumber}</p>}
+                  <p>{completedOrder.type === "TAKEOUT" ? "TAKEOUT" : "DINE IN"}</p>
+                </div>
+                <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
+                {completedOrder.items.map((item) => (
+                  <div key={item.menuItemId} style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>{item.quantity}× {item.name}</span>
+                    <span>{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Subtotal</span><span>{formatCurrency(completedOrder.subtotal)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Tax</span><span>{formatCurrency(completedOrder.tax)}</span>
+                </div>
+                {completedOrder.tip > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Tip</span><span>{formatCurrency(completedOrder.tip)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "14px", marginTop: "4px" }}>
+                  <span>TOTAL</span><span>{formatCurrency(completedOrder.total)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{completedOrder.payMethod}</span>
+                  {completedOrder.change > 0 && <span>Change: {formatCurrency(completedOrder.change)}</span>}
+                </div>
+                <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
+                <p style={{ textAlign: "center" }}>Thank you!</p>
+              </div>
+            </>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            {completedOrder && (
+              <Button variant="outline" onClick={printReceipt}>
+                <Printer className="h-4 w-4" /> Print
+              </Button>
+            )}
+            <Button className="flex-1" onClick={() => { setSuccessOpen(false); setCompletedOrder(null); }}>
+              {completedOrder ? "New Order" : "Done"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ── Checks Tab ─────────────────────────────────────────────────────────────────
+
+type ChecksSort = "table" | "time" | "amount";
+
+function ChecksTab({
+  openOrders,
+  tables,
+  onRecall,
+  onNewOrder,
+  loading,
+}: {
+  openOrders: OpenOrder[];
+  tables: TableRow[];
+  onRecall: (o: OpenOrder) => void;
+  onNewOrder: (t: TableRow) => void;
+  loading: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<ChecksSort>("table");
+
+  const available = tables.filter((t) => t.status === "AVAILABLE");
+  const totalRevenue = openOrders.reduce((s, o) => s + Number(o.total), 0);
+  const totalCovers = openOrders.reduce((s, o) => s + o.items.filter(i => !i.voided).length, 0);
+
+  const filteredOrders = openOrders.filter(o => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return String(o.table?.number ?? "").includes(q) ||
+           o.status.toLowerCase().includes(q);
+  });
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    if (sortBy === "table")  return (a.table?.number ?? 999) - (b.table?.number ?? 999);
+    if (sortBy === "time")   return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (sortBy === "amount") return Number(b.total) - Number(a.total);
+    return 0;
+  });
+
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-5">
+      {/* Summary bar */}
+      {openOrders.length > 0 && (
+        <div className="flex items-center gap-4 p-3 bg-white rounded-xl border border-gray-200 text-sm">
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <Receipt className="h-4 w-4" />
+            <span className="font-semibold text-gray-900">{openOrders.length}</span> open check{openOrders.length !== 1 ? "s" : ""}
+          </div>
+          <div className="h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <span className="font-semibold text-amber-700">{formatCurrency(totalRevenue)}</span> in play
+          </div>
+          <div className="h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-1.5 text-gray-500">
+            <span className="font-semibold text-gray-900">{totalCovers}</span> items outstanding
+          </div>
+        </div>
+      )}
+
+      {/* Search + sort */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Filter by table number or status…"
+            className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:border-amber-400"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
+          {(["table", "time", "amount"] as ChecksSort[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={cn(
+                "px-3 py-2 text-xs font-medium transition-colors",
+                sortBy === s ? "bg-amber-500 text-white" : "text-gray-500 hover:bg-gray-50"
+              )}
+            >
+              {s === "table" ? "Table" : s === "time" ? "Oldest" : "Amount"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Open checks */}
+      <div>
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+          Open Checks {search ? `(${sortedOrders.length} of ${openOrders.length})` : `(${openOrders.length})`}
+        </h2>
+        {sortedOrders.length === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">
+            {openOrders.length === 0 ? "No open checks" : "No checks match your filter"}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {sortedOrders.map((o) => {
+              const heldCount = o.items.filter((i) => i.heldForFire && !i.voided).length;
+              const itemCount = o.items.filter((i) => !i.voided).length;
+              const elapsed = Math.floor((Date.now() - new Date(o.createdAt).getTime()) / 60000);
+              const isLong = elapsed > 90;
+              const statusColor =
+                o.status === "READY" ? "border-green-400 bg-green-50" :
+                o.status === "IN_PROGRESS" ? "border-amber-400 bg-amber-50" :
+                "border-blue-300 bg-blue-50";
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => onRecall(o)}
+                  className={cn(
+                    "rounded-xl border-2 p-4 text-left flex flex-col gap-1 hover:shadow-md transition-all active:scale-95",
+                    statusColor,
+                    isLong && "ring-2 ring-red-400 ring-offset-1"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="text-2xl font-bold text-gray-900">
+                      {o.table ? `T${o.table.number}` : "T/O"}
+                    </span>
+                    <div className="flex flex-col items-end gap-0.5">
+                      {heldCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                          <Timer className="h-2.5 w-2.5" />{heldCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(Number(o.total))}</span>
+                  <span className="text-xs text-gray-500">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
+                  <span className={cn("text-xs font-medium tabular-nums", isLong ? "text-red-600 font-bold" : "text-gray-400")}>
+                    {elapsedLabel(o.createdAt)} ago
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-semibold uppercase tracking-wide mt-0.5",
+                    o.status === "READY" ? "text-green-700" :
+                    o.status === "IN_PROGRESS" ? "text-amber-700" :
+                    "text-blue-700"
+                  )}>
+                    {o.status.replace("_", " ")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Available tables — quick start order */}
+      {available.length > 0 && (
+        <div>
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            Available Tables ({available.length})
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {available
+              .sort((a, b) => a.number - b.number)
+              .map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => onNewOrder(t)}
+                  className="px-4 py-2 rounded-lg bg-white border-2 border-green-300 text-green-800 text-sm font-semibold hover:bg-green-50 transition-colors"
+                >
+                  Table {t.number} <span className="font-normal text-green-600">({t.capacity}p)</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Floor Plan ─────────────────────────────────────────────────────────────────
+
+function FloorPlanView({
+  tables, floorObjects, onSelectTable, selectedTableId, openOrders, onStartOrder, onForceRelease, onMarkAvailable, onFireHeld, firing,
+}: {
+  tables: TableRow[];
+  floorObjects: { id: string; type: string; label: string; x: number; y: number; width: number; height: number; rotation: number; color: string }[];
+  onSelectTable: (t: TableRow) => void;
+  selectedTableId: string;
+  openOrders: OpenOrder[];
+  onStartOrder: (t: TableRow) => void;
+  onForceRelease: (t: TableRow) => void;
+  onMarkAvailable: (t: TableRow) => void;
+  onFireHeld: (orderId: string, itemIds: string[]) => void;
+  firing: boolean;
+}) {
+  const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
+  const sorted = [...tables].sort((a, b) => a.number - b.number);
+
+  function getOrderForTable(tableId: string): OpenOrder | undefined {
+    return openOrders.find((o) => o.tableId === tableId);
+  }
+
+  const hasMappedLayout = tables.some((t) => t.floorX !== null);
+
+  return (
+    <div className="flex-1 overflow-auto p-4 bg-gray-50">
+      <div className="mb-4 flex items-center gap-4 flex-wrap">
+        {[
+          { status: "AVAILABLE", label: "Available — tap to order", color: "bg-green-100 border-green-300" },
+          { status: "OCCUPIED",  label: "Occupied — tap to close check", color: "bg-red-100 border-red-300" },
+          { status: "RESERVED",  label: "Reserved", color: "bg-amber-100 border-amber-300" },
+          { status: "DIRTY",     label: "Needs Cleaning", color: "bg-gray-100 border-gray-300" },
+        ].map(({ status, label, color }) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <div className={cn("h-3 w-3 rounded border", color)} />
+            <span className="text-xs text-gray-500">{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {hasMappedLayout ? (
+        <div className="relative bg-white border border-gray-200 rounded-xl shadow-inner w-full" style={{ aspectRatio: "3/2" }}>
+          {/* Floor objects (non-interactive backdrop) */}
+          {floorObjects.map((o) => (
+            <div
+              key={o.id}
+              style={{
+                position: "absolute",
+                left: `${o.x}%`,
+                top: `${o.y}%`,
+                width: `${o.width}%`,
+                height: `${o.height}%`,
+                transform: `translate(-50%, -50%) rotate(${o.rotation}deg)`,
+                backgroundColor: o.color + "15",
+                border: `1px solid ${o.color}40`,
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            >
+              <span className="text-[10px] font-semibold" style={{ color: o.color + "99" }}>{o.label}</span>
+            </div>
+          ))}
+          {tables.filter((t) => t.floorX !== null).map((t) => {
+            const isRect = t.shape !== "round";
+            const order = getOrderForTable(t.id);
+            // Occupied tables bypass the inner dialog and go straight to recall
+            const handleClick = () => t.status === "OCCUPIED" ? onSelectTable(t) : setSelectedTable(t);
+            return (
+              <button
+                key={t.id}
+                onClick={handleClick}
+                className={cn(
+                  "absolute flex flex-col items-center justify-center border-2 shadow-sm hover:scale-105 transition-transform cursor-pointer",
+                  isRect ? "rounded-lg" : "rounded-full",
+                  TABLE_STATUS_COLORS[t.status] ?? "bg-gray-50 border-gray-200",
+                  t.id === selectedTableId && "ring-2 ring-amber-500 ring-offset-2",
+                )}
+                style={{
+                  left: `${t.floorX}%`,
+                  top: `${t.floorY}%`,
+                  width: isRect ? "72px" : "60px",
+                  height: isRect ? "60px" : "60px",
+                  transform: `translate(-50%, -50%) rotate(${t.rotation}deg)`,
+                }}
+              >
+                <span className="text-sm font-bold leading-none">{t.number}</span>
+                {order ? (
+                  <>
+                    <span className="text-[10px] font-semibold text-amber-700">{formatCurrency(Number(order.total))}</span>
+                    <span className="text-[9px] text-gray-500 tabular-nums">{elapsedLabel(order.createdAt)}</span>
+                    {t.serviceStage && (
+                      <span className="text-[8px] font-bold text-blue-700 uppercase">{STAGE_ABBREV[t.serviceStage] ?? t.serviceStage}</span>
+                    )}
+                    {order.items.some((i) => i.heldForFire) && (
+                      <span className="text-[9px] text-orange-600 font-bold flex items-center gap-0.5">
+                        <Timer className="h-2.5 w-2.5" />{order.items.filter((i) => i.heldForFire).length}H
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-[10px] opacity-60">{t.capacity}p</span>
+                )}
+              </button>
+            );
+          })}
+          {/* Unmapped tables at bottom */}
+          {tables.filter((t) => t.floorX === null).length > 0 && (
+            <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+              {tables.filter((t) => t.floorX === null).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => t.status === "OCCUPIED" ? onSelectTable(t) : setSelectedTable(t)}
+                  className={cn("px-2 py-0.5 text-xs rounded border font-medium", TABLE_STATUS_COLORS[t.status] ?? "")}
+                >
+                  T{t.number}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          {sorted.map((t) => {
+            const isSelected = t.id === selectedTableId;
+            const isOccupied = t.status === "OCCUPIED";
+            const order = isOccupied ? getOrderForTable(t.id) : undefined;
+            // Occupied → direct recall; others → detail dialog
+            const handleClick = () => isOccupied ? onSelectTable(t) : setSelectedTable(t);
+            return (
+              <button
+                key={t.id}
+                onClick={handleClick}
+                className={cn(
+                  "aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 p-1",
+                  TABLE_STATUS_COLORS[t.status] ?? "bg-gray-50 border-gray-200",
+                  isSelected && "ring-2 ring-amber-500 ring-offset-2",
+                  "cursor-pointer"
+                )}
+              >
+                <span className="text-xl font-bold">{t.number}</span>
+                {order ? (
+                  <>
+                    <span className="text-sm font-bold text-amber-700">{formatCurrency(Number(order.total))}</span>
+                    <span className="text-[10px] text-gray-500 tabular-nums">{elapsedLabel(order.createdAt)}</span>
+                    {t.serviceStage && (
+                      <span className="text-[9px] font-bold text-blue-700 uppercase">{STAGE_ABBREV[t.serviceStage] ?? ""}</span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs opacity-70">{t.capacity} seats</span>
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      t.status === "AVAILABLE" ? "bg-green-200 text-green-800" :
+                      t.status === "RESERVED"  ? "bg-amber-200 text-amber-800" :
+                      "bg-gray-200 text-gray-600"
+                    )}>{t.status}</span>
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Table Detail Dialog */}
+      <Dialog open={!!selectedTable} onOpenChange={(o) => { if (!o) setSelectedTable(null); }}>
+        <DialogContent className="max-w-sm">
+          {selectedTable && (() => {
+            const t = selectedTable;
+            const order = t.status === "OCCUPIED" ? getOrderForTable(t.id) : undefined;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Table {t.number}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Status badge */}
+                  <span className={cn(
+                    "inline-flex text-xs font-medium px-2.5 py-1 rounded-full",
+                    t.status === "AVAILABLE" ? "bg-green-100 text-green-800" :
+                    t.status === "OCCUPIED"  ? "bg-red-100 text-red-800" :
+                    t.status === "RESERVED"  ? "bg-amber-100 text-amber-800" :
+                    "bg-gray-100 text-gray-600"
+                  )}>
+                    {t.status}
+                  </span>
+
+                  {/* Order items if occupied */}
+                  {t.status === "OCCUPIED" && order && (
+                    <div className="space-y-2">
+                      <div className="rounded-lg border border-gray-100 divide-y divide-gray-50">
+                        {order.items.map((item) => (
+                          <div key={item.id} className={cn("flex items-center justify-between px-3 py-2 text-sm gap-2", item.heldForFire && "bg-amber-50")}>
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              {item.heldForFire && <Timer className="h-3 w-3 text-amber-500 shrink-0" />}
+                              <span className={cn("text-gray-700", item.heldForFire && "text-amber-700")}>
+                                {item.quantity}× {item.menuItem.name}
+                              </span>
+                              {item.heldForFire && (
+                                <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-200 text-amber-800 px-1 py-0.5 rounded shrink-0">HELD</span>
+                              )}
+                            </div>
+                            <span className="font-medium text-gray-500 shrink-0">{formatCurrency(Number(item.unitPrice) * item.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between text-gray-500">
+                          <span>Subtotal</span><span>{formatCurrency(Number(order.subtotal))}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500">
+                          <span>Tax</span><span>{formatCurrency(Number(order.tax))}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-base pt-1 border-t border-gray-100">
+                          <span>Total</span><span>{formatCurrency(Number(order.total))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Service stage chip */}
+                  {t.serviceStage && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Stage:</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">{t.serviceStage}</span>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex flex-col gap-2 pt-2">
+                    {t.status === "AVAILABLE" && (
+                      <Button className="w-full" onClick={() => { onStartOrder(t); setSelectedTable(null); }}>
+                        Start Order
+                      </Button>
+                    )}
+                    {t.status === "OCCUPIED" && (
+                      <>
+                        {/* Fire all held items for this table in one tap */}
+                        {order && order.items.some((i) => i.heldForFire) && (
+                          <Button
+                            className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                            disabled={firing}
+                            onClick={() => {
+                              const heldIds = order.items.filter((i) => i.heldForFire).map((i) => i.id);
+                              onFireHeld(order.id, heldIds);
+                              setSelectedTable(null);
+                            }}
+                          >
+                            {firing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+                            Fire Held Items ({order.items.filter((i) => i.heldForFire).length})
+                          </Button>
+                        )}
+                        <Button className="w-full" onClick={() => { onSelectTable(t); setSelectedTable(null); }}>
+                          <CreditCard className="h-4 w-4" /> Close Check
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => { onMarkAvailable(t); setSelectedTable(null); }}>
+                          ✓ Mark Table Clean
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                          onClick={() => { onForceRelease(t); setSelectedTable(null); }}
+                        >
+                          Clear Table (cancels open order)
+                        </Button>
+                      </>
+                    )}
+                    {t.status === "RESERVED" && (
+                      <>
+                        <Button className="w-full" onClick={() => { onStartOrder(t); setSelectedTable(null); }}>
+                          Seat Party
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => { onMarkAvailable(t); setSelectedTable(null); }}>
+                          Mark Available
+                        </Button>
+                      </>
+                    )}
+                    {t.status === "DIRTY" && (
+                      <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => { onMarkAvailable(t); setSelectedTable(null); }}>
+                        ✓ Mark Table Clean
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
