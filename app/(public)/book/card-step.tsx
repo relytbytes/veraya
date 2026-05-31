@@ -22,7 +22,7 @@ export function CardStep({
   onBack: () => void;
 }) {
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "flat", variables: { colorPrimary: "#A8401C" } } }}>
+    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "flat", variables: { colorPrimary: "#00BFA6" } } }}>
       <CardForm holdAmountCents={holdAmountCents} onAuthorized={onAuthorized} onBack={onBack} />
     </Elements>
   );

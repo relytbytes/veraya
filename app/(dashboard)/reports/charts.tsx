@@ -7,16 +7,16 @@ import {
 import { formatCurrency } from "@/lib/utils";
 
 // ── Palette (matches mobile theme.ts) ─────────────────────────────────────────
-const TERRACOTTA = "#C24E28";   // goldBright
-const TERRACOTTA_DIM = "#A8401C"; // gold
+const TERRACOTTA = "#00BFA6";     // brand teal (primary)
+const TERRACOTTA_DIM = "#009482"; // teal dim
 const FILL_COLORS = [
-  "#C24E28", // terracotta
+  "#00BFA6", // teal (primary)
   "#2E6EB0", // sky
   "#1E7A45", // jade
   "#8b5cf6", // violet
   "#D44030", // coral
-  "#D07020", // ember
-  "#6B5248", // mist
+  "#FFB703", // warm gold
+  "#475569", // slate
 ];
 
 // ── Custom tooltip — shows just the formatted value, no label ─────────────────
@@ -78,7 +78,7 @@ export function RevenueChart({ data }: { data: DailySale[] }) {
             <stop offset="95%" stopColor={TERRACOTTA} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2D4CC" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} />
         <YAxis tick={{ fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${v}`} />
         <Tooltip
@@ -107,7 +107,7 @@ export function OrdersChart({ data }: { data: DailySale[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2D4CC" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} />
         <YAxis tick={{ fontSize: 11 }} tickLine={false} allowDecimals={false} />
         <Tooltip
@@ -166,7 +166,7 @@ export function TopItemsChart({ data }: { data: TopItem[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2D4CC" horizontal={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" horizontal={false} />
         <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} />
         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} tickLine={false} width={100} />
         <Tooltip
@@ -193,7 +193,7 @@ export function HourlyChart({ data }: { data: HourlySale[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2D4CC" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" />
         <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} interval={1} />
         <YAxis tick={{ fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${v}`} />
         <Tooltip
@@ -207,7 +207,7 @@ export function HourlyChart({ data }: { data: HourlySale[] }) {
         />
         <Bar dataKey="total" radius={[3, 3, 0, 0]}>
           {data.map((entry, index) => (
-            <Cell key={index} fill={entry.total > 0 ? TERRACOTTA : "#E2D4CC"} />
+            <Cell key={index} fill={entry.total > 0 ? TERRACOTTA : "#DCE2EA"} />
           ))}
         </Bar>
       </BarChart>
@@ -221,7 +221,7 @@ export function DowChart({ data }: { data: DowSale[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E2D4CC" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" />
         <XAxis dataKey="dow" tick={{ fontSize: 11 }} tickLine={false} />
         <YAxis tick={{ fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${v}`} />
         <Tooltip
@@ -235,7 +235,7 @@ export function DowChart({ data }: { data: DowSale[] }) {
         />
         <Bar dataKey="avgTotal" radius={[3, 3, 0, 0]}>
           {data.map((entry, index) => (
-            <Cell key={index} fill={entry.avgTotal > 0 ? TERRACOTTA_DIM : "#E2D4CC"} />
+            <Cell key={index} fill={entry.avgTotal > 0 ? TERRACOTTA_DIM : "#DCE2EA"} />
           ))}
         </Bar>
       </BarChart>

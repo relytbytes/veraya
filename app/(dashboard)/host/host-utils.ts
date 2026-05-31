@@ -280,26 +280,26 @@ export interface TableVisual {
   label: string;
 }
 
-// Brand palette mirrored from mobile/lib/theme.ts (White + Terracotta + Green),
-// plus warm-dark surfaces for the host stand's dark theme.
+// Brand palette mirrored from mobile/lib/theme.ts (Teal + Navy + Warm Gold),
+// plus navy-dark surfaces for the host stand's dark theme.
 export const BRAND = {
-  void: "#F7F3F0", surface: "#FFFFFF", surfaceHi: "#F0E8E2",
-  rim: "#E2D4CC", rimBright: "#CCBAB0",
-  pearl: "#1C1210", mist: "#6B5248", smoke: "#A89080",
-  gold: "#A8401C", goldBright: "#C24E28", goldMuted: "#FFF0EC",
-  jade: "#1E7A45", coral: "#D44030", sky: "#2E6EB0", ember: "#D07020",
-  // Warm-dark surfaces (host stand)
-  floorDark: "#120C0A", surfaceDark: "#1F1714", surfaceDark2: "#2A201B",
-  rimDark: "#3A2C25", textDim: "#B8A99E",
+  void: "#F2F4F7", surface: "#FFFFFF", surfaceHi: "#E9EDF2",
+  rim: "#DCE2EA", rimBright: "#C3CCD8",
+  pearl: "#0B1320", mist: "#475569", smoke: "#8A97A6",
+  gold: "#00BFA6", goldBright: "#1DD3B8", goldMuted: "#E0F7F3",
+  jade: "#1E7A45", coral: "#D44030", sky: "#2E6EB0", ember: "#FFB703",
+  // Navy-dark surfaces (host stand)
+  floorDark: "#0B1320", surfaceDark: "#131C2B", surfaceDark2: "#1B2433",
+  rimDark: "#2C3A4D", textDim: "#94A1B2",
 } as const;
 
 // Each state's look on the warm-dark floor. Inline-style hexes keep the brand
 // colors exact (Tailwind's palette is remapped, but these are semantic accents).
 const STATE_STYLE: Record<TableState, { cls: string; style: { background: string; borderColor: string; color: string }; label: string }> = {
   OPEN:     { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.rimDark, color: BRAND.textDim }, label: "Open" },
-  UPCOMING: { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.gold,    color: "#F0E8E2"     }, label: "Reserved" },
+  UPCOMING: { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.gold,    color: "#E9EDF2"     }, label: "Reserved" },
   SEATED:   { cls: "", style: { background: BRAND.jade,      borderColor: BRAND.jade,       color: "#FFFFFF"   }, label: "Seated" },
-  DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#FFFFFF"   }, label: "Dining" },
+  DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0B1320"   }, label: "Dining" },
   CHECK:    { cls: "", style: { background: BRAND.sky,       borderColor: BRAND.sky,        color: "#FFFFFF"   }, label: "Check" },
   BUSSING:  { cls: "", style: { background: BRAND.coral,     borderColor: BRAND.coral,      color: "#FFFFFF"   }, label: "Bussing" },
 };

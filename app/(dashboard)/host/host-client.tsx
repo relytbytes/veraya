@@ -409,7 +409,7 @@ export function HostClient() {
     : null;
 
   return (
-    <div className="relative flex h-full overflow-hidden bg-[#120C0A]">
+    <div className="relative flex h-full overflow-hidden bg-[#0B1320]">
       <ReservationRail
         date={date} onShiftDate={shiftDate} onToday={() => { setDate(toISO(new Date())); cancelModes(); }}
         period={period} onPeriod={setPeriod}

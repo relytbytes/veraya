@@ -8,33 +8,35 @@
 
 /* ── Design-token overrides ────────────────────────────────────────────────────
  *
- * Maps the web palette to the mobile design system (mobile/lib/theme.ts) so
- * both surfaces share the same visual language.
+ * Veraya brand palette — Teal + Navy + Warm Gold. Mapped onto Tailwind's amber-*
+ * (primary accent) and gray-* (neutrals) scales so the whole web surface retints
+ * from here, and stays in lockstep with mobile/lib/theme.ts.
  *
- * Mobile token → Tailwind utility
+ * Brand token → Tailwind utility
  * ─────────────────────────────────────────────────────────────────────────────
- *  void      #F7F3F0  →  bg-gray-50 / bg-background
- *  surfaceHi #F0E8E2  →  bg-gray-100
- *  rim       #E2D4CC  →  border-gray-200
- *  rimBright #CCBAB0  →  border-gray-300
- *  smoke     #A89080  →  text-gray-400
- *  mist      #6B5248  →  text-gray-600
- *  pearl     #1C1210  →  text-gray-900 / bg-gray-900 (sidebar)
+ *  stone     #F2F4F7  →  bg-gray-50 / bg-background
+ *  surfaceHi #E9EDF2  →  bg-gray-100
+ *  rim       #DCE2EA  →  border-gray-200
+ *  rimBright #C3CCD8  →  border-gray-300
+ *  smoke     #8A97A6  →  text-gray-400
+ *  slate     #475569  →  text-gray-600
+ *  slateDk   #1F2937  →  bg-gray-800
+ *  navy      #0B1320  →  text-gray-900 / bg-gray-900 (sidebar) / bg-gray-950
  *
- *  gold      #A8401C  →  amber-600  (primary action)
- *  goldBright #C24E28 →  amber-500  (hover / active)
- *  goldDim   #883214  →  amber-700
- *  goldMuted #FFF0EC  →  amber-50
+ *  teal      #00BFA6  →  amber-600  (primary action)
+ *  tealBright #1DD3B8 →  amber-500  (hover / active)
+ *  tealDim   #009482  →  amber-700
+ *  tealMuted #E0F7F3  →  amber-50
  *
+ *  warm gold #FFB703  →  (brand accent — used in logo / orange utilities)
  *  jade      #1E7A45  →  green (success — unchanged)
  *  coral     #D44030  →  red   (danger  — unchanged)
  *  sky       #2E6EB0  →  blue  (info    — unchanged)
- *  ember     #D07020  →  orange (warning — unchanged)
  */
 
 :root {
-  --background: #F7F3F0;   /* mobile: void       */
-  --foreground: #1C1210;   /* mobile: pearl      */
+  --background: #F2F4F7;   /* brand: stone       */
+  --foreground: #0B1320;   /* brand: navy        */
 }
 
 @theme inline {
@@ -43,30 +45,30 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* ── Amber → Terracotta ──────────────────────────────────────────────────── */
-  --color-amber-50:  #FFF0EC;   /* goldMuted       */
-  --color-amber-100: #FFE2D6;
-  --color-amber-200: #FFC4A8;
-  --color-amber-300: #F09A70;
-  --color-amber-400: #D56C40;
-  --color-amber-500: #C24E28;   /* goldBright      */
-  --color-amber-600: #A8401C;   /* gold (primary)  */
-  --color-amber-700: #883214;   /* goldDim         */
-  --color-amber-800: #65250F;
-  --color-amber-900: #42170A;
+  /* ── Amber → Brand Teal (primary accent) ─────────────────────────────────── */
+  --color-amber-50:  #E0F7F3;   /* tealMuted       */
+  --color-amber-100: #B8EDE4;
+  --color-amber-200: #8AE1D4;
+  --color-amber-300: #4FD3C0;
+  --color-amber-400: #22C7AF;
+  --color-amber-500: #1DD3B8;   /* tealBright (hover) */
+  --color-amber-600: #00BFA6;   /* teal (primary)  */
+  --color-amber-700: #009482;   /* tealDim         */
+  --color-amber-800: #007061;
+  --color-amber-900: #004D43;
 
-  /* ── Gray → Warm Gray ────────────────────────────────────────────────────── */
-  --color-gray-50:  #F7F3F0;   /* void            */
-  --color-gray-100: #F0E8E2;   /* surfaceHi       */
-  --color-gray-200: #E2D4CC;   /* rim             */
-  --color-gray-300: #CCBAB0;   /* rimBright       */
-  --color-gray-400: #A89080;   /* smoke           */
-  --color-gray-500: #8A7268;
-  --color-gray-600: #6B5248;   /* mist            */
-  --color-gray-700: #4D3B34;
-  --color-gray-800: #321F1A;
-  --color-gray-900: #1C1210;   /* pearl           */
-  --color-gray-950: #0F0907;   /* deeper warm black */
+  /* ── Gray → Cool Navy / Slate / Stone ────────────────────────────────────── */
+  --color-gray-50:  #F2F4F7;   /* stone           */
+  --color-gray-100: #E9EDF2;   /* surfaceHi       */
+  --color-gray-200: #DCE2EA;   /* rim             */
+  --color-gray-300: #C3CCD8;   /* rimBright       */
+  --color-gray-400: #8A97A6;   /* smoke           */
+  --color-gray-500: #6B7888;
+  --color-gray-600: #475569;   /* slate           */
+  --color-gray-700: #2F3B4C;
+  --color-gray-800: #1F2937;   /* slate dark      */
+  --color-gray-900: #131C2B;   /* navy (sidebar)  */
+  --color-gray-950: #0B1320;   /* navy deepest    */
 }
 
 body {

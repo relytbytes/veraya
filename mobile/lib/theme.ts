@@ -1,66 +1,71 @@
 /**
- * White + Terracotta + Green design system — shared constants for all screens.
+ * Veraya design system — Teal + Navy + Warm Gold. Shared constants for all screens.
  * Use these for inline styles / StyleSheet values.
  * For layout & spacing, prefer NativeWind className with the custom palette.
+ *
+ * NOTE: the `gold*` keys are the historical names for the PRIMARY ACCENT slot;
+ * their values are now the brand teal (#00BFA6). Renaming the ~425 call sites is
+ * deferred — treat `C.gold` as "primary accent". The brand warm gold lives on
+ * `C.ember` (#FFB703).
  */
 
 export const C = {
-  // Surfaces
-  void:       "#F7F3F0",
+  // Surfaces (cool stone / white)
+  void:       "#F2F4F7",   // stone — app background
   surface:    "#FFFFFF",
-  surfaceHi:  "#F0E8E2",
-  surfaceHov: "#E8DDD6",
+  surfaceHi:  "#E9EDF2",
+  surfaceHov: "#DDE3EA",
 
   // Borders
-  rim:        "#E2D4CC",
-  rimBright:  "#CCBAB0",
+  rim:        "#DCE2EA",
+  rimBright:  "#C3CCD8",
 
-  // Text
-  pearl:      "#1C1210",
-  mist:       "#6B5248",
-  smoke:      "#A89080",
+  // Text (navy / slate)
+  pearl:      "#0B1320",   // navy — darkest text & dark surfaces
+  mist:       "#475569",   // slate — secondary text
+  smoke:      "#8A97A6",   // muted
 
-  // Terracotta (primary accent)
-  gold:       "#A8401C",
-  goldBright: "#C24E28",
-  goldDim:    "#883214",
-  goldMuted:  "#FFF0EC",
+  // Primary accent — brand teal (keys kept as gold* for call-site compat)
+  gold:       "#00BFA6",
+  goldBright: "#1DD3B8",
+  goldDim:    "#009482",
+  goldMuted:  "#E0F7F3",
 
   // Semantic
   jade:       "#1E7A45",
   coral:      "#D44030",
   sky:        "#2E6EB0",
-  ember:      "#D07020",
+  ember:      "#FFB703",   // warm gold — brand accent & warnings
 } as const;
 
 /** Translucent tints — use for badge/tag backgrounds */
 export const T = {
-  gold:  "rgba(200,80,42,0.10)",
+  gold:  "rgba(0,191,166,0.10)",
   jade:  "rgba(30,122,69,0.10)",
   coral: "rgba(212,64,48,0.10)",
   sky:   "rgba(46,110,176,0.10)",
-  ember: "rgba(208,112,32,0.10)",
-  mist:  "rgba(107,82,72,0.08)",
+  ember: "rgba(255,183,3,0.12)",
+  mist:  "rgba(71,85,105,0.08)",
 } as const;
 
 /** Common reusable shadow (iOS) + elevation (Android) */
 export const shadow = {
   sm: {
-    shadowColor: "#1C1210",
+    shadowColor: "#0B1320",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
   },
   md: {
-    shadowColor: "#1C1210",
+    shadowColor: "#0B1320",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 6,
   },
   gold: {
-    shadowColor: "#A8401C",
+    shadowColor: "#00BFA6",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

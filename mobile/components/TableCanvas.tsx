@@ -61,7 +61,7 @@ function chipDims(shape: string, sz: number) {
 function statusStyle(status: string): { borderColor: string; borderWidth: number; bg: string } {
   if (status === "OCCUPIED") return { borderColor: C.jade,  borderWidth: 3,   bg: C.surfaceHi };
   if (status === "RESERVED") return { borderColor: C.sky,   borderWidth: 2,   bg: "rgba(46,110,176,0.04)" };
-  if (status === "DIRTY")    return { borderColor: C.ember, borderWidth: 2,   bg: "rgba(208,112,32,0.04)" };
+  if (status === "DIRTY")    return { borderColor: C.ember, borderWidth: 2,   bg: "rgba(255,183,3,0.06)" };
   return                             { borderColor: C.rim,  borderWidth: 1.5, bg: C.surface };
 }
 

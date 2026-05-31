@@ -10,7 +10,7 @@ const TONE: Record<string, { bg: string; fg: string }> = {
   vip: { bg: BRAND.gold, fg: "#fff" },
   regular: { bg: BRAND.jade, fg: "#fff" },
   new: { bg: BRAND.sky, fg: "#fff" },
-  none: { bg: "#E2D4CC", fg: BRAND.pearl },
+  none: { bg: "#DCE2EA", fg: BRAND.pearl },
 };
 
 /** Guest recognition card — shown for a reservation/seating linked to a customer. */

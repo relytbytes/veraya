@@ -165,8 +165,8 @@ export function FloorCanvas({
     const selected = !choosing && t.id === selectedTableId;
     return cn(
       "border-2 transition-all select-none flex flex-col items-center justify-center overflow-hidden shadow-sm",
-      selected && "ring-2 ring-offset-2 ring-offset-[#120C0A] ring-[#A8401C]",
-      isPrimaryInCombine && "ring-2 ring-offset-2 ring-offset-[#120C0A] ring-[#A8401C]",
+      selected && "ring-2 ring-offset-2 ring-offset-[#0B1320] ring-[#00BFA6]",
+      isPrimaryInCombine && "ring-2 ring-offset-2 ring-offset-[#0B1320] ring-[#00BFA6]",
       combineSelected && "ring-2 ring-[#1E7A45]",
       eligible && !combineSelected && "ring-2 ring-[#1E7A45] animate-pulse cursor-pointer",
       dimmed && "opacity-30",
@@ -192,7 +192,7 @@ export function FloorCanvas({
 
   return (
     <div className="relative w-full h-full min-h-[420px] p-3">
-      <div className="relative w-full h-full rounded-2xl border border-gray-800 bg-[#120C0A]">
+      <div className="relative w-full h-full rounded-2xl border border-gray-800 bg-[#0B1320]">
         {/* Floor objects behind tables */}
         {floorObjects.map((o) => (
           <div

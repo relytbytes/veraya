@@ -478,7 +478,7 @@ export default function RecipesPage() {
             <div className="flex items-center gap-3">
               <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-gray-900">Vera's Recipe Suggestions</p>
+                <p className="text-sm font-semibold text-gray-900">Vera&apos;s Recipe Suggestions</p>
                 <p className="text-xs text-gray-500">
                   GPT will suggest ingredients from your library. Review, adjust quantities, then approve.
                 </p>

@@ -52,7 +52,7 @@ export default function LoginScreen() {
               backgroundColor: C.gold,
               alignItems: "center", justifyContent: "center",
             }}>
-              <Text style={{ fontSize: 34, fontWeight: "800", color: C.void, letterSpacing: -1 }}>R</Text>
+              <Text style={{ fontSize: 34, fontWeight: "800", color: C.void, letterSpacing: -1 }}>V</Text>
             </View>
           </View>
           <Text style={{ fontSize: 28, fontWeight: "800", color: C.pearl, letterSpacing: -0.5 }}>Veraya</Text>
