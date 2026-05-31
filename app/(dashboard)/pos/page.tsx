@@ -621,6 +621,11 @@ export default function POSPage() {
   // Also handles "add items to existing order" when addingToOrder is set.
 
   async function sendToKitchen() {
+    // Dine-in orders must be tied to a table. Takeout uses completeTakeout().
+    if (orderType === "DINE_IN" && !addingToOrder && !tableId) {
+      showToast("Choose a table for this order, or switch to Takeout.");
+      return;
+    }
     setPlacing(true);
     try {
       if (addingToOrder) {
@@ -1220,7 +1225,9 @@ export default function POSPage() {
               {orderType === "DINE_IN" && (
                 <>
                   <Select value={tableId} onValueChange={setTableId}>
-                    <SelectTrigger><SelectValue placeholder="Select table (optional)…" /></SelectTrigger>
+                    <SelectTrigger className={cn(!addingToOrder && !tableId && "border-amber-400 ring-2 ring-amber-100")}>
+                      <SelectValue placeholder="Select a table — required" />
+                    </SelectTrigger>
                     <SelectContent>
                       {tables.filter((t) => t.status === "AVAILABLE" || t.id === tableId).map((t) => (
                         <SelectItem key={t.id} value={t.id}>Table {t.number} (seats {t.capacity})</SelectItem>
@@ -1363,7 +1370,7 @@ export default function POSPage() {
                   </button>
                   <Button
                     className={cn("flex-1", addingToOrder && "bg-blue-600 hover:bg-blue-700")}
-                    disabled={cart.length === 0 || placing || holdMode}
+                    disabled={cart.length === 0 || placing || holdMode || (orderType === "DINE_IN" && !addingToOrder && !tableId)}
                     onClick={sendToKitchen}
                   >
                     {placing ? <Loader2 className="h-4 w-4 animate-spin" /> : <UtensilsCrossed className="h-4 w-4" />}

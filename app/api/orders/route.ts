@@ -72,11 +72,26 @@ export async function POST(req: NextRequest) {
 
     const isDineIn = !type || type === "DINE_IN";
 
+    // Guard foreign keys before the create. A stale JWT session (e.g. after the
+    // DB was reseeded) can carry a userId that no longer exists, and a cleared
+    // table can leave a dangling tableId — either would throw an opaque FK error.
+    let validUserId: string | null = null;
+    if (session.user?.id) {
+      const u = await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+      validUserId = u?.id ?? null;
+    }
+    let validTableId: string | null = null;
+    if (tableId) {
+      const tbl = await prisma.table.findUnique({ where: { id: tableId }, select: { id: true } });
+      if (!tbl) return Response.json({ error: "That table no longer exists. Refresh and try again." }, { status: 400 });
+      validTableId = tbl.id;
+    }
+
     // Create order first — this is the critical operation.
     const order = await prisma.order.create({
       data: {
-        tableId: tableId || null,
-        userId: session.user?.id,
+        tableId: validTableId,
+        userId: validUserId,
         type: (type as never) ?? "DINE_IN",
         notes,
         subtotal,
@@ -113,14 +128,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Update table status and auto-advance service stage — best-effort.
-    if (tableId) {
+    if (validTableId) {
       try {
-        const currentTable = await prisma.table.findUnique({ where: { id: tableId }, select: { serviceStage: true } });
+        const currentTable = await prisma.table.findUnique({ where: { id: validTableId }, select: { serviceStage: true } });
         // Infer stage from the items we just created
         const inferred = inferStageFromItems(order.items as Parameters<typeof inferStageFromItems>[0]);
         const nextStage = advanceStage(currentTable?.serviceStage ?? null, inferred) ?? (isDineIn ? "SEATED" : null);
         await prisma.table.update({
-          where: { id: tableId },
+          where: { id: validTableId },
           data: {
             status: "OCCUPIED",
             ...(isDineIn && nextStage ? { serviceStage: nextStage, stageUpdatedAt: new Date() } : {}),
