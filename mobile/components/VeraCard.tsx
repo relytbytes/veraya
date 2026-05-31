@@ -120,26 +120,28 @@ export function VeraCard() {
       borderWidth: 1, borderColor: C.rim,
       overflow: "hidden", ...shadow.sm,
     }}>
-      {/* Header row */}
-      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14 }}>
-        {/* Vera icon */}
+      {/* Vera header band */}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: "#0B1320" }}>
+        {/* Vera mark — navy coin, teal V, gold sparkle */}
         <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: T.gold,
+          width: 44, height: 44, borderRadius: 22,
+          backgroundColor: "#152A40", borderWidth: 1.5, borderColor: "#2A4A66",
           alignItems: "center", justifyContent: "center",
         }}>
-          <Ionicons name="analytics-outline" size={20} color={C.gold} />
+          <Text style={{ fontSize: 22, fontWeight: "900", color: C.gold, lineHeight: 24 }}>V</Text>
+          <Ionicons name="sparkles" size={11} color={C.ember} style={{ position: "absolute", top: 5, right: 5 }} />
         </View>
 
-        {/* Title + narrative */}
+        {/* Identity + narrative */}
         <View style={{ flex: 1 }}>
-          <Text style={{
-            fontSize: 10, fontWeight: "700", color: C.smoke,
-            letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4,
-          }}>
-            Vera
-          </Text>
-          <Text style={{ fontSize: 13, color: C.mist, lineHeight: 19 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 5 }}>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.2 }}>Vera</Text>
+            <Ionicons name="sparkles" size={11} color={C.ember} />
+            <Text style={{ fontSize: 9, fontWeight: "700", color: "#5EEAD4", letterSpacing: 1.2, textTransform: "uppercase" }}>
+              Always Working
+            </Text>
+          </View>
+          <Text style={{ fontSize: 13, color: "#C7D2DE", lineHeight: 19 }}>
             {data.narrative}
           </Text>
         </View>
@@ -148,7 +150,7 @@ export function VeraCard() {
         <View style={{ alignItems: "center", gap: 4 }}>
           <View style={{
             width: 52, height: 52, borderRadius: 14,
-            backgroundColor: C.surfaceHi,
+            backgroundColor: C.surface,
             borderWidth: 2, borderColor: hc.ring,
             alignItems: "center", justifyContent: "center",
           }}>
@@ -157,7 +159,7 @@ export function VeraCard() {
             </Text>
             <Text style={{ fontSize: 8, color: C.smoke, fontWeight: "600" }}>/100</Text>
           </View>
-          <Text style={{ fontSize: 9, color: hc.text, fontWeight: "700", textAlign: "center", maxWidth: 52 }}>
+          <Text style={{ fontSize: 9, color: "#E5E8EC", fontWeight: "700", textAlign: "center", maxWidth: 52 }}>
             {hc.label}
           </Text>
         </View>
@@ -226,7 +228,7 @@ export function VeraCard() {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         paddingHorizontal: 18, paddingVertical: 10,
       }}>
-        <Text style={{ fontSize: 10, color: C.smoke }}>Powered by GPT-4o-mini</Text>
+        <Text style={{ fontSize: 10, color: C.smoke }}>Vera · always watching your live data</Text>
         <TouchableOpacity
           onPress={() => refetch()}
           disabled={isRefetching}
