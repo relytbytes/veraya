@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Restaurant Ops",
+    "slug": "restaurant-ops",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F3F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.restaurantops.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used for barcode scanning when receiving inventory and looking up menu items.",
+        "NSMicrophoneUsageDescription": "Used for voice inventory counting — speak ingredient quantities hands-free.",
+        "NSSpeechRecognitionUsageDescription": "Used to recognise spoken ingredient quantities during voice inventory counts."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F3F0"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "package": "com.restaurantops.app"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Restaurant Ops to access the camera for barcode scanning."
+        }
+      ],
+      "expo-secure-store",
+      "expo-speech-recognition"
+    ],
+    "scheme": "restaurantops",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

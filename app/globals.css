@@ -1,8 +1,40 @@
 @import "tailwindcss";
 
+/*
+ * Safelist dynamic class combos used in role/avatar color maps so Tailwind v4
+ * never purges them at build time.
+ */
+@source inline("{bg,text,border}-{red,amber,blue,green,purple}-{100,200,700,800}");
+
+/* ── Design-token overrides ────────────────────────────────────────────────────
+ *
+ * Maps the web palette to the mobile design system (mobile/lib/theme.ts) so
+ * both surfaces share the same visual language.
+ *
+ * Mobile token → Tailwind utility
+ * ─────────────────────────────────────────────────────────────────────────────
+ *  void      #F7F3F0  →  bg-gray-50 / bg-background
+ *  surfaceHi #F0E8E2  →  bg-gray-100
+ *  rim       #E2D4CC  →  border-gray-200
+ *  rimBright #CCBAB0  →  border-gray-300
+ *  smoke     #A89080  →  text-gray-400
+ *  mist      #6B5248  →  text-gray-600
+ *  pearl     #1C1210  →  text-gray-900 / bg-gray-900 (sidebar)
+ *
+ *  gold      #A8401C  →  amber-600  (primary action)
+ *  goldBright #C24E28 →  amber-500  (hover / active)
+ *  goldDim   #883214  →  amber-700
+ *  goldMuted #FFF0EC  →  amber-50
+ *
+ *  jade      #1E7A45  →  green (success — unchanged)
+ *  coral     #D44030  →  red   (danger  — unchanged)
+ *  sky       #2E6EB0  →  blue  (info    — unchanged)
+ *  ember     #D07020  →  orange (warning — unchanged)
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F7F3F0;   /* mobile: void       */
+  --foreground: #1C1210;   /* mobile: pearl      */
 }
 
 @theme inline {
@@ -10,17 +42,34 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* ── Amber → Terracotta ──────────────────────────────────────────────────── */
+  --color-amber-50:  #FFF0EC;   /* goldMuted       */
+  --color-amber-100: #FFE2D6;
+  --color-amber-200: #FFC4A8;
+  --color-amber-300: #F09A70;
+  --color-amber-400: #D56C40;
+  --color-amber-500: #C24E28;   /* goldBright      */
+  --color-amber-600: #A8401C;   /* gold (primary)  */
+  --color-amber-700: #883214;   /* goldDim         */
+  --color-amber-800: #65250F;
+  --color-amber-900: #42170A;
+
+  /* ── Gray → Warm Gray ────────────────────────────────────────────────────── */
+  --color-gray-50:  #F7F3F0;   /* void            */
+  --color-gray-100: #F0E8E2;   /* surfaceHi       */
+  --color-gray-200: #E2D4CC;   /* rim             */
+  --color-gray-300: #CCBAB0;   /* rimBright       */
+  --color-gray-400: #A89080;   /* smoke           */
+  --color-gray-500: #8A7268;
+  --color-gray-600: #6B5248;   /* mist            */
+  --color-gray-700: #4D3B34;
+  --color-gray-800: #321F1A;
+  --color-gray-900: #1C1210;   /* pearl           */
+  --color-gray-950: #0F0907;   /* deeper warm black */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
