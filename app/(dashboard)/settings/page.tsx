@@ -351,12 +351,12 @@ export default function SettingsPage() {
                       <Badge variant={STATUS_COLORS[t.status] ?? "secondary"} className="text-xs">
                         {t.status}
                       </Badge>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTable(t)}>
+                      <Button variant="ghost" size="icon" aria-label="Edit table" className="h-7 w-7" onClick={() => openEditTable(t)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="icon" aria-label="Delete table"
                         className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={() => deleteTable(t.id)}
                       >

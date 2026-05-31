@@ -578,7 +578,7 @@ export default function ReservationsPage() {
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
         <Button
           variant="ghost"
-          size="icon"
+          size="icon" aria-label="Previous day"
           className="h-7 w-7"
           onClick={() => setSelectedDate((d) => addDays(d, -1))}
         >
@@ -592,7 +592,7 @@ export default function ReservationsPage() {
         </div>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon" aria-label="Next day"
           className="h-7 w-7"
           onClick={() => setSelectedDate((d) => addDays(d, 1))}
         >

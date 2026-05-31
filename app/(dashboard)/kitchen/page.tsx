@@ -265,7 +265,7 @@ export default function KitchenPage() {
           <span className="text-xs text-gray-500">Live · SSE</span>
           <Button
             variant="ghost"
-            size="icon"
+            size="icon" aria-label="Refresh"
             className="text-gray-400 hover:text-white"
             onClick={load}
           >

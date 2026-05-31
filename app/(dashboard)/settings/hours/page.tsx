@@ -540,7 +540,7 @@ export default function HoursSettingsPage() {
                       </div>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="icon" aria-label="Remove block"
                         className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={() => deleteBlock(block.id)}
                       >

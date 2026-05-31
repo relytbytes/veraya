@@ -647,7 +647,7 @@ export default function PurchasingPage() {
                     {/* Scan button per line */}
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="icon" aria-label="Scan barcode or photo"
                       className="h-9 w-7 text-gray-400 hover:text-amber-600"
                       title="Scan barcode or photo"
                       onClick={() => openScanForLine(i)}
@@ -657,7 +657,7 @@ export default function PurchasingPage() {
                     </Button>
                     <Input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => updatePOItem(i, "quantity", e.target.value)} />
                     <Input type="number" placeholder="0.00" value={item.unitCost} onChange={(e) => updatePOItem(i, "unitCost", e.target.value)} />
-                    <Button variant="ghost" size="icon" className="h-9 w-7 text-gray-400 hover:text-red-500" onClick={() => removePOItem(i)} disabled={poItems.length === 1} type="button">
+                    <Button variant="ghost" size="icon" aria-label="Remove item" className="h-9 w-7 text-gray-400 hover:text-red-500" onClick={() => removePOItem(i)} disabled={poItems.length === 1} type="button">
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -729,7 +729,7 @@ export default function PurchasingPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
+                  size="icon" aria-label="Scan barcode"
                   title="Scan barcode"
                   onClick={() => { setScanMode("select"); setScanTargetLine(null); setScanOpen(true); }}
                 >
@@ -995,7 +995,7 @@ function IngredientsTab({
                         </p>
                       )}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onEdit(ing)}>
+                    <Button variant="ghost" size="icon" aria-label="Edit ingredient" className="h-8 w-8 shrink-0" onClick={() => onEdit(ing)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -1042,12 +1042,12 @@ function SuppliersTab({
                 {s.address && <p className="text-xs text-gray-400 mt-1">{s.address}</p>}
               </div>
               <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => onEdit(s)}>
+                <Button variant="ghost" size="icon" aria-label="Edit supplier" onClick={() => onEdit(s)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon" aria-label="Delete supplier"
                   className="text-red-400 hover:text-red-600 hover:bg-red-50"
                   onClick={() => onDelete(s.id, s.name)}
                   title="Delete supplier"

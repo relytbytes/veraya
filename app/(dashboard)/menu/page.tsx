@@ -410,10 +410,10 @@ export default function MenuPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
+                            <Button variant="ghost" size="icon" aria-label="Edit menu item" onClick={() => openEdit(item)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => toggleActive(item)}>
+                            <Button variant="ghost" size="icon" aria-label="Toggle availability" onClick={() => toggleActive(item)}>
                               {item.isActive ? (
                                 <ToggleRight className="h-4 w-4 text-green-500" />
                               ) : (
@@ -595,7 +595,7 @@ export default function MenuPage() {
                         )}
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="icon" aria-label="Remove"
                           onClick={() => {
                             const updated = form.recipe.filter((_, j) => j !== i);
                             setForm({ ...form, recipe: updated });
@@ -659,7 +659,7 @@ export default function MenuPage() {
                               <>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="icon" aria-label="Edit modifier"
                                   className="h-7 w-7"
                                   onClick={() => openEditModifier(mod)}
                                 >
@@ -667,7 +667,7 @@ export default function MenuPage() {
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="icon" aria-label="Delete modifier"
                                   className="h-7 w-7 text-red-400 hover:text-red-600"
                                   onClick={() => deleteModifier(mod.id)}
                                 >
@@ -821,7 +821,7 @@ export default function MenuPage() {
                     />
                     <Button
                       variant="ghost"
-                      size="icon"
+                      size="icon" aria-label="Remove option"
                       disabled={modifierForm.options.length <= 1}
                       onClick={() => {
                         setModifierForm({
