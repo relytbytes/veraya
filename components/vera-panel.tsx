@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  Brain, RefreshCw, TrendingUp, TrendingDown,
+  RefreshCw, TrendingUp, TrendingDown,
   AlertTriangle, CheckCircle2, AlertCircle, Info,
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VeraMark, VeraWordmark } from "@/components/brand/vera-mark";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -168,25 +169,24 @@ export function VeraPanel() {
   }
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-start gap-4 p-5 pb-4">
-        {/* Brain icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 border border-orange-100">
-          <Brain className="h-5 w-5 text-orange-600" />
-        </div>
+    <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
+      {/* Vera header band */}
+      <div className="flex items-start gap-4 p-5 pb-4 bg-gradient-to-br from-[#0B1320] via-[#101f33] to-[#15293f]">
+        {/* Vera mark */}
+        <VeraMark className="h-11 w-11 shrink-0 drop-shadow-md" />
 
-        {/* Title + narrative */}
+        {/* Identity + narrative */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Vera</p>
+          <div className="flex items-center gap-2 mb-1.5">
+            <VeraWordmark className="text-base font-bold tracking-tight text-white" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-teal-300/80">always working</span>
             {lastUpdated && (
-              <span className="text-[10px] text-gray-300">
+              <span className="ml-auto text-[10px] text-white/40">
                 updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-700 leading-relaxed">{data.narrative}</p>
+          <p className="text-sm leading-relaxed text-slate-200">{data.narrative}</p>
         </div>
 
         {/* Health score */}
@@ -198,7 +198,7 @@ export function VeraPanel() {
             <span className={cn("text-xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
             <span className="text-[8px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">/ 100</span>
           </div>
-          <span className={cn("text-[10px] font-semibold text-center leading-tight max-w-[56px]", health!.labelColor)}>
+          <span className="text-[10px] font-semibold text-center leading-tight max-w-[56px] text-white/90">
             {health!.label}
           </span>
         </div>
