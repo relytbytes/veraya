@@ -70,9 +70,22 @@ interface CompletedOrder {
 const TABLE_STATUS_COLORS: Record<string, string> = {
   AVAILABLE: "bg-green-100 border-green-300 text-green-800",
   OCCUPIED:  "bg-red-100 border-red-300 text-red-800",
-  RESERVED:  "bg-amber-100 border-amber-300 text-amber-800",
+  RESERVED:  "bg-yellow-100 border-yellow-300 text-yellow-800",
   DIRTY:     "bg-gray-100 border-gray-300 text-gray-600",
 };
+
+// Floor-plan status styling — distinct, non-colliding (yellow uses the default
+// Tailwind ramp, not the teal-remapped amber-*, so "reserved" reads as gold).
+const FLOOR_STATUS: Record<string, { dot: string; card: string; label: string }> = {
+  AVAILABLE: { dot: "bg-green-500",  card: "bg-white border-green-300 hover:border-green-500",     label: "Open" },
+  OCCUPIED:  { dot: "bg-red-500",    card: "bg-red-50 border-red-300 hover:border-red-400",        label: "Seated" },
+  RESERVED:  { dot: "bg-yellow-400", card: "bg-yellow-50 border-yellow-300 hover:border-yellow-400", label: "Reserved" },
+  DIRTY:     { dot: "bg-gray-400",   card: "bg-gray-50 border-gray-300 hover:border-gray-400",     label: "Cleaning" },
+};
+// Elapsed-time urgency chip for a seated table.
+function timeChipClass(mins: number) {
+  return mins > 90 ? "bg-red-100 text-red-700" : mins > 60 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-500";
+}
 
 // ── Stage abbreviations ────────────────────────────────────────────────────────
 const STAGE_ABBREV: Record<string, string> = {
@@ -2144,24 +2157,67 @@ function FloorPlanView({
   }
 
   const hasMappedLayout = tables.some((t) => t.floorX !== null);
+  const [floorMode, setFloorMode] = useState<"grid" | "map">("grid");
+  const mode = hasMappedLayout ? floorMode : "grid";
+
+  // At-a-glance counts for the summary bar.
+  const counts = {
+    available: tables.filter((t) => t.status === "AVAILABLE").length,
+    occupied:  tables.filter((t) => t.status === "OCCUPIED").length,
+    reserved:  tables.filter((t) => t.status === "RESERVED").length,
+    dirty:     tables.filter((t) => t.status === "DIRTY").length,
+  };
+  const openTotal = openOrders.reduce((s, o) => s + Number(o.total), 0);
+  const heldTables = openOrders.filter((o) => o.items.some((i) => i.heldForFire && !i.voided)).length;
 
   return (
     <div className="flex-1 overflow-auto p-4 bg-gray-50">
-      <div className="mb-4 flex items-center gap-4 flex-wrap">
+      {/* Summary bar */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {[
-          { status: "AVAILABLE", label: "Available — tap to order", color: "bg-green-100 border-green-300" },
-          { status: "OCCUPIED",  label: "Occupied — tap to close check", color: "bg-red-100 border-red-300" },
-          { status: "RESERVED",  label: "Reserved", color: "bg-amber-100 border-amber-300" },
-          { status: "DIRTY",     label: "Needs Cleaning", color: "bg-gray-100 border-gray-300" },
-        ].map(({ status, label, color }) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <div className={cn("h-3 w-3 rounded border", color)} />
+          { key: "available", label: "Open", value: counts.available, dot: "bg-green-500" },
+          { key: "occupied",  label: "Seated", value: counts.occupied, dot: "bg-red-500" },
+          { key: "reserved",  label: "Reserved", value: counts.reserved, dot: "bg-yellow-400" },
+          { key: "dirty",     label: "Cleaning", value: counts.dirty, dot: "bg-gray-400" },
+        ].map(({ key, label, value, dot }) => (
+          <div key={key} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
+            <span className={cn("h-2.5 w-2.5 rounded-full", dot)} />
+            <span className="text-base font-bold text-gray-900 tabular-nums">{value}</span>
             <span className="text-xs text-gray-500">{label}</span>
           </div>
         ))}
+        <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
+          <Receipt className="h-3.5 w-3.5 text-amber-600" />
+          <span className="text-base font-bold text-amber-600 tabular-nums">{formatCurrency(openTotal)}</span>
+          <span className="text-xs text-gray-500">open</span>
+        </div>
+        {heldTables > 0 && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 shadow-sm">
+            <Flame className="h-3.5 w-3.5 text-orange-600" />
+            <span className="text-xs font-semibold text-orange-700">{heldTables} with held items</span>
+          </div>
+        )}
+
+        {/* Grid / Map toggle (only when a mapped layout exists) */}
+        {hasMappedLayout && (
+          <div className="ml-auto flex items-center gap-1 rounded-lg bg-gray-100 p-0.5">
+            {(["grid", "map"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setFloorMode(m)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                  mode === m ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> {m}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {hasMappedLayout ? (
+      {mode === "map" && hasMappedLayout ? (
         <div className="relative bg-white border border-gray-200 rounded-xl shadow-inner w-full" style={{ aspectRatio: "3/2" }}>
           {/* Floor objects (non-interactive backdrop) */}
           {floorObjects.map((o) => (
@@ -2246,11 +2302,15 @@ function FloorPlanView({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {sorted.map((t) => {
             const isSelected = t.id === selectedTableId;
             const isOccupied = t.status === "OCCUPIED";
             const order = isOccupied ? getOrderForTable(t.id) : undefined;
+            const st = FLOOR_STATUS[t.status] ?? FLOOR_STATUS.DIRTY;
+            const mins = order ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000) : 0;
+            const heldCount = order ? order.items.filter((i) => i.heldForFire && !i.voided).length : 0;
+            const itemCount = order ? order.items.filter((i) => !i.voided).length : 0;
             // Occupied → direct recall; others → detail dialog
             const handleClick = () => isOccupied ? onSelectTable(t) : setSelectedTable(t);
             return (
@@ -2258,31 +2318,48 @@ function FloorPlanView({
                 key={t.id}
                 onClick={handleClick}
                 className={cn(
-                  "aspect-square rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 transition-all hover:scale-105 p-1",
-                  TABLE_STATUS_COLORS[t.status] ?? "bg-gray-50 border-gray-200",
+                  "relative flex min-h-[104px] flex-col rounded-xl border-2 p-3 text-left shadow-sm transition-all hover:shadow-md active:scale-[0.98] cursor-pointer",
+                  st.card,
                   isSelected && "ring-2 ring-amber-500 ring-offset-2",
-                  "cursor-pointer"
                 )}
               >
-                <span className="text-xl font-bold">{t.number}</span>
+                <div className="flex items-start justify-between">
+                  <span className="text-2xl font-bold leading-none text-gray-900">{t.number}</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    <span className={cn("h-2 w-2 rounded-full", st.dot)} />
+                    {st.label}
+                  </span>
+                </div>
+
                 {order ? (
-                  <>
-                    <span className="text-sm font-bold text-amber-700">{formatCurrency(Number(order.total))}</span>
-                    <span className="text-[10px] text-gray-500 tabular-nums">{elapsedLabel(order.createdAt)}</span>
-                    {t.serviceStage && (
-                      <span className="text-[9px] font-bold text-blue-700 uppercase">{STAGE_ABBREV[t.serviceStage] ?? ""}</span>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-lg font-bold leading-none text-amber-600">{formatCurrency(Number(order.total))}</span>
+                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums", timeChipClass(mins))}>
+                        {elapsedLabel(order.createdAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                      <span>{itemCount} item{itemCount === 1 ? "" : "s"}</span>
+                      {t.serviceStage && (
+                        <span className="font-bold uppercase text-gray-600">· {STAGE_ABBREV[t.serviceStage] ?? t.serviceStage}</span>
+                      )}
+                    </div>
+                    {heldCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                        <Flame className="h-2.5 w-2.5" /> {heldCount} held
+                      </span>
                     )}
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <span className="text-xs opacity-70">{t.capacity} seats</span>
-                    <span className={cn(
-                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                      t.status === "AVAILABLE" ? "bg-green-200 text-green-800" :
-                      t.status === "RESERVED"  ? "bg-amber-200 text-amber-800" :
-                      "bg-gray-200 text-gray-600"
-                    )}>{t.status}</span>
-                  </>
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                      <Users className="h-3.5 w-3.5" /> {t.capacity}
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-400">
+                      {t.status === "AVAILABLE" ? "Tap to start" : t.status === "RESERVED" ? "Seat party" : "Mark clean"}
+                    </span>
+                  </div>
                 )}
               </button>
             );
