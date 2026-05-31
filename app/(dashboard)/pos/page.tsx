@@ -86,6 +86,26 @@ function elapsedLabel(createdAt: string) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
+// ── Menu tile visuals ────────────────────────────────────────────────────────
+// Deterministic accent per category so image-less items still read as distinct,
+// colorful tiles instead of plain text boxes.
+const TILE_ACCENTS = [
+  { bg: "#E0F7F3", fg: "#00897B" }, // teal
+  { bg: "#E8F2FB", fg: "#2E6EB0" }, // sky
+  { bg: "#E9F6EE", fg: "#1E7A45" }, // jade
+  { bg: "#FFF4D6", fg: "#B5820A" }, // gold
+  { bg: "#F1ECFB", fg: "#7A5AC2" }, // violet
+  { bg: "#FDEDE7", fg: "#C2410C" }, // clay
+];
+function tileAccent(categoryId: string) {
+  let h = 0;
+  for (let i = 0; i < categoryId.length; i++) h = (h * 31 + categoryId.charCodeAt(i)) >>> 0;
+  return TILE_ACCENTS[h % TILE_ACCENTS.length];
+}
+function itemInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+}
+
 type POSView = "order" | "floorplan" | "checks";
 type TipPreset = "15" | "18" | "20" | "custom" | "none";
 
@@ -180,6 +200,7 @@ export default function POSPage() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [activeCat, setActiveCat] = useState("all");
+  const [menuSearch, setMenuSearch] = useState("");
   // When set: we're adding items to an existing order (not creating a new one)
   const [addingToOrder, setAddingToOrder] = useState<OpenOrder | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -893,7 +914,14 @@ export default function POSPage() {
     win.document.close();
   }
 
-  const visibleItems = activeCat === "all" ? menuItems : menuItems.filter((i) => i.categoryId === activeCat);
+  const searchQ = menuSearch.trim().toLowerCase();
+  const visibleItems = (activeCat === "all" ? menuItems : menuItems.filter((i) => i.categoryId === activeCat))
+    .filter((i) => !searchQ || i.name.toLowerCase().includes(searchQ));
+  // Quantity of each menu item already in the cart → drives the tile badge.
+  const cartQtyById = cart.reduce<Record<string, number>>((m, c) => {
+    m[c.menuItemId] = (m[c.menuItemId] ?? 0) + c.quantity;
+    return m;
+  }, {});
   // Title for the "Send to Kitchen" button changes when adding to an existing order
   const addingToOrderLabel = addingToOrder?.table
     ? `Adding to Table ${addingToOrder.table.number}`
@@ -1017,19 +1045,37 @@ export default function POSPage() {
                   ))}
               </div>
             )}
-            <div className="border-b border-gray-200 bg-white px-4 py-3">
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <div className="border-b border-gray-200 bg-white px-4 py-3 space-y-2.5">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <input
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  placeholder="Search the menu…"
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-9 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 transition-colors"
+                />
+                {menuSearch && (
+                  <button
+                    onClick={() => setMenuSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1">
                 <button
                   onClick={() => setActiveCat("all")}
-                  className={cn("shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                    activeCat === "all" ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
+                  className={cn("shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
+                    activeCat === "all" ? "bg-amber-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
                 >
                   All
                 </button>
                 {categories.map((cat) => (
                   <button key={cat.id} onClick={() => setActiveCat(cat.id)}
-                    className={cn("shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                      activeCat === cat.id ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
+                    className={cn("shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
+                      activeCat === cat.id ? "bg-amber-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
                   >
                     {cat.name}
                   </button>
@@ -1046,55 +1092,99 @@ export default function POSPage() {
                 <p>Failed to load POS data. <button className="underline text-amber-600" onClick={() => window.location.reload()}>Reload</button></p>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+              <div className="@container flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-2 gap-3 @md:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5">
                   {visibleItems.map((item) => {
                     const is86 = eightySixIds.has(item.id);
                     const soldOut = item.trackCount && item.countRemaining !== null && item.countRemaining <= 0;
                     const disabled = is86 || soldOut;
                     const lowCount = item.trackCount && item.countRemaining !== null && item.countRemaining > 0 && item.countRemaining <= 5;
+                    const trackedCount = item.trackCount && item.countRemaining !== null && !soldOut;
+                    const accent = tileAccent(item.categoryId);
+                    const qty = cartQtyById[item.id] ?? 0;
                     return (
                     <button
                       key={item.id}
                       onClick={() => !disabled && addToCart(item)}
                       disabled={disabled}
                       className={cn(
-                        "group flex flex-col items-start rounded-xl border overflow-hidden text-left shadow-sm transition-all relative",
+                        "group flex flex-col rounded-xl border overflow-hidden text-left transition-all relative",
                         disabled
                           ? "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed"
-                          : "bg-white border-gray-200 hover:border-amber-300 hover:shadow-md active:scale-95"
+                          : "bg-white border-gray-200 shadow-sm hover:border-amber-400 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
                       )}
                     >
-                      {item.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.imageUrl} alt={item.name} className={cn("w-full h-24 object-cover", disabled && "grayscale")} />
-                      )}
-                      {is86 && (
-                        <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">86&apos;d</span>
-                      )}
-                      {soldOut && !is86 && (
-                        <span className="absolute top-2 right-2 bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">SOLD OUT</span>
-                      )}
-                      {lowCount && (
-                        <span className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          {item.countRemaining} left
-                        </span>
-                      )}
-                      {item.trackCount && !lowCount && !soldOut && item.countRemaining !== null && (
-                        <span className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          {item.countRemaining} left
-                        </span>
-                      )}
-                      <div className="p-3 w-full">
-                        <p className={cn("font-medium text-sm leading-tight", disabled ? "text-gray-400 line-through" : "text-gray-900")}>{item.name}</p>
-                        {item.prepTime && <p className="text-xs text-gray-400 mt-0.5">{item.prepTime} min</p>}
-                        <p className={cn("mt-1.5 text-base font-bold", disabled ? "text-gray-400" : "text-amber-600")}>{formatCurrency(Number(item.price))}</p>
+                      {/* Media: photo, or a colored placeholder with item initials */}
+                      <div
+                        className="relative flex h-20 w-full items-center justify-center"
+                        style={item.imageUrl ? undefined : { background: accent.bg }}
+                      >
+                        {item.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.imageUrl} alt={item.name} className={cn("h-full w-full object-cover", disabled && "grayscale")} />
+                        ) : (
+                          <span className="text-2xl font-extrabold tracking-tight" style={{ color: accent.fg }}>
+                            {itemInitials(item.name)}
+                          </span>
+                        )}
+
+                        {/* qty already in cart */}
+                        {qty > 0 && !disabled && (
+                          <span className="absolute top-1.5 left-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-600 text-white text-[11px] font-bold flex items-center justify-center shadow">
+                            {qty}
+                          </span>
+                        )}
+                        {/* availability — top right */}
+                        {is86 && (
+                          <span className="absolute top-1.5 right-1.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">86&apos;d</span>
+                        )}
+                        {soldOut && !is86 && (
+                          <span className="absolute top-1.5 right-1.5 bg-gray-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">SOLD OUT</span>
+                        )}
+                        {/* remaining count — bottom left */}
+                        {trackedCount && (
+                          <span className={cn(
+                            "absolute bottom-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded",
+                            lowCount ? "bg-amber-500 text-white" : "bg-white/85 text-gray-600"
+                          )}>
+                            {item.countRemaining} left
+                          </span>
+                        )}
+                        {/* add affordance — bottom right, on hover */}
+                        {!disabled && (
+                          <span className="absolute bottom-1.5 right-1.5 h-6 w-6 rounded-full bg-white text-amber-600 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Plus className="h-4 w-4" />
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Body */}
+                      <div className="flex flex-1 flex-col p-2.5">
+                        <p className={cn("font-semibold text-sm leading-snug line-clamp-2", disabled ? "text-gray-400 line-through" : "text-gray-900")}>
+                          {item.name}
+                        </p>
+                        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-1 gap-y-0.5 pt-2">
+                          <span className={cn("text-sm font-bold", disabled ? "text-gray-400" : "text-amber-600")}>
+                            {formatCurrency(Number(item.price))}
+                          </span>
+                          {item.prepTime ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-400">
+                              <Timer className="h-3 w-3" />{item.prepTime}m
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </button>
                     );
                   })}
                   {visibleItems.length === 0 && (
-                    <p className="col-span-full text-center text-gray-400 py-8 text-sm">No items in this category</p>
+                    <div className="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+                      <Search className="h-8 w-8" />
+                      <p className="text-sm">{searchQ ? `No items match “${menuSearch.trim()}”` : "No items in this category"}</p>
+                      {searchQ && (
+                        <button onClick={() => setMenuSearch("")} className="text-xs font-medium text-amber-600 hover:underline">Clear search</button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

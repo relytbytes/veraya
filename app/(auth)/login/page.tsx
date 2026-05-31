@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ChefHat, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { VerayaMark } from "@/components/brand/veraya-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,8 +41,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 mb-4">
-            <ChefHat className="h-8 w-8 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white mb-4">
+            <VerayaMark className="h-9 w-9" />
           </div>
           <h1 className="text-2xl font-bold text-white">Veraya</h1>
           <p className="text-sm font-medium text-gray-200 mt-2 text-center">Built for one restaurant. Ready for a hundred.</p>

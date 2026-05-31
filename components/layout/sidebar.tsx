@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ChefHat, ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
+import { VerayaMark } from "@/components/brand/veraya-mark";
 import { cn } from "@/lib/utils";
 import { visibleGroups, isActivePath } from "@/lib/nav";
 import { openCommandPalette } from "./command-palette";
@@ -37,8 +38,8 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
     <aside className="flex h-screen w-56 flex-col bg-gray-900 text-white">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-700">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500">
-          <ChefHat className="h-5 w-5 text-white" />
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
+          <VerayaMark className="h-5 w-5" />
         </div>
         <div>
           <p className="text-sm font-semibold leading-none">Veraya</p>
