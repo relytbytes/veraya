@@ -887,7 +887,7 @@ export default function ManagerLogPage() {
         })()}
       </Dialog>
 
-      {/* AI Shift Summary Dialog */}
+      {/* Vera Shift Summary Dialog */}
       <Dialog open={aiSummaryOpen} onOpenChange={setAiSummaryOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -907,7 +907,7 @@ export default function ManagerLogPage() {
               {aiSummary.aiPowered && (
                 <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-1.5">
                   <Sparkles className="h-3 w-3" />
-                  AI-generated summary
+                  Summarized by Vera
                 </div>
               )}
 

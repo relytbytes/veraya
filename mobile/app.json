@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Restaurant Ops",
+    "name": "Veraya",
     "slug": "restaurant-ops",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -36,7 +36,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Restaurant Ops to access the camera for barcode scanning."
+          "cameraPermission": "Allow Veraya to access the camera for barcode scanning."
         }
       ],
       "expo-secure-store",

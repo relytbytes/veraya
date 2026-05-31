@@ -1,4 +1,4 @@
-# Restaurant Ops — Mobile App
+# Veraya — Mobile App
 
 React Native app built with Expo SDK 52 + Expo Router, connecting to the Next.js backend.
 

@@ -4,7 +4,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { getBrainData, BrainAlert } from "@/lib/api";
+import { getVeraData, VeraAlert } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -18,7 +18,7 @@ function healthColor(score: number) {
   return                   { ring: C.coral, text: C.coral, label: "Action Required" };
 }
 
-function severityColor(severity: BrainAlert["severity"]) {
+function severityColor(severity: VeraAlert["severity"]) {
   switch (severity) {
     case "HIGH":   return { dot: C.coral, text: C.coral, border: `${C.coral}28`, bg: T.coral };
     case "MEDIUM": return { dot: C.ember, text: C.ember, border: `${C.ember}28`, bg: T.ember };
@@ -26,7 +26,7 @@ function severityColor(severity: BrainAlert["severity"]) {
   }
 }
 
-function categoryIcon(category: BrainAlert["category"]): IoniconName {
+function categoryIcon(category: VeraAlert["category"]): IoniconName {
   switch (category) {
     case "SALES":        return "trending-up-outline";
     case "LABOR":        return "people-outline";
@@ -58,12 +58,12 @@ function fmt(n: number) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function BrainCard() {
+export function VeraCard() {
   const router = useRouter();
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: ["brain"],
-    queryFn: getBrainData,
+    queryKey: ["vera"],
+    queryFn: getVeraData,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });
@@ -122,7 +122,7 @@ export function BrainCard() {
     }}>
       {/* Header row */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14 }}>
-        {/* Brain icon */}
+        {/* Vera icon */}
         <View style={{
           width: 40, height: 40, borderRadius: 12,
           backgroundColor: T.gold,
@@ -137,7 +137,7 @@ export function BrainCard() {
             fontSize: 10, fontWeight: "700", color: C.smoke,
             letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4,
           }}>
-            Restaurant Brain
+            Vera
           </Text>
           <Text style={{ fontSize: 13, color: C.mist, lineHeight: 19 }}>
             {data.narrative}
@@ -244,7 +244,7 @@ export function BrainCard() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function AlertRow({ alert, onPress }: { alert: BrainAlert; onPress: () => void }) {
+function AlertRow({ alert, onPress }: { alert: VeraAlert; onPress: () => void }) {
   const cfg = severityColor(alert.severity);
   return (
     <TouchableOpacity

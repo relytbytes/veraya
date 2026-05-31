@@ -137,7 +137,7 @@ export default function ReorderPage() {
     <div>
       <Header
         title="Smart Reorder"
-        description="AI-powered reorder suggestions based on 21-day burn rates"
+        description="Reorder suggestions from Vera, based on 21-day burn rates"
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={load} disabled={loading}>

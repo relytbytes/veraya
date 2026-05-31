@@ -5,8 +5,8 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "Restaurant Operations",
-  description: "Manage your restaurant operations",
+  title: "Veraya",
+  description: "The restaurant platform with a brain, powered by Vera, the intelligence that catches what you'd miss before it costs you.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

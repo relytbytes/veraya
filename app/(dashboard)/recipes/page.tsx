@@ -54,7 +54,7 @@ interface ReportResponse {
 
 type EngineeringClass = "star" | "plowhorse" | "puzzle" | "dog" | null;
 
-// ── AI suggestion types ───────────────────────────────────────────────────────
+// ── Vera suggestion types ───────────────────────────────────────────────────────
 
 interface SuggestIngredient {
   ingredientId: string;
@@ -153,7 +153,7 @@ export default function RecipesPage() {
   const [addIngId, setAddIngId] = useState("");
   const [addQty, setAddQty] = useState("");
 
-  // ── AI Suggest state ──────────────────────────────────────────────────────
+  // ── Vera suggest state ──────────────────────────────────────────────────────
   const [suggestMode, setSuggestMode] = useState(false);
   const [suggestSelected, setSuggestSelected] = useState<Set<string>>(new Set());
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -324,7 +324,7 @@ export default function RecipesPage() {
   const usedIngIds = new Set(localRecipe.map((r) => r.ingredientId));
   const availableIngs = ingredients.filter((i) => !usedIngIds.has(i.id));
 
-  // ── AI Suggest handlers ───────────────────────────────────────────────────
+  // ── Vera suggest handlers ───────────────────────────────────────────────────
 
   const itemsWithoutRecipes = items.filter(i => i.recipe.length === 0);
 
@@ -454,7 +454,7 @@ export default function RecipesPage() {
               size="sm"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              AI Suggest Recipes
+              Suggest with Vera
               {itemsWithoutRecipes.length > 0 && (
                 <span className="ml-1 bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
                   {itemsWithoutRecipes.length} missing
@@ -478,7 +478,7 @@ export default function RecipesPage() {
             <div className="flex items-center gap-3">
               <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-gray-900">AI Recipe Suggestions</p>
+                <p className="text-sm font-semibold text-gray-900">Vera's Recipe Suggestions</p>
                 <p className="text-xs text-gray-500">
                   GPT will suggest ingredients from your library. Review, adjust quantities, then approve.
                 </p>
@@ -906,7 +906,7 @@ export default function RecipesPage() {
                         className="bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-1.5"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        AI Suggest Recipes
+                        Suggest with Vera
                       </Button>
                     </div>
                   )}

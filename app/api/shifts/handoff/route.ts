@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       include: { ingredient: { select: { name: true, unit: true } } },
     }).then(items => items.filter(i => Number(i.quantity) <= Number(i.minThreshold))),
 
-    // Upcoming reservations today (same pattern as /api/brain)
+    // Upcoming reservations today (same pattern as /api/vera)
     prisma.reservation.findMany({
       where: {
         date: todayStr,

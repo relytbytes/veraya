@@ -1,4 +1,8 @@
-# Restaurant Operations
+# Veraya
+
+**Built for one restaurant. Ready for a hundred.**
+
+The restaurant platform with a brain, powered by Vera, the intelligence that catches what you'd miss before it costs you. Veraya brings service, inventory, purchasing, team management and reporting into one operating platform. Vera watches it all, flags cost leaks and operational risk, and turns the noise of a busy shift into a short list of what actually needs your attention.
 
 A full-stack restaurant management platform built with Next.js 16, Prisma 7, and PostgreSQL.
 

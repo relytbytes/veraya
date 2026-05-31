@@ -392,19 +392,19 @@ export interface FoodCostReport {
   byIngredient: { ingredientId: string; name: string; unit: string; usedQty: number; wastedQty: number; cost: number }[];
 }
 
-// ── Restaurant Brain ──────────────────────────────────────────────────────────
+// ── Vera (intelligence) ──────────────────────────────────────────────────────────
 
-export interface BrainAlert {
+export interface VeraAlert {
   severity: "HIGH" | "MEDIUM" | "LOW";
   category: "SALES" | "LABOR" | "INVENTORY" | "COSTS" | "RESERVATIONS" | "OPERATIONS";
   message: string;
   link: string;
 }
 
-export interface BrainData {
+export interface VeraData {
   healthScore: number;
   narrative: string;
-  alerts: BrainAlert[];
+  alerts: VeraAlert[];
   rawSignals: {
     salesToday: number;
     refSales: number;
@@ -418,7 +418,7 @@ export interface BrainData {
   };
 }
 
-export const getBrainData = () => request<BrainData>("/api/brain");
+export const getVeraData = () => request<VeraData>("/api/vera");
 
 // ── Ingredient Import ─────────────────────────────────────────────────────────
 

@@ -43,8 +43,11 @@ export default function LoginPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 mb-4">
             <ChefHat className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Restaurant Ops</h1>
-          <p className="text-sm text-gray-400 mt-1">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-white">Veraya</h1>
+          <p className="text-sm font-medium text-gray-200 mt-2 text-center">Built for one restaurant. Ready for a hundred.</p>
+          <p className="text-xs text-gray-400 mt-1.5 text-center max-w-xs leading-relaxed">
+            The restaurant platform with a brain, powered by Vera, the intelligence that catches what you&apos;d miss before it costs you.
+          </p>
         </div>
 
         {/* Form */}

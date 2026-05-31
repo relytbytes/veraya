@@ -538,7 +538,7 @@ export default function InventoryPage() {
                 </div>
                 <div className="text-center">
                   <p className="font-semibold text-gray-900">Photo / Invoice</p>
-                  <p className="text-xs text-gray-500 mt-1">Upload a delivery photo, invoice, or shelf image — AI extracts all ingredients at once</p>
+                  <p className="text-xs text-gray-500 mt-1">Upload a delivery photo, invoice or shelf image and Vera extracts every ingredient at once</p>
                 </div>
               </button>
               <button
@@ -569,7 +569,7 @@ export default function InventoryPage() {
                   <Upload className="h-8 w-8 text-gray-400" />
                   <div className="text-center">
                     <p className="text-sm font-medium text-gray-700">Upload a delivery photo, invoice, or pantry shelf</p>
-                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · AI will extract all visible ingredients</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP · Vera extracts every visible ingredient</p>
                   </div>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                 </label>
@@ -584,7 +584,7 @@ export default function InventoryPage() {
                     {photoLoading && (
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-                        Extracting ingredients with AI…
+                        Vera is reading the photo…
                       </div>
                     )}
                     {photoError && (
@@ -624,7 +624,7 @@ export default function InventoryPage() {
                           <TableHead className="w-24">Unit</TableHead>
                           <TableHead className="w-28">Cost / Unit</TableHead>
                           <TableHead className="w-28">Min Level</TableHead>
-                          <TableHead className="w-8">AI</TableHead>
+                          <TableHead className="w-8">Vera</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>

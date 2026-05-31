@@ -11,7 +11,7 @@ import {
 import { Header } from "@/components/layout/header";
 import { cn } from "@/lib/utils";
 import React from "react";
-import { BrainPanel } from "@/components/brain-panel";
+import { VeraPanel } from "@/components/vera-panel";
 
 // ── Role-based access ─────────────────────────────────────────────────────────
 
@@ -159,8 +159,8 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
           </div>
         )}
 
-        {/* Restaurant Brain — managers only */}
-        {isManager && <BrainPanel />}
+        {/* Vera — managers only */}
+        {isManager && <VeraPanel />}
 
         {/* Stat cards — compact row, always visible */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

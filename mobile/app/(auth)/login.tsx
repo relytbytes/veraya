@@ -55,7 +55,7 @@ export default function LoginScreen() {
               <Text style={{ fontSize: 34, fontWeight: "800", color: C.void, letterSpacing: -1 }}>R</Text>
             </View>
           </View>
-          <Text style={{ fontSize: 28, fontWeight: "800", color: C.pearl, letterSpacing: -0.5 }}>Restaurant Ops</Text>
+          <Text style={{ fontSize: 28, fontWeight: "800", color: C.pearl, letterSpacing: -0.5 }}>Veraya</Text>
           <Text style={{ color: C.mist, marginTop: 4, fontSize: 15 }}>Staff Portal</Text>
         </View>
 

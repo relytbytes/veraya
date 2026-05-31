@@ -9,7 +9,7 @@ import { useAuthStore } from "@/store/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
-import { BrainCard } from "@/components/BrainCard";
+import { VeraCard } from "@/components/VeraCard";
 import { ShiftHandoff } from "@/components/ShiftHandoff";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -156,10 +156,10 @@ export default function HomeScreen() {
         onScroll={scrollHandler}
       >
 
-        {/* ── Restaurant Brain + Shift Handoff (managers/admins only) ──── */}
+        {/* ── Vera + Shift Handoff (managers/admins only) ──── */}
         {(user?.role === "ADMIN" || user?.role === "MANAGER") && (
           <View style={{ paddingHorizontal: 16, paddingTop: 20, gap: 12 }}>
-            <BrainCard />
+            <VeraCard />
 
             {/* Shift Handoff entry card */}
             <TouchableOpacity
@@ -286,7 +286,7 @@ export default function HomeScreen() {
 
         {/* App info */}
         <View style={{ alignItems: "center", paddingTop: 28, gap: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke }}>Restaurant Ops</Text>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke }}>Veraya</Text>
           <Text style={{ fontSize: 10, color: C.smoke }}>v2.0 · Expo + Next.js</Text>
         </View>
 

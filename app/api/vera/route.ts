@@ -365,7 +365,7 @@ Sort by severity descending (HIGH first).`,
 
   } catch (err) {
     // AI failed — log it server-side and return deterministic data (fully functional without AI)
-    console.error("[/api/brain] OpenAI call failed:", (err as Error)?.message ?? err);
+    console.error("[/api/vera] OpenAI call failed:", (err as Error)?.message ?? err);
     return Response.json({
       healthScore: computeHealthScore(fallbackAlerts),
       narrative: deterministicNarrative,
@@ -376,7 +376,7 @@ Sort by severity descending (HIGH first).`,
   } catch (err) {
     // Transient failure (e.g. brief SQLite contention) — return a clean 503 the
     // client retries, rather than an unhandled 500 that flashes an error.
-    console.error("[/api/brain] data load failed:", (err as Error)?.message ?? err);
+    console.error("[/api/vera] data load failed:", (err as Error)?.message ?? err);
     return Response.json({ error: "analysis_unavailable" }, { status: 503 });
   }
 }

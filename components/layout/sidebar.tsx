@@ -41,8 +41,8 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
           <ChefHat className="h-5 w-5 text-white" />
         </div>
         <div>
-          <p className="text-sm font-semibold leading-none">Restaurant</p>
-          <p className="text-xs text-gray-400 mt-0.5">Operations</p>
+          <p className="text-sm font-semibold leading-none">Veraya</p>
+          <p className="text-xs text-gray-400 mt-0.5">Operating platform</p>
         </div>
       </div>
 

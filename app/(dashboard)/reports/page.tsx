@@ -528,7 +528,7 @@ export default function ReportsPage() {
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 border border-amber-100 group-hover:bg-amber-100 transition-colors">
               <Sparkles className="h-3.5 w-3.5 text-amber-500" />
             </div>
-            <span>Ask about this data…</span>
+            <span>Dig into this period</span>
             <span className="text-xs text-gray-400 hidden sm:inline">e.g. &quot;Why was food cost high last week?&quot;</span>
           </button>
         ) : (
@@ -546,7 +546,7 @@ export default function ReportsPage() {
                   autoFocus
                   value={askQuestion}
                   onChange={(e) => setAskQuestion(e.target.value)}
-                  placeholder={`Ask anything about this period… e.g. "Why was food cost high?" or "What drove sales on Friday?"`}
+                  placeholder={`Surface anything from this period. e.g. "why food cost climbed" or "what drove Friday's sales"`}
                   className="flex-1 text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-300 placeholder:text-gray-400"
                 />
                 <button
@@ -555,7 +555,7 @@ export default function ReportsPage() {
                   className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   {askLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  {askLoading ? "Analyzing…" : "Ask"}
+                  {askLoading ? "Analyzing…" : "Analyze"}
                 </button>
               </form>
               <button onClick={() => { setAskOpen(false); setAskResult(null); setAskError(null); setAskQuestion(""); }} className="text-gray-400 hover:text-gray-600 transition-colors">

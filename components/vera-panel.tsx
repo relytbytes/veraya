@@ -11,17 +11,17 @@ import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface BrainAlert {
+interface VeraAlert {
   severity: "HIGH" | "MEDIUM" | "LOW";
   category: "SALES" | "LABOR" | "INVENTORY" | "COSTS" | "RESERVATIONS" | "OPERATIONS";
   message: string;
   link: string;
 }
 
-interface BrainData {
+interface VeraData {
   healthScore: number;
   narrative: string;
-  alerts: BrainAlert[];
+  alerts: VeraAlert[];
   rawSignals: {
     salesToday: number;
     refSales: number;
@@ -70,8 +70,8 @@ function fmt(n: number) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function BrainPanel() {
-  const [data, setData] = useState<BrainData | null>(null);
+export function VeraPanel() {
+  const [data, setData] = useState<VeraData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -89,9 +89,9 @@ export function BrainPanel() {
       else setLoading(true);
       setError(false);
       try {
-        const res = await fetch("/api/brain", { signal });
+        const res = await fetch("/api/vera", { signal });
         if (!res.ok) throw new Error("Failed");
-        const d: BrainData = await res.json();
+        const d: VeraData = await res.json();
         setData(d);
         setLastUpdated(new Date());
         setLoading(false);
@@ -179,7 +179,7 @@ export function BrainPanel() {
         {/* Title + narrative */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Restaurant Brain</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Vera</p>
             {lastUpdated && (
               <span className="text-[10px] text-gray-300">
                 updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -262,7 +262,7 @@ export function BrainPanel() {
 
       {/* Footer */}
       <div className="border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
-        <p className="text-[10px] text-gray-300">Powered by GPT-4o-mini · grounded in your restaurant&apos;s live data</p>
+        <p className="text-[10px] text-gray-300">Vera · always watching your restaurant&apos;s live data</p>
         <button
           onClick={() => load(true)}
           disabled={refreshing}
@@ -278,7 +278,7 @@ export function BrainPanel() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function AlertRow({ alert }: { alert: BrainAlert }) {
+function AlertRow({ alert }: { alert: VeraAlert }) {
   const cfg = severityConfig(alert.severity);
   return (
     <Link
