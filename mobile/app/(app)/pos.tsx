@@ -39,6 +39,14 @@ function timerColor(seatedAt: string, _tick: number, amberAt = 60, redAt = 90) {
   return m < amberAt ? C.jade : m < redAt ? C.ember : C.coral;
 }
 
+// Floor status → mobile palette (mirrors the web FLOOR_STATUS semantics).
+const FLOOR_STATUS_M: Record<string, { color: string; bg: string; label: string }> = {
+  AVAILABLE: { color: C.jade,  bg: "rgba(30,122,69,0.07)",   label: "Open" },
+  OCCUPIED:  { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Seated" },
+  RESERVED:  { color: C.ember, bg: "rgba(255,183,3,0.10)",   label: "Reserved" },
+  DIRTY:     { color: C.smoke, bg: "rgba(138,151,166,0.10)", label: "Cleaning" },
+};
+
 const TIP_OPTIONS = [
   { label: "No Tip", value: 0 },
   { label: "18%",    value: 18 },
@@ -106,6 +114,7 @@ export default function POSScreen() {
   const isTablet = width >= 768;
 
   const [screen, setScreen] = useState<"floor" | "order" | "close">("floor");
+  const [floorView, setFloorView] = useState<"grid" | "map">("grid");
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -1455,13 +1464,13 @@ export default function POSScreen() {
               </View>
             </View>
 
-            {/* Stats bar */}
-            <View style={{ flexDirection: "row", backgroundColor: C.surfaceHi, borderBottomWidth: 1, borderColor: C.rim, paddingHorizontal: 20, paddingVertical: 8, gap: 20 }}>
+            {/* Stats bar + view toggle */}
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderBottomWidth: 1, borderColor: C.rim, paddingHorizontal: 20, paddingVertical: 8, gap: 20 }}>
               {[
-                { label: "Occupied", value: tables.filter(t => t.status === "OCCUPIED").length, color: C.jade },
-                { label: "Available", value: tables.filter(t => t.status === "AVAILABLE").length, color: C.sky },
-                { label: "Dirty", value: tables.filter(t => t.status === "DIRTY").length, color: C.ember },
-                { label: "Waiting", value: waitingList.length, color: C.coral },
+                { label: "Open", value: tables.filter(t => t.status === "AVAILABLE").length, color: C.jade },
+                { label: "Seated", value: tables.filter(t => t.status === "OCCUPIED").length, color: C.coral },
+                { label: "Reserved", value: tables.filter(t => t.status === "RESERVED").length, color: C.ember },
+                { label: "Waiting", value: waitingList.length, color: C.sky },
               ].map((s) => (
                 <View key={s.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.color }} />
@@ -1469,24 +1478,94 @@ export default function POSScreen() {
                   <Text style={{ fontSize: 12, fontWeight: "700", color: s.value > 0 ? s.color : C.smoke }}>{s.value}</Text>
                 </View>
               ))}
+              <View style={{ flexDirection: "row", marginLeft: "auto", backgroundColor: C.rim, borderRadius: 9, padding: 2, gap: 2 }}>
+                {(["grid", "map"] as const).map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setFloorView(v)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 7, backgroundColor: floorView === v ? C.surface : "transparent" }}
+                  >
+                    <Ionicons name={v === "grid" ? "grid-outline" : "map-outline"} size={14} color={floorView === v ? C.pearl : C.smoke} />
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: floorView === v ? C.pearl : C.smoke, textTransform: "capitalize" }}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             <ScrollView scrollEnabled={!canvasEditing} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); }} tintColor={C.gold} />}>
-              <TableCanvas
-                tables={tables}
-                openOrders={openOrders}
-                canvasH={canvasHSetting}
-                tableSize={tableSizeSetting}
-                amberAt={amberAt}
-                redAt={redAt}
-                showServerBadge={showServerBadge}
-                showOrderTotal={showOrderTotal}
-                showGuestLabel={showGuestLabel}
-                tick={tick}
-                onTablePress={openTable}
-                onLayoutSaved={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["tables"] }); }}
-                onEditModeChange={setCanvasEditing}
-              />
+              {floorView === "grid" ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 16 }}>
+                  {[...tables].sort((a, b) => a.number - b.number).map((t) => {
+                    const st = FLOOR_STATUS_M[t.status] ?? FLOOR_STATUS_M.DIRTY;
+                    const order = openOrders.find((o) => o.tableId === t.id);
+                    const stage = effectiveStage(t, order);
+                    const stageMeta = stage ? SERVICE_STAGES.find((s) => s.key === stage) : null;
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        onPress={() => openTable(t)}
+                        style={{
+                          width: isTablet ? "23.5%" : "47.5%",
+                          minHeight: 104,
+                          borderRadius: 14,
+                          borderWidth: 1.5,
+                          borderColor: st.color + "55",
+                          backgroundColor: st.bg,
+                          padding: 12,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <Text style={{ fontSize: 24, fontWeight: "800", color: C.pearl, lineHeight: 26 }}>{t.number}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: st.color }} />
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: st.color, textTransform: "uppercase", letterSpacing: 0.4 }}>{st.label}</Text>
+                          </View>
+                        </View>
+                        {order ? (
+                          <View style={{ marginTop: 8, gap: 4 }}>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                              <Text style={{ fontSize: 17, fontWeight: "800", color: C.gold }}>${Number(order.total).toFixed(2)}</Text>
+                              {t.seatedAt ? (
+                                <Text style={{ fontSize: 11, fontWeight: "700", color: timerColor(t.seatedAt, tick, amberAt, redAt) }}>{elapsedLabel(t.seatedAt, tick)}</Text>
+                              ) : null}
+                            </View>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              {t.partySize ? <Text style={{ fontSize: 11, color: C.mist }}>{t.partySize} guests</Text> : null}
+                              {stageMeta ? <Text style={{ fontSize: 10, fontWeight: "800", color: stageMeta.color, textTransform: "uppercase" }}>{stageMeta.abbrev}</Text> : null}
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={{ marginTop: "auto", flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 8 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                              <Ionicons name="people-outline" size={13} color={C.smoke} />
+                              <Text style={{ fontSize: 12, color: C.mist }}>{t.capacity}</Text>
+                            </View>
+                            <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke }}>
+                              {t.status === "AVAILABLE" ? "Tap to start" : t.status === "RESERVED" ? "Seat party" : "Mark clean"}
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <TableCanvas
+                  tables={tables}
+                  openOrders={openOrders}
+                  canvasH={canvasHSetting}
+                  tableSize={tableSizeSetting}
+                  amberAt={amberAt}
+                  redAt={redAt}
+                  showServerBadge={showServerBadge}
+                  showOrderTotal={showOrderTotal}
+                  showGuestLabel={showGuestLabel}
+                  tick={tick}
+                  onTablePress={openTable}
+                  onLayoutSaved={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["tables"] }); }}
+                  onEditModeChange={setCanvasEditing}
+                />
+              )}
             </ScrollView>
           </View>
 
