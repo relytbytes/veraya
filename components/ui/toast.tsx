@@ -64,7 +64,7 @@ export function Toaster() {
   if (list.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 pointer-events-none">
+    <div role="status" aria-live="polite" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 pointer-events-none">
       {list.map((t) => {
         const v = VARIANT_STYLE[t.variant];
         return (
@@ -78,7 +78,7 @@ export function Toaster() {
           >
             {v.icon}
             <span className="font-medium">{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="ml-1 text-gray-400 hover:text-gray-700">
+            <button onClick={() => dismiss(t.id)} className="ml-1 text-gray-400 hover:text-gray-700" aria-label="Dismiss notification">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
