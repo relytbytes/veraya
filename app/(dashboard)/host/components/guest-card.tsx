@@ -3,8 +3,9 @@
 import { Star, Phone, Cake, Award, TriangleAlert, Pencil, Clock } from "lucide-react";
 import {
   type CustomerProfile, BRAND,
-  parseAllergies, displayTags, recognition, fmtLastVisit, initials,
+  parseAllergies, displayTags, recognition, fmtLastVisit, initials, veraGuestBrief,
 } from "../host-utils";
+import { VeraSpark } from "@/components/brand/vera-mark";
 
 const TONE: Record<string, { bg: string; fg: string }> = {
   vip: { bg: BRAND.gold, fg: "#fff" },
@@ -19,6 +20,7 @@ export function GuestCard({ customer, onEdit }: { customer: CustomerProfile; onE
   const allergies = parseAllergies(customer.tags);
   const tags = displayTags(customer.tags);
   const lastVisit = fmtLastVisit(customer.lastVisitAt);
+  const brief = veraGuestBrief(customer);
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
@@ -50,6 +52,13 @@ export function GuestCard({ customer, onEdit }: { customer: CustomerProfile; onE
           </button>
         )}
       </div>
+
+      {brief && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/5 px-2.5 py-1.5">
+          <VeraSpark className="h-3 w-3 shrink-0 mt-0.5" />
+          <span className="text-xs leading-snug text-gray-200">{brief}</span>
+        </div>
+      )}
 
       {allergies.length > 0 && (
         <div className="mt-2 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5"

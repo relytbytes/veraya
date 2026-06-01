@@ -98,6 +98,48 @@ export function fmtLastVisit(iso: string | null): string | null {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+/** Days until an "MM-DD" birthday (this year or next); null if absent/invalid. */
+function daysUntilBirthday(bday: string | null): number | null {
+  if (!bday) return null;
+  const m = /^(\d{1,2})-(\d{1,2})$/.exec(bday.trim());
+  if (!m) return null;
+  const now = new Date();
+  const mm = Number(m[1]) - 1, dd = Number(m[2]);
+  let next = new Date(now.getFullYear(), mm, dd);
+  let diff = Math.ceil((next.getTime() - now.getTime()) / 86400000);
+  if (diff < 0) { next = new Date(now.getFullYear() + 1, mm, dd); diff = Math.ceil((next.getTime() - now.getTime()) / 86400000); }
+  return diff;
+}
+
+/**
+ * Vera's one-line read on a guest — synthesized client-side so the host gets
+ * instant context (no API call, always available). Warm GM voice.
+ */
+export function veraGuestBrief(c: CustomerProfile): string | null {
+  const tags = parseTags(c.tags).map((t) => t.toLowerCase());
+  const allergies = parseAllergies(c.tags);
+  const vip = tags.includes("vip");
+
+  const lead: string[] = [];
+  if (vip) lead.push("VIP");
+  else if (c.visitCount === 0) lead.push("First time in");
+  else if (c.visitCount >= 5 || tags.includes("regular")) lead.push(`Regular, ${c.visitCount} visits`);
+  else lead.push(`${c.visitCount} visit${c.visitCount === 1 ? "" : "s"}`);
+
+  if (c.visitCount > 0) {
+    const lv = fmtLastVisit(c.lastVisitAt);
+    if (lv) lead.push(`last here ${lv}`);
+  }
+  const bd = daysUntilBirthday(c.birthday);
+  if (bd !== null && bd <= 7) lead.push(bd === 0 ? "birthday today" : `birthday in ${bd} days`);
+
+  let s = lead.join(", ") + ".";
+  if (allergies.length) s += ` Flag the kitchen on ${allergies.join(" and ")}.`;
+  else if (vip) s += " Make the welcome obvious.";
+  else if (c.visitCount === 0) s += " First impression counts.";
+  return s;
+}
+
 export interface Reservation {
   id: string;
   date: string;
