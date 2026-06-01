@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DollarSign, TrendingUp, ShoppingBag, BarChart3, Users, RefreshCw, Download, ChevronDown, ChevronUp, Printer, Clock, AlertTriangle, Sparkles, Send, X, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { VeraMenuMoves } from "@/components/vera-menu-moves";
 import {
   RevenueChart, OrdersChart, CategoryPieChart, TopItemsChart, HourlyChart, DowChart,
 } from "./charts";
@@ -679,6 +680,9 @@ export default function ReportsPage() {
 
         {/* ── SALES TAB ───────────────────────────────────────────────────────── */}
         {activeTab === "sales" && <>
+
+        {/* Vera's menu-engineering moves */}
+        <VeraMenuMoves />
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-8">
