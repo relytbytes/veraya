@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   RefreshCw, TrendingUp, TrendingDown,
   AlertTriangle, CheckCircle2, AlertCircle, Info,
-  DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar,
+  DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VeraMark, VeraWordmark } from "@/components/brand/vera-mark";
@@ -17,6 +17,15 @@ interface VeraAlert {
   category: "SALES" | "LABOR" | "INVENTORY" | "COSTS" | "RESERVATIONS" | "OPERATIONS";
   message: string;
   link: string;
+}
+
+interface Prediction {
+  name: string;
+  unit: string;
+  estimatedRunsOut: string | null;
+  severity: "out" | "critical" | "warn" | "ok";
+  affectedMenuItems: string[];
+  hoursUntilMin: number | null;
 }
 
 interface VeraData {
@@ -77,6 +86,7 @@ export function VeraPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -115,6 +125,29 @@ export function VeraPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Forward-looking run-out predictions (best-effort; never blocks the panel).
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/eightysix/predicted")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { predictions?: Prediction[] } | null) => {
+        if (alive && d?.predictions) {
+          setPredictions(d.predictions.filter((p) => p.severity !== "ok").slice(0, 3));
+        }
+      })
+      .catch(() => { /* supplementary — ignore */ });
+  }, []);
+
+  function runsOutLabel(p: Prediction): string {
+    if (p.severity === "out") return "out now";
+    if (p.estimatedRunsOut) {
+      const t = new Date(p.estimatedRunsOut);
+      return `~${t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
+    if (p.hoursUntilMin != null) return `~${p.hoursUntilMin.toFixed(1)}h`;
+    return "soon";
+  }
 
   const health = data ? healthColor(data.healthScore) : null;
   const highAlerts  = data?.alerts.filter(a => a.severity === "HIGH") ?? [];
@@ -239,6 +272,38 @@ export function VeraPanel() {
           {data.rawSignals.confirmedCovers > 0 && (
             <SignalPill icon={<Calendar className="h-3 w-3" />} label="Covers tonight" value={String(data.rawSignals.confirmedCovers)} ok href="/host" />
           )}
+        </div>
+      )}
+
+      {/* Looking ahead — run-out predictions */}
+      {predictions.length > 0 && (
+        <div className="px-5 pb-1">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <Clock className="h-3.5 w-3.5" /> Vera predicts
+          </div>
+          <div className="space-y-1.5">
+            {predictions.map((p, i) => {
+              const crit = p.severity === "out" || p.severity === "critical";
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                    crit ? "border-red-200 bg-red-50/60" : "border-amber-200 bg-amber-50/60",
+                  )}
+                >
+                  <Clock className={cn("h-3.5 w-3.5 shrink-0", crit ? "text-red-500" : "text-amber-500")} />
+                  <span className="flex-1 leading-snug text-gray-700">
+                    <span className="font-semibold text-gray-900">{p.name}</span> runs out{" "}
+                    <span className="font-medium">{runsOutLabel(p)}</span>
+                    {p.affectedMenuItems.length > 0 && (
+                      <span className="text-gray-500"> · 86s {p.affectedMenuItems.slice(0, 2).join(", ")}{p.affectedMenuItems.length > 2 ? ` +${p.affectedMenuItems.length - 2}` : ""}</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
