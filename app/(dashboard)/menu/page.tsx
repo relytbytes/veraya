@@ -5,6 +5,7 @@ import { Plus, Search, Pencil, ToggleLeft, ToggleRight, Loader2, X, ChevronDown,
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { VeraSpark } from "@/components/brand/vera-mark";
 import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -97,6 +98,7 @@ export default function MenuPage() {
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
 
@@ -177,6 +179,26 @@ export default function MenuPage() {
       options: modifier.options.map((o) => ({ name: o.name, priceAdj: String(o.priceAdj) })),
     });
     setAddModifierOpen(true);
+  }
+
+  async function draftDescription() {
+    if (!form.name.trim()) { toast.error("Add an item name first."); return; }
+    setDrafting(true);
+    try {
+      const category = categories.find((c) => c.id === form.categoryId)?.name;
+      const res = await fetch("/api/vera/describe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, category, menuItemId: editItem?.id }),
+      });
+      const d = await res.json();
+      if (!res.ok) { toast.error(d.error ?? "Vera could not draft a description."); return; }
+      setForm((f) => ({ ...f, description: d.description }));
+    } catch {
+      toast.error("Network error. Try again.");
+    } finally {
+      setDrafting(false);
+    }
   }
 
   async function saveModifier() {
@@ -465,7 +487,18 @@ export default function MenuPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <div className="flex items-center justify-between">
+                <Label>Description</Label>
+                <button
+                  type="button"
+                  onClick={draftDescription}
+                  disabled={drafting}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                >
+                  {drafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <VeraSpark className="h-3 w-3" />}
+                  {drafting ? "Drafting…" : "Draft with Vera"}
+                </button>
+              </div>
               <Textarea
                 placeholder="Brief description of the dish..."
                 value={form.description}
