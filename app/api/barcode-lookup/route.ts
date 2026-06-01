@@ -1,105 +1,85 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-
-interface OpenFoodFactsProduct {
-  product_name?: string;
-  product_name_en?: string;
-  brands?: string;
-  categories_tags?: string[];
-  quantity?: string;
-  image_url?: string;
-}
-
-interface ExternalProduct {
-  name: string;
-  brand: string | null;
-  category: string | null;
-  quantity: string | null;
-  imageUrl: string | null;
-}
+import { normalizeBarcode, isValidGtin, lookupBarcodeSources, type ExternalProduct } from "@/lib/barcode";
 
 // GET /api/barcode-lookup?barcode=012345678901
-// 1. Checks local ingredients DB
-// 2. If not found, queries Open Food Facts (free, no key required)
-// Returns: { barcode, local: Ingredient | null, external: ExternalProduct | null }
+// 1. Local ingredients DB (already-known barcode)
+// 2. Cache (BarcodeCache; positive + negative, 30-day TTL)
+// 3. Source chain: Open Food Facts → UPCitemdb → Go-UPC (keyed)
+// Returns: { barcode, valid, local, external, source, suggestions, aiFallback }
+//   aiFallback=true tells the client to offer photo (AI vision) identification.
+
+const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-  const barcode = searchParams.get("barcode");
+  const raw = new URL(req.url).searchParams.get("barcode");
+  if (!raw) return Response.json({ error: "barcode param required" }, { status: 400 });
 
-  if (!barcode) {
-    return Response.json({ error: "barcode param required" }, { status: 400 });
-  }
+  const barcode = normalizeBarcode(raw);
+  const valid = isValidGtin(barcode);
 
-  // 1 ── Local DB lookup
+  // 1 ── Local DB (a barcode already attached to one of our ingredients)
   const local = await prisma.ingredient.findFirst({
     where: { barcode, isActive: true },
     include: { supplier: true, inventoryItem: true },
   });
+  if (local) return Response.json({ barcode, valid, local, external: null, source: "local", suggestions: [] });
 
-  if (local) {
-    return Response.json({ barcode, local, external: null });
+  // Don't waste source calls on a malformed scan.
+  if (!valid) {
+    return Response.json({ barcode, valid: false, local: null, external: null, source: null, suggestions: [], aiFallback: true });
   }
 
-  // 2 ── Open Food Facts lookup (free, no API key)
+  // 2 ── Cache (positive and negative)
   let external: ExternalProduct | null = null;
-  try {
-    const res = await fetch(
-      `https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`,
-      {
-        headers: { "User-Agent": "RestaurantOps/1.0" },
-        signal: AbortSignal.timeout(4000),
-      }
-    );
+  let source: string | null = null;
+  const cached = await prisma.barcodeCache.findUnique({ where: { barcode } });
+  const fresh = cached && Date.now() - new Date(cached.fetchedAt).getTime() < TTL_MS;
 
-    if (res.ok) {
-      const data = await res.json() as { status: number; product?: OpenFoodFactsProduct };
-      if (data.status === 1 && data.product) {
-        const p = data.product;
-        const rawName = p.product_name_en || p.product_name || "";
-        const name = rawName.trim();
-        if (name) {
-          external = {
-            name,
-            brand: p.brands?.split(",")[0]?.trim() || null,
-            category: cleanCategory(p.categories_tags?.[0] ?? null),
-            quantity: p.quantity ?? null,
-            imageUrl: p.image_url ?? null,
-          };
-        }
-      }
+  if (fresh) {
+    if (cached!.found) {
+      external = { name: cached!.name ?? "", brand: cached!.brand, category: cached!.category, quantity: cached!.quantity, imageUrl: cached!.imageUrl };
+      source = cached!.source ?? "cache";
     }
-  } catch {
-    // Timeout or network error — just return null external
+  } else {
+    // 3 ── Resolve against the source chain and cache the outcome.
+    const hit = await lookupBarcodeSources(barcode);
+    external = hit?.product ?? null;
+    source = hit?.source ?? null;
+    try {
+      await prisma.barcodeCache.upsert({
+        where: { barcode },
+        create: { barcode, found: !!external, name: external?.name, brand: external?.brand, category: external?.category, quantity: external?.quantity, imageUrl: external?.imageUrl, source },
+        update: { found: !!external, name: external?.name, brand: external?.brand, category: external?.category, quantity: external?.quantity, imageUrl: external?.imageUrl, source, fetchedAt: new Date() },
+      });
+    } catch { /* cache write is best-effort */ }
   }
 
-  // 3 ── If external found, also try to match existing ingredients by name
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let suggestions: any[] = [];
+  // 4 ── Suggest existing ingredients that look like the resolved product.
+  let suggestions: Awaited<ReturnType<typeof prisma.ingredient.findMany>> = [];
   if (external) {
     const terms = [external.name, external.brand].filter(Boolean) as string[];
-    const rawSuggestions = await prisma.ingredient.findMany({
-      where: {
-        isActive: true,
-        OR: terms.flatMap((t) => [
-          { name: { contains: t } },
-        ]),
-      },
+    suggestions = await prisma.ingredient.findMany({
+      where: { isActive: true, OR: terms.map((t) => ({ name: { contains: t } })) },
       include: { supplier: true, inventoryItem: true },
       take: 5,
       orderBy: { name: "asc" },
     });
-    suggestions = rawSuggestions;
   }
 
-  return Response.json({ barcode, local: null, external, suggestions });
-}
-
-function cleanCategory(tag: string | null): string | null {
-  if (!tag) return null;
-  // OFF tags look like "en:beverages" — strip prefix and format
-  return tag.replace(/^[a-z]{2}:/, "").replace(/-/g, " ");
+  return Response.json({
+    barcode,
+    valid,
+    local: null,
+    external,
+    source,
+    suggestions,
+    // When the barcode is valid but no database knew it, the scanner should offer
+    // AI photo identification (/api/vision) as the fallback.
+    aiFallback: !external,
+  });
 }

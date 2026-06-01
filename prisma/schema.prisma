@@ -752,3 +752,16 @@ model TrainingDocument {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model BarcodeCache {
+  barcode   String   @id
+  found     Boolean  @default(false) // negative cache: true if a product was resolved
+  name      String?
+  brand     String?
+  category  String?
+  quantity  String?
+  imageUrl  String?
+  source    String?  // which provider resolved it (off | upcitemdb | go-upc | …)
+  fetchedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
