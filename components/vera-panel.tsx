@@ -8,7 +8,7 @@ import {
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VeraMark, VeraWordmark } from "@/components/brand/vera-mark";
+import { VeraMark, VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,6 +16,13 @@ interface VeraAlert {
   severity: "HIGH" | "MEDIUM" | "LOW";
   category: "SALES" | "LABOR" | "INVENTORY" | "COSTS" | "RESERVATIONS" | "OPERATIONS";
   message: string;
+  link: string;
+}
+
+interface Anomaly {
+  type: string;
+  severity: "HIGH" | "MEDIUM";
+  title: string;
   link: string;
 }
 
@@ -87,6 +94,7 @@ export function VeraPanel() {
   const [error, setError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -135,6 +143,17 @@ export function VeraPanel() {
         if (alive && d?.predictions) {
           setPredictions(d.predictions.filter((p) => p.severity !== "ok").slice(0, 3));
         }
+      })
+      .catch(() => { /* supplementary — ignore */ });
+  }, []);
+
+  // Anomalies Vera "caught" (price creep, comp/void outliers). Best-effort.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/vera/anomalies")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { anomalies?: Anomaly[] } | null) => {
+        if (alive && d?.anomalies) setAnomalies(d.anomalies);
       })
       .catch(() => { /* supplementary — ignore */ });
   }, []);
@@ -272,6 +291,33 @@ export function VeraPanel() {
           {data.rawSignals.confirmedCovers > 0 && (
             <SignalPill icon={<Calendar className="h-3 w-3" />} label="Covers tonight" value={String(data.rawSignals.confirmedCovers)} ok href="/host" />
           )}
+        </div>
+      )}
+
+      {/* Vera caught — anomalies (price creep, comp/void outliers) */}
+      {anomalies.length > 0 && (
+        <div className="px-5 pb-1">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <VeraSpark className="h-3 w-3" /> Vera caught
+          </div>
+          <div className="space-y-1.5">
+            {anomalies.map((a, i) => {
+              const high = a.severity === "HIGH";
+              return (
+                <Link
+                  key={i}
+                  href={a.link}
+                  className={cn(
+                    "group flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors",
+                    high ? "border-red-200 bg-red-50/60 hover:bg-red-50" : "border-amber-200 bg-amber-50/60 hover:bg-amber-50",
+                  )}
+                >
+                  <AlertTriangle className={cn("h-3.5 w-3.5 shrink-0", high ? "text-red-500" : "text-amber-500")} />
+                  <span className="flex-1 leading-snug text-gray-700 group-hover:text-gray-900">{a.title}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 
