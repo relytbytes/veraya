@@ -8,7 +8,8 @@ import {
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VeraMark, VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
+import { VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
+import { VeraAvatar } from "@/components/brand/vera-avatar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -225,7 +226,7 @@ export function VeraPanel() {
       {/* Vera header band */}
       <div className="flex items-start gap-4 p-5 pb-4 bg-gradient-to-br from-[#0B1320] via-[#101f33] to-[#15293f]">
         {/* Vera mark */}
-        <VeraMark className="h-11 w-11 shrink-0 drop-shadow-md" />
+        <VeraAvatar className="h-11 w-11 shrink-0 drop-shadow-md" />
 
         {/* Identity + narrative */}
         <div className="flex-1 min-w-0">

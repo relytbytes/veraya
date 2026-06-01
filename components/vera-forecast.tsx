@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { TrendingUp, Users, ChefHat } from "lucide-react";
-import { VeraMark, VeraSpark } from "@/components/brand/vera-mark";
+import { VeraSpark } from "@/components/brand/vera-mark";
+import { VeraAvatar } from "@/components/brand/vera-avatar";
 
 interface PrepItem { name: string; suggestedQty: number; basis: string }
 interface Forecast {
@@ -57,7 +58,7 @@ export function VeraForecast() {
     <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-        <VeraMark className="h-9 w-9 shrink-0" />
+        <VeraAvatar className="h-9 w-9 shrink-0" />
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-900 inline-flex items-center gap-1">
             Vera Forecast <VeraSpark className="h-3 w-3" />

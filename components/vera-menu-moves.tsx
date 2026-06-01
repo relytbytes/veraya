@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { VeraMark } from "@/components/brand/vera-mark";
+import { VeraAvatar } from "@/components/brand/vera-avatar";
 import { cn } from "@/lib/utils";
 
 type Klass = "star" | "plowhorse" | "puzzle" | "dog";
@@ -42,7 +42,7 @@ export function VeraMenuMoves() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-        <VeraMark className="h-9 w-9 shrink-0" />
+        <VeraAvatar className="h-9 w-9 shrink-0" />
         <div>
           <p className="text-sm font-bold text-gray-900">Vera&apos;s Menu Moves</p>
           <p className="text-xs text-gray-400">Prioritized this week, by margin impact</p>
