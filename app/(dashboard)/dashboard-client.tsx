@@ -12,6 +12,7 @@ import { Header } from "@/components/layout/header";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { VeraPanel } from "@/components/vera-panel";
+import { VeraForecast } from "@/components/vera-forecast";
 
 // ── Role-based access ─────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
 
         {/* Vera — managers only */}
         {isManager && <VeraPanel />}
+        {isManager && <VeraForecast />}
 
         {/* Stat cards — compact row, always visible */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
