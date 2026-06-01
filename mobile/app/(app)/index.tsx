@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { VeraCard } from "@/components/VeraCard";
+import { VeraForecastCard, VeraSetupCard } from "@/components/VeraInsights";
 import { ShiftHandoff } from "@/components/ShiftHandoff";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -159,7 +160,9 @@ export default function HomeScreen() {
         {/* ── Vera + Shift Handoff (managers/admins only) ──── */}
         {(user?.role === "ADMIN" || user?.role === "MANAGER") && (
           <View style={{ paddingHorizontal: 16, paddingTop: 20, gap: 12 }}>
+            <VeraSetupCard />
             <VeraCard />
+            <VeraForecastCard />
 
             {/* Shift Handoff entry card */}
             <TouchableOpacity

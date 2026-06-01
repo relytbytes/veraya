@@ -4,7 +4,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { getVeraData, VeraAlert } from "@/lib/api";
+import { getVeraData, VeraAlert, getPredictedRunouts, getVeraAnomalies } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -67,6 +67,17 @@ export function VeraCard() {
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
   });
+  const { data: predData } = useQuery({ queryKey: ["vera-predicted"], queryFn: getPredictedRunouts, staleTime: 5 * 60_000, refetchInterval: 10 * 60_000 });
+  const { data: anomData } = useQuery({ queryKey: ["vera-anomalies"], queryFn: getVeraAnomalies, staleTime: 10 * 60_000 });
+  const predictions = (predData?.predictions ?? []).filter((p) => p.severity !== "ok").slice(0, 3);
+  const anomalies = anomData?.anomalies ?? [];
+
+  function runsOut(p: { severity: string; estimatedRunsOut: string | null; hoursUntilMin: number | null }): string {
+    if (p.severity === "out") return "out now";
+    if (p.estimatedRunsOut) return "~" + new Date(p.estimatedRunsOut).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (p.hoursUntilMin != null) return `~${p.hoursUntilMin.toFixed(1)}h`;
+    return "soon";
+  }
 
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (isLoading) {
@@ -204,6 +215,41 @@ export function VeraCard() {
           <SignalPill icon="calendar-outline" label="Covers" value={String(sig.confirmedCovers)} ok onPress={() => router.push("/(app)/reservations" as never)} />
         )}
       </ScrollView>
+
+      {/* Vera caught — anomalies */}
+      {anomalies.length > 0 && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 4 }}>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Vera caught</Text>
+          {anomalies.map((a, i) => {
+            const high = a.severity === "HIGH";
+            return (
+              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, borderWidth: 1, borderColor: high ? `${C.coral}33` : `${C.ember}33`, backgroundColor: high ? T.coral : T.ember, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6 }}>
+                <Ionicons name="alert-circle-outline" size={14} color={high ? C.coral : C.ember} />
+                <Text style={{ flex: 1, fontSize: 12, color: C.pearl, lineHeight: 16 }}>{a.title}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Vera predicts — run-outs */}
+      {predictions.length > 0 && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 4 }}>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Vera predicts</Text>
+          {predictions.map((p, i) => {
+            const crit = p.severity === "out" || p.severity === "critical";
+            return (
+              <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, borderWidth: 1, borderColor: crit ? `${C.coral}33` : `${C.ember}33`, backgroundColor: crit ? T.coral : T.ember, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6 }}>
+                <Ionicons name="time-outline" size={14} color={crit ? C.coral : C.ember} />
+                <Text style={{ flex: 1, fontSize: 12, color: C.pearl, lineHeight: 16 }}>
+                  <Text style={{ fontWeight: "700" }}>{p.name}</Text> runs out <Text style={{ fontWeight: "600" }}>{runsOut(p)}</Text>
+                  {p.affectedMenuItems.length > 0 ? `  ·  86s ${p.affectedMenuItems.slice(0, 2).join(", ")}` : ""}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Divider */}
       <View style={{ height: 1, backgroundColor: C.rim, marginHorizontal: 18 }} />

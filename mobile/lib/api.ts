@@ -420,6 +420,51 @@ export interface VeraData {
 
 export const getVeraData = () => request<VeraData>("/api/vera");
 
+// Forecast (tonight projection + prep)
+export interface VeraForecast {
+  projectedSales: number;
+  projectedCovers: number;
+  reservedCovers: number;
+  sampleCount: number;
+  dowName: string;
+  confidence: "low" | "medium" | "high";
+  prep: { name: string; suggestedQty: number; basis: string }[];
+  narrative: string;
+}
+export const getVeraForecast = () => request<VeraForecast>("/api/vera/forecast");
+
+// Anomalies ("Vera caught")
+export interface VeraAnomaly { type: string; severity: "HIGH" | "MEDIUM"; title: string; link: string }
+export const getVeraAnomalies = () => request<{ anomalies: VeraAnomaly[] }>("/api/vera/anomalies");
+
+// Predicted run-outs
+export interface VeraPrediction {
+  name: string;
+  unit: string;
+  estimatedRunsOut: string | null;
+  hoursUntilMin: number | null;
+  severity: "out" | "critical" | "warn" | "ok";
+  affectedMenuItems: string[];
+  affected: { id: string; name: string }[];
+}
+export const getPredictedRunouts = () =>
+  request<{ predictions: VeraPrediction[]; summary: { criticalCount: number; warnCount: number; totalAtRisk: number } }>("/api/eightysix/predicted");
+
+// First-run setup status
+export interface VeraSetupStep { key: string; label: string; done: boolean; href: string; hint: string }
+export const getVeraSetup = () =>
+  request<{ steps: VeraSetupStep[]; doneCount: number; total: number; complete: boolean }>("/api/vera/setup");
+
+// Ask Vera (natural-language analysis over a period)
+export interface VeraAnswer {
+  answer: string;
+  dataPoints: { label: string; value: string; context: string; positive: boolean }[];
+  followUps: string[];
+  aiPowered: boolean;
+}
+export const askVera = (question: string, from: string, to: string) =>
+  request<VeraAnswer>("/api/reports/ask", { method: "POST", body: JSON.stringify({ question, from, to }) });
+
 // ── Ingredient Import ─────────────────────────────────────────────────────────
 
 export interface ExtractedIngredient {
