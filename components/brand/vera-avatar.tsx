@@ -12,16 +12,24 @@ import { VeraMark } from "@/components/brand/vera-mark";
  * `className` sizes the badge (square). The image is object-cover, anchored left
  * so the profile stays in frame when cropped to a square.
  */
-export function VeraAvatar({ className }: { className?: string }) {
+export function VeraAvatar({
+  className,
+  src = "/vera-avatar.png",
+  fit = "cover",
+}: {
+  className?: string;
+  src?: string;
+  fit?: "cover" | "contain";
+}) {
   const [failed, setFailed] = useState(false);
   if (failed) return <VeraMark className={className} />;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/vera-avatar.png"
+      src={src}
       alt="Vera"
       onError={() => setFailed(true)}
-      className={cn("rounded-xl object-cover object-left", className)}
+      className={cn("rounded-xl", fit === "contain" ? "object-contain" : "object-cover object-left", className)}
     />
   );
 }

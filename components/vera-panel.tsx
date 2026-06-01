@@ -226,7 +226,7 @@ export function VeraPanel() {
       {/* Vera header band */}
       <div className="flex items-start gap-4 p-5 pb-4 bg-gradient-to-br from-[#0B1320] via-[#101f33] to-[#15293f]">
         {/* Vera mark */}
-        <VeraAvatar className="h-11 w-11 shrink-0 drop-shadow-md" />
+        <VeraAvatar className="h-14 w-14 shrink-0 drop-shadow-md" />
 
         {/* Identity + narrative */}
         <div className="flex-1 min-w-0">
