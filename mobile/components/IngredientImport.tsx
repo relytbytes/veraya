@@ -58,6 +58,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   // Barcode flow
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  const [barcodeAiFallback, setBarcodeAiFallback] = useState(false);
   const [barcodeScanned, setBarcodeScanned] = useState("");
   const [barcodeForm, setBarcodeForm] = useState({
     name: "", unit: "unit", costPerUnit: "", minThreshold: "",
@@ -70,7 +71,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   function reset() {
     setMode("choose");
     setPhotoLoading(false); setPhotoError(null); setImportRows([]);
-    setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned("");
+    setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned(""); setBarcodeAiFallback(false);
     setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "" });
     setSuggestions([]);
   }
@@ -129,6 +130,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
     setBarcodeScanned(barcode);
     setBarcodeLoading(true);
     setBarcodeError(null);
+    setBarcodeAiFallback(false);
     try {
       const result = await barcodeLookupIngredient(barcode);
       if (result.local) {
@@ -136,7 +138,9 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
       } else if (result.external) {
         setBarcodeForm(f => ({ ...f, name: result.external!.name }));
       } else {
-        setBarcodeError("Product not found — enter details manually.");
+        // Valid barcode that no UPC database knew → offer AI photo identification.
+        setBarcodeError(result.valid === false ? "That doesn't look like a valid barcode." : "Not in any product database — identify it with a photo.");
+        if (result.aiFallback) setBarcodeAiFallback(true);
       }
     } catch (e) {
       setBarcodeError((e as Error).message ?? "Lookup failed");
@@ -457,6 +461,16 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
                     <Ionicons name="information-circle-outline" size={16} color={C.ember} />
                     <Text style={{ flex: 1, fontSize: 13, color: C.ember }}>{barcodeError}</Text>
                   </View>
+                )}
+
+                {barcodeAiFallback && (
+                  <TouchableOpacity
+                    onPress={() => { setBarcodeAiFallback(false); setMode("photo-capture"); }}
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.pearl, borderRadius: 12, paddingVertical: 13 }}
+                  >
+                    <Ionicons name="sparkles" size={16} color={C.gold} />
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: "white" }}>Identify with a photo</Text>
+                  </TouchableOpacity>
                 )}
 
                 {!barcodeLoading && (

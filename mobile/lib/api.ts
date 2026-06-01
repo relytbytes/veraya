@@ -490,9 +490,12 @@ export const importIngredientsFromPhoto = (image: string) =>
 export const barcodeLookupIngredient = (barcode: string) =>
   request<{
     barcode: string;
+    valid?: boolean;
     local: Ingredient | null;
     external: { name: string; brand: string | null; category: string | null; quantity: string | null } | null;
+    source?: string | null;
     suggestions: Ingredient[];
+    aiFallback?: boolean;
   }>(`/api/barcode-lookup?barcode=${encodeURIComponent(barcode)}`);
 
 export const suggestRecipeAdditions = (ingredientIds: string[]) =>
