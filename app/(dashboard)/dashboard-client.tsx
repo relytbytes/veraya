@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import React from "react";
 import { VeraPanel } from "@/components/vera-panel";
 import { VeraForecast } from "@/components/vera-forecast";
+import { VeraSetupGuide } from "@/components/vera-setup-guide";
 
 // ── Role-based access ─────────────────────────────────────────────────────────
 
@@ -159,6 +160,9 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
             <button onClick={() => load(true)} className="underline font-medium">Try again</button>.
           </div>
         )}
+
+        {/* Vera first-run setup guide — managers only, hides once complete */}
+        {isManager && <VeraSetupGuide />}
 
         {/* Vera — managers only */}
         {isManager && <VeraPanel />}
