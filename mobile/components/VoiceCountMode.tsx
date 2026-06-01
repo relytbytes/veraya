@@ -15,13 +15,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
-import { patchInventoryItem } from "@/lib/api";
+import { patchInventoryItem, parseSpokenCount } from "@/lib/api";
 import type { InventoryItem, StorageArea } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 
 // ─── Speech module lazy-load ──────────────────────────────────────────────────
 
-type SpeechResultEvent = { results?: { transcript: string }[] };
+type SpeechResultEvent = { results?: { transcript: string }[]; isFinal?: boolean };
 type Subscription = { remove: () => void };
 type SpeechModule = {
   requestPermissionsAsync: () => Promise<{ granted: boolean }>;
@@ -146,6 +146,7 @@ export function VoiceCountMode({ visible, areas, inventory, onClose, onComplete 
   const phaseRef = useRef<Phase>("areaSelect");
   const visibleRef = useRef(false);
   const pendingValueRef = useRef<string | null>(null);
+  const aiBusyRef = useRef(false);
   const isStartingRef = useRef(false);   // guard against concurrent start calls
   const isRunningRef  = useRef(false);   // true while a native session is active
   const permGrantedRef = useRef(false);  // cache permission so we only ask once
@@ -278,6 +279,19 @@ export function VoiceCountMode({ visible, areas, inventory, onClose, onComplete 
     const transcript = e.results?.[0]?.transcript ?? "";
     if (!transcript) return;
     const val = parseSpoken(transcript);
+    if (val === null) {
+      // Fuzzy phrase the regex can't handle ("a case and a half", "two dozen").
+      // Let Vera interpret it — only on a final result, one call at a time, and
+      // only while we're still waiting on this item.
+      if (e.isFinal && current && pendingValueRef.current === null && !aiBusyRef.current) {
+        aiBusyRef.current = true;
+        parseSpokenCount(transcript, [{ id: current.item.id, name: current.item.ingredient.name, unit: current.item.ingredient.unit }])
+          .then((res) => { const q = res.results[0]?.quantity; if (q != null && pendingValueRef.current === null) setPendingValue(String(q)); })
+          .catch(() => { /* ignore — user can speak again */ })
+          .finally(() => { aiBusyRef.current = false; });
+      }
+      return;
+    }
     if (val !== null) {
       // Keep the mic open — don't stop here. This lets the user finish saying
       // "fifty point three": we hear "fifty" first (→ pending "50", countdown

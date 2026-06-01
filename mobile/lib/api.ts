@@ -514,6 +514,13 @@ export interface ExtractedInvoice {
 export const extractInvoice = (image: string) =>
   request<ExtractedInvoice>("/api/invoices/extract", { method: "POST", body: JSON.stringify({ image }) });
 
+// AI parse of a spoken inventory count, grounded to candidate items.
+export const parseSpokenCount = (transcript: string, items: { id: string; name: string; unit: string }[]) =>
+  request<{ results: { ingredientId: string; name: string; quantity: number; unit: string }[]; aiPowered: boolean }>(
+    "/api/inventory/parse-count",
+    { method: "POST", body: JSON.stringify({ transcript, items }) },
+  );
+
 export const barcodeLookupIngredient = (barcode: string) =>
   request<{
     barcode: string;
