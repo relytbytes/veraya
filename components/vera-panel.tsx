@@ -8,6 +8,7 @@ import {
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 import { VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
 
@@ -33,6 +34,7 @@ interface Prediction {
   estimatedRunsOut: string | null;
   severity: "out" | "critical" | "warn" | "ok";
   affectedMenuItems: string[];
+  affected?: { id: string; name: string }[];
   hoursUntilMin: number | null;
 }
 
@@ -95,6 +97,7 @@ export function VeraPanel() {
   const [error, setError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -146,6 +149,7 @@ export function VeraPanel() {
         }
       })
       .catch(() => { /* supplementary — ignore */ });
+    return () => { alive = false; };
   }, []);
 
   // Anomalies Vera "caught" (price creep, comp/void outliers). Best-effort.
@@ -157,7 +161,30 @@ export function VeraPanel() {
         if (alive && d?.anomalies) setAnomalies(d.anomalies);
       })
       .catch(() => { /* supplementary — ignore */ });
+    return () => { alive = false; };
   }, []);
+
+  // One-tap 86: pull every menu item that depends on the at-risk ingredient.
+  async function eighty6(p: Prediction) {
+    const items = p.affected ?? [];
+    if (!items.length) return;
+    setBusy86(p.name);
+    try {
+      await Promise.all(items.map((a) =>
+        fetch("/api/eightysix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ menuItemId: a.id, reason: `Vera: ${p.name} running low` }),
+        }),
+      ));
+      toast.success(`86'd ${items.map((a) => a.name).join(", ")}`);
+      setPredictions((prev) => prev.filter((x) => x.name !== p.name));
+    } catch {
+      toast.error("Couldn't 86 those items. Try again.");
+    } finally {
+      setBusy86(null);
+    }
+  }
 
   function runsOutLabel(p: Prediction): string {
     if (p.severity === "out") return "out now";
@@ -347,6 +374,16 @@ export function VeraPanel() {
                       <span className="text-gray-500"> · 86s {p.affectedMenuItems.slice(0, 2).join(", ")}{p.affectedMenuItems.length > 2 ? ` +${p.affectedMenuItems.length - 2}` : ""}</span>
                     )}
                   </span>
+                  {p.affected && p.affected.length > 0 && (
+                    <button
+                      onClick={() => eighty6(p)}
+                      disabled={busy86 === p.name}
+                      title={`86 ${p.affected.map((a) => a.name).join(", ")}`}
+                      className="shrink-0 rounded-md bg-gray-900 px-2 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      {busy86 === p.name ? "…" : "86"}
+                    </button>
+                  )}
                 </div>
               );
             })}

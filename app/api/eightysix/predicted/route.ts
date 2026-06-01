@@ -127,6 +127,7 @@ export async function GET() {
     estimatedRunsOut: string | null; // ISO time string
     severity: "out" | "critical" | "warn" | "ok";
     affectedMenuItems: string[];
+    affected: { id: string; name: string }[];
     consumedToday: number;
   }[] = [];
 
@@ -149,16 +150,16 @@ export async function GET() {
 
     if (severity === "ok") continue; // Only report items at risk
 
-    // Find which menu items use this ingredient
-    const affectedMenuItems: string[] = [];
+    // Find which menu items use this ingredient (id + name, deduped)
+    const affectedMap = new Map<string, string>();
     for (const order of todayOrders) {
       for (const oi of order.items) {
         if (oi.menuItem.recipe.some(r => r.ingredient.id === id)) {
-          const name = oi.menuItem.name;
-          if (!affectedMenuItems.includes(name)) affectedMenuItems.push(name);
+          affectedMap.set(oi.menuItem.id, oi.menuItem.name);
         }
       }
     }
+    const affected = [...affectedMap].map(([mid, name]) => ({ id: mid, name }));
 
     predictions.push({
       ingredientId: id,
@@ -169,7 +170,8 @@ export async function GET() {
       hoursUntilMin: Number(hoursUntilMin.toFixed(2)),
       estimatedRunsOut,
       severity,
-      affectedMenuItems,
+      affectedMenuItems: affected.map((a) => a.name),
+      affected,
       consumedToday: consumedToday.get(id) ?? 0,
     });
   }
