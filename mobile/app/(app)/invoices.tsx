@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getPurchaseOrders, getPurchaseOrder, patchPurchaseOrder, deletePurchaseOrder,
-  getSuppliers, getIngredients, createPurchaseOrder, createIngredient, visionIdentify,
+  getSuppliers, getIngredients, createPurchaseOrder, createIngredient, visionIdentify, extractInvoice,
 } from "@/lib/api";
 import type { PurchaseOrder, Supplier, IngredientFull, VisionResult } from "@/lib/api";
 import { generatePOInvoicePDF, sharePDF } from "@/lib/invoice";
@@ -56,6 +56,7 @@ export default function InvoicesScreen() {
   const [createNotes, setCreateNotes] = useState("");
   const [invoicePhoto, setInvoicePhoto] = useState<string | null>(null);
   const [invoiceCameraOpen, setInvoiceCameraOpen] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [supplierModal, setSupplierModal] = useState(false);
   const [addItemModal, setAddItemModal] = useState(false);
@@ -291,6 +292,37 @@ export default function InvoicesScreen() {
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : "AI identification failed");
       setAddItemMode("search");
+    }
+  }
+
+  // Full invoice extraction → prefill supplier, invoice #, and line items.
+  async function extractInvoiceLines() {
+    if (!invoicePhoto) return;
+    setExtracting(true);
+    try {
+      const res = await extractInvoice(invoicePhoto);
+      if (res.matchedSupplierId && !createSupplier) {
+        const s = suppliers.find((x) => x.id === res.matchedSupplierId);
+        if (s) setCreateSupplier(s);
+      }
+      if (res.invoiceNumber && !createInvoiceNum.trim()) setCreateInvoiceNum(res.invoiceNumber);
+      const added: DraftItem[] = [];
+      for (const l of res.lines) {
+        if (!l.matchedIngredientId || l.quantity == null) continue;
+        const ing = ingredients.find((i) => i.id === l.matchedIngredientId);
+        if (!ing) continue;
+        added.push({ ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: l.quantity, unitCost: l.unitCost ?? 0 });
+      }
+      if (added.length) setDraftItems((prev) => [...prev, ...added]);
+      const needsReview = res.lines.length - added.length;
+      const parts = [`Added ${added.length} matched item${added.length === 1 ? "" : "s"}.`];
+      if (needsReview > 0) parts.push(`${needsReview} line${needsReview === 1 ? "" : "s"} need manual matching — add them by search.`);
+      if (res.totalsMatch === false && res.total != null) parts.push(`Heads up: line totals ($${res.computedTotal}) don't match the invoice total ($${res.total}).`);
+      Alert.alert("Vera read the invoice", parts.join("\n\n"));
+    } catch (e) {
+      Alert.alert("Couldn't read invoice", (e as Error).message ?? "Try a clearer, straight-on photo.");
+    } finally {
+      setExtracting(false);
     }
   }
 
@@ -921,6 +953,15 @@ export default function InvoicesScreen() {
             {invoicePhoto ? (
               <View className="rounded-2xl overflow-hidden border border-gray-200">
                 <Image source={{ uri: invoicePhoto }} className="w-full h-48" resizeMode="cover" />
+                <TouchableOpacity
+                  onPress={extractInvoiceLines}
+                  disabled={extracting}
+                  className="flex-row items-center justify-center gap-2 py-3.5 border-t border-gray-200"
+                  style={{ backgroundColor: C.pearl, opacity: extracting ? 0.6 : 1 }}
+                >
+                  <Ionicons name="sparkles" size={16} color={C.gold} />
+                  <Text className="text-sm font-bold text-white">{extracting ? "Reading invoice…" : "Extract line items with Vera"}</Text>
+                </TouchableOpacity>
                 <View className="flex-row">
                   <TouchableOpacity
                     onPress={() => setInvoiceCameraOpen(true)}

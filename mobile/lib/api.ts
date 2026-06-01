@@ -487,6 +487,33 @@ export const importIngredientsFromPhoto = (image: string) =>
     { method: "POST", body: JSON.stringify({ image }) }
   );
 
+// Full supplier-invoice extraction (vendor + line items + totals validation).
+export interface ExtractedInvoiceLine {
+  description: string;
+  quantity: number | null;
+  unit: string | null;
+  unitCost: number | null;
+  lineTotal: number | null;
+  matchedIngredientId: string | null;
+  matchedIngredientName: string | null;
+}
+export interface ExtractedInvoice {
+  vendor: string | null;
+  matchedSupplierId: string | null;
+  matchedSupplierName: string | null;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  lines: ExtractedInvoiceLine[];
+  matchedCount: number;
+  subtotal: number | null;
+  tax: number | null;
+  total: number | null;
+  computedTotal: number;
+  totalsMatch: boolean | null;
+}
+export const extractInvoice = (image: string) =>
+  request<ExtractedInvoice>("/api/invoices/extract", { method: "POST", body: JSON.stringify({ image }) });
+
 export const barcodeLookupIngredient = (barcode: string) =>
   request<{
     barcode: string;
