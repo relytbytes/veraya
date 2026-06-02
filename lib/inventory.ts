@@ -34,7 +34,8 @@ export async function depleteForFiredItems(
       }
     }
     const deductions = [...byIngredient.entries()]
-      .map(([ingredientId, qty]) => ({ ingredientId, qty }))
+      // Round to 4 dp so stock doesn't accumulate float artifacts (…9999999).
+      .map(([ingredientId, qty]) => ({ ingredientId, qty: Math.round(qty * 10000) / 10000 }))
       .filter((d) => d.qty > 0);
     if (!deductions.length) return;
 

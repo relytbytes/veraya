@@ -68,6 +68,12 @@ const TRANSACTION_TYPES = [
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Inventory quantities accrue float artifacts from recipe-based depletion
+// (e.g. 21.0937499…). Show a clean number: round to 2 dp, drop trailing zeros.
+function fmtQty(n: number): string {
+  return String(Math.round(n * 100) / 100);
+}
+
 export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -412,7 +418,7 @@ export default function InventoryPage() {
                         <TableCell><span className="text-sm text-gray-500">{item.ingredient.supplier?.name ?? "—"}</span></TableCell>
                         <TableCell className="text-right">
                           <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-warning-600" : "text-gray-900"}`}>
-                            {qty} {item.ingredient.unit}
+                            {fmtQty(qty)} {item.ingredient.unit}
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-gray-500">{min} {item.ingredient.unit}</TableCell>
@@ -443,7 +449,7 @@ export default function InventoryPage() {
           <div className="space-y-4">
             <div className="bg-gray-50 rounded-md p-3 text-sm">
               <p className="text-gray-500">Current Stock</p>
-              <p className="text-lg font-bold">{Number(adjItem?.quantity ?? 0)} {adjItem?.ingredient.unit}</p>
+              <p className="text-lg font-bold">{fmtQty(Number(adjItem?.quantity ?? 0))} {adjItem?.ingredient.unit}</p>
             </div>
             <div className="space-y-1.5">
               <Label>Transaction Type *</Label>
