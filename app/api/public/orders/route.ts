@@ -2,11 +2,17 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-04-22.dahlia",
-});
+// Lazily create the Stripe client so a missing key never crashes module load
+// (online ordering is optional; it degrades to a clean 503 when unconfigured).
+function getStripe(): Stripe | null {
+  const key = process.env.STRIPE_SECRET_KEY;
+  return key ? new Stripe(key, { apiVersion: "2026-04-22.dahlia" }) : null;
+}
 
 export async function POST(req: NextRequest) {
+  const stripe = getStripe();
+  if (!stripe) return Response.json({ error: "Online payments are not configured." }, { status: 503 });
+
   const body = await req.json();
   const { guestName, guestPhone, items, notes } = body as {
     guestName: string;
