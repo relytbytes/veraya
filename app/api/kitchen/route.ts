@@ -126,44 +126,9 @@ export async function PATCH(req: NextRequest) {
       }),
     ]);
 
-    // Deplete inventory for this specific item at fire time
-    try {
-      const orderItem = await prisma.orderItem.findUnique({
-        where: { id: orderItemId },
-        select: { menuItemId: true, quantity: true, orderId: true },
-      });
-      if (orderItem) {
-        const recipe = await prisma.recipeIngredient.findMany({
-          where: { menuItemId: orderItem.menuItemId },
-        });
-        if (recipe.length > 0) {
-          const deductions = recipe.map((r) => ({
-            ingredientId: r.ingredientId,
-            qty: Number(r.quantity) * orderItem.quantity,
-          }));
-          await prisma.$transaction([
-            ...deductions.map(({ ingredientId, qty }) =>
-              prisma.inventoryItem.updateMany({
-                where: { ingredientId },
-                data: { quantity: { decrement: qty } },
-              })
-            ),
-            ...deductions.map(({ ingredientId, qty }) =>
-              prisma.inventoryTransaction.create({
-                data: {
-                  ingredientId,
-                  quantity: -qty,
-                  type: "USED",
-                  notes: `Fired — Order #${orderItem.orderId.slice(-6).toUpperCase()}`,
-                  userId: session.user?.id ?? null,
-                },
-              })
-            ),
-          ]);
-        }
-      }
-    } catch { /* non-fatal */ }
-
+    // Inventory depletion happens at POS fire time (see lib/inventory.ts,
+    // wired into /api/orders create + fire-held + add-items), so it is NOT
+    // repeated here — this KDS "send" only acknowledges the ticket.
     emit({ type: "item.fired", orderId, orderItemId });
   }
 

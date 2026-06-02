@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
+import { depleteForFiredItems } from "@/lib/inventory";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -121,6 +122,13 @@ export async function POST(req: NextRequest) {
         payments: true,
       },
     });
+
+    // Deplete ingredient inventory for everything fired now (held items deplete
+    // later, when they're actually fired).
+    await depleteForFiredItems(
+      order.items.filter((i) => i.firedAt).map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+      { orderId: order.id, userId: validUserId },
+    );
 
     // Decrement countRemaining for tracked items — best-effort, non-blocking.
     for (const i of items) {

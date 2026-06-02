@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
+import { depleteForFiredItems } from "@/lib/inventory";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -169,6 +170,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id: { in: fireItemIds }, orderId: id },
       data: { heldForFire: false, firedAt: new Date() }, // stamps a new fire round on the KDS
     });
+    // Deplete ingredient inventory for the items just fired.
+    const justFired = await prisma.orderItem.findMany({
+      where: { id: { in: fireItemIds }, orderId: id },
+      select: { menuItemId: true, quantity: true },
+    });
+    await depleteForFiredItems(justFired, { orderId: id, userId: session.user?.id ?? null });
     // If the check was already bumped to READY, late-fired items would be
     // filtered off the KDS (only OPEN/IN_PROGRESS show) — reopen it so they appear.
     const current = await prisma.order.findUnique({ where: { id }, select: { status: true } });
@@ -306,6 +313,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } catch { /* non-fatal */ }
     }
     await recalcTotals(id);
+    // Deplete ingredient inventory for the non-held items just fired.
+    await depleteForFiredItems(
+      addItems.filter((i) => !(i.held ?? false)).map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })),
+      { orderId: id, userId: session.user?.id ?? null },
+    );
     // Auto-advance table service stage for any non-held items just added
     if (addItems.some(i => !(i.held ?? false))) {
       await autoAdvanceTableStage();
