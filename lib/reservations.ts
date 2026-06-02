@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/app/generated/prisma/client";
+import { toMinutes, isTableBlockedAt, type TableBlock } from "@/lib/table-blocks";
+
+export { toMinutes, isTableBlockedAt, type TableBlock };
 
 /**
  * Single source of truth for reservation availability + booking.
@@ -31,10 +34,6 @@ const DEFAULT_SLOTS = [
 
 // ── Time helpers ────────────────────────────────────────────────────────────
 
-export function toMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
 
 export function fromMinutes(mins: number): string {
   const h = Math.floor(mins / 60);
@@ -48,32 +47,6 @@ export function timesOverlap(a: string, b: string, durationMins = SLOT_DURATION_
 }
 
 // ── Table blocks (stored as JSON in RestaurantSettings) ─────────────────────
-
-export interface TableBlock {
-  id: string;
-  tableIds: string[];
-  startDate: string;
-  endDate: string;
-  startTime: string;
-  endTime: string;
-  reason: string;
-  allDay: boolean;
-}
-
-export function isTableBlockedAt(
-  tableId: string,
-  date: string,
-  time: string,
-  blocks: TableBlock[],
-): boolean {
-  const resMins = toMinutes(time);
-  return blocks.some((block) => {
-    if (!block.tableIds.includes(tableId)) return false;
-    if (date < block.startDate || date > block.endDate) return false;
-    if (block.allDay) return true;
-    return resMins >= toMinutes(block.startTime) && resMins < toMinutes(block.endTime);
-  });
-}
 
 function parseTableBlocks(value: string | null | undefined): TableBlock[] {
   if (!value) return [];

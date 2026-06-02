@@ -310,7 +310,7 @@ export function nextReservationForTable(tableId: string, reservations: Reservati
 
 // ── Table state derivation (the floor color/parity core) ────────────────────
 
-export type TableState = "OPEN" | "UPCOMING" | "SEATED" | "DINING" | "CHECK" | "BUSSING";
+export type TableState = "OPEN" | "UPCOMING" | "SEATED" | "DINING" | "CHECK" | "BUSSING" | "BLOCKED";
 
 export interface TableVisual {
   state: TableState;
@@ -344,6 +344,7 @@ const STATE_STYLE: Record<TableState, { cls: string; style: { background: string
   DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0C1A1E"   }, label: "Dining" },
   CHECK:    { cls: "", style: { background: BRAND.sky,       borderColor: BRAND.sky,        color: "#FFFFFF"   }, label: "Check" },
   BUSSING:  { cls: "", style: { background: BRAND.coral,     borderColor: BRAND.coral,      color: "#FFFFFF"   }, label: "Bussing" },
+  BLOCKED:  { cls: "", style: { background: "#334155",       borderColor: "#475569",        color: "#CBD5E1"   }, label: "Blocked" },
 };
 
 // Short, precise course-stage labels for the floor chip + panel, so every

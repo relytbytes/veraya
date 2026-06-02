@@ -20,6 +20,11 @@ import { GuestEditDialog } from "./components/guest-edit-dialog";
 import type { CustomerProfile } from "./host-utils";
 import { useRealtime } from "@/lib/use-realtime";
 import { toast } from "@/components/ui/toast";
+import { blockedTableIds, type TableBlock } from "@/lib/table-blocks";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type SeatMode =
   | { kind: "reservation"; reservation: Reservation }
@@ -46,6 +51,9 @@ export function HostClient() {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [cardPolicy, setCardPolicy] = useState<CardPolicy | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [blocks, setBlocks] = useState<TableBlock[]>([]);
+  const [blockTarget, setBlockTarget] = useState<TableRow | null>(null);
+  const [blockReason, setBlockReason] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -85,9 +93,37 @@ export function HostClient() {
       const s: Record<string, string> = await settingsRes.json();
       if (s.floorPlanObjects) { try { setFloorObjects(JSON.parse(s.floorPlanObjects)); } catch {} }
       if (s.reservationCardPolicy) { try { setCardPolicy(JSON.parse(s.reservationCardPolicy)); } catch {} }
+      if (s.tableBlocks) { try { setBlocks(JSON.parse(s.tableBlocks) as TableBlock[]); } catch {} } else { setBlocks([]); }
     }
     setLoading(false);
   }, []);
+
+  // Persist the table-block list and refresh the floor.
+  async function writeBlocks(updated: TableBlock[]) {
+    setBlocks(updated);
+    await api("/api/settings", { tableBlocks: JSON.stringify(updated) }, "PATCH");
+  }
+
+  async function blockTable(table: TableRow, reason: string) {
+    const block: TableBlock = {
+      id: (globalThis.crypto?.randomUUID?.() ?? `blk_${Date.now()}`),
+      tableIds: [table.id], startDate: date, endDate: date,
+      startTime: "00:00", endTime: "23:59", reason: reason.trim() || "Out of service", allDay: true,
+    };
+    await writeBlocks([...blocks, block]);
+    toast.success(`Table ${table.number} blocked`);
+  }
+
+  async function unblockTable(table: TableRow) {
+    // Drop this table from any block covering the selected date; remove empties.
+    const updated = blocks
+      .map((b) => (b.tableIds.includes(table.id) && date >= b.startDate && date <= b.endDate
+        ? { ...b, tableIds: b.tableIds.filter((id) => id !== table.id) }
+        : b))
+      .filter((b) => b.tableIds.length > 0);
+    await writeBlocks(updated);
+    toast.success(`Table ${table.number} unblocked`);
+  }
 
   useEffect(() => { loadAll(date); }, [date, loadAll]);
   // Live updates drive freshness; polling is just a safety net now.
@@ -100,6 +136,8 @@ export function HostClient() {
 
   const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
   const choosing = !!seatMode || !!moveFromId || !!combinePrimaryId;
+  const blockedIds = blockedTableIds(date, new Date().toTimeString().slice(0, 5), blocks);
+  const selectedBlocked = selectedTable ? blockedIds.has(selectedTable.id) : false;
 
   // ── API helpers ─────────────────────────────────────────────────────────────
   async function api(url: string, body: object, method = "PATCH") {
@@ -483,6 +521,7 @@ export function HostClient() {
               seatMode={!!seatMode} seatPartySize={seatPartySize}
               moveMode={!!moveFromId}
               combinePrimaryId={combinePrimaryId} combineSet={combineSet}
+              blockedIds={blockedIds}
               onTableClick={handleTableClick}
               onDropOnTable={handleDropOnTable}
             />
@@ -512,6 +551,9 @@ export function HostClient() {
             onStartCombine={startCombine}
             onSplit={splitCombine}
             onEditGuest={setEditGuest}
+            isBlocked={selectedBlocked}
+            onBlock={() => { setBlockReason(""); setBlockTarget(selectedTable); }}
+            onUnblock={() => unblockTable(selectedTable)}
           />
         )}
       </div>
@@ -530,6 +572,39 @@ export function HostClient() {
         onClose={() => setEditGuest(null)}
         onSaved={() => { toast.success("Guest updated"); loadAll(date); }}
       />
+
+      {/* Block table (today) */}
+      <Dialog open={blockTarget !== null} onOpenChange={(o) => { if (!o) setBlockTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Block Table {blockTarget?.number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              Takes this table out of service for {date === toISO(new Date()) ? "today" : date}. It won&apos;t be bookable or seatable until you unblock it.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Reason</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {["Out of service", "Broken/repair", "Reserved setup", "Deep clean", "Private use"].map((r) => (
+                  <button key={r} type="button" onClick={() => setBlockReason(r)}
+                    className={cn("rounded-full border px-2.5 py-1 text-xs font-medium",
+                      blockReason === r ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:border-amber-400")}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <Input placeholder="Reason (optional)" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockTarget(null)}>Cancel</Button>
+            <Button onClick={async () => { const t = blockTarget!; setBlockTarget(null); await blockTable(t, blockReason); }}>
+              Block Table
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

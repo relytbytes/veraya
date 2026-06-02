@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { X, Clock, Users, ArrowRightLeft, CheckCircle2, Loader2, Armchair, Trash2, UserPlus, Link2, Unlink, ClipboardList } from "lucide-react";
+import { X, Clock, Users, ArrowRightLeft, CheckCircle2, Loader2, Armchair, Trash2, UserPlus, Link2, Unlink, ClipboardList, Ban } from "lucide-react";
 import {
   type TableRow, type Reservation, type StaffMember, type CustomerProfile, BRAND,
   SERVICE_STAGES, STAGE_LABELS, deriveTableState, nextReservationForTable,
@@ -16,6 +16,7 @@ export function TablePanel({
   onClose, onSetStage, onBussing, onFinish, onMarkClean,
   onSeatReservation, onStartMove, onSeatWalkInHere, onAssignServer,
   onStartCombine, onSplit, onEditGuest,
+  isBlocked, onBlock, onUnblock,
 }: {
   table: TableRow;
   reservations: Reservation[];
@@ -35,6 +36,9 @@ export function TablePanel({
   onStartCombine: () => void;
   onSplit: () => void;
   onEditGuest: (c: CustomerProfile) => void;
+  isBlocked: boolean;
+  onBlock: () => void;
+  onUnblock: () => void;
 }) {
   const router = useRouter();
   const linked = linkedTablesOf(table.id, tables);
@@ -199,11 +203,28 @@ export function TablePanel({
           </button>
         )}
 
-        {!occupied && !dirty && (
-          <button disabled={busy} onClick={onSeatWalkInHere}
-            className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-lg disabled:opacity-50">
-            <UserPlus className="h-4 w-4" /> Seat walk-in here
-          </button>
+        {!occupied && !dirty && isBlocked && (
+          <div className="rounded-xl border border-gray-700 bg-white/5 p-3 space-y-2">
+            <p className="text-sm font-semibold text-gray-300">Blocked — out of service</p>
+            <button disabled={busy} onClick={onUnblock}
+              className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold text-white py-2 rounded-lg disabled:opacity-50"
+              style={{ background: BRAND.jade }}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Unblock table
+            </button>
+          </div>
+        )}
+
+        {!occupied && !dirty && !isBlocked && (
+          <>
+            <button disabled={busy} onClick={onSeatWalkInHere}
+              className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white py-2.5 rounded-lg disabled:opacity-50">
+              <UserPlus className="h-4 w-4" /> Seat walk-in here
+            </button>
+            <button disabled={busy} onClick={onBlock}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 py-2 rounded-lg disabled:opacity-50">
+              <Ban className="h-3.5 w-3.5" /> Block table (out of service)
+            </button>
+          </>
         )}
 
         {next && (

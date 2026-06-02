@@ -27,6 +27,7 @@ export function FloorCanvas({
   moveMode,
   combinePrimaryId,
   combineSet,
+  blockedIds,
   onTableClick,
   onDropOnTable,
 }: {
@@ -40,6 +41,7 @@ export function FloorCanvas({
   moveMode: boolean;
   combinePrimaryId: string | null;
   combineSet: string[];
+  blockedIds: Set<string>;
   onTableClick: (t: TableRow) => void;
   onDropOnTable: (payload: { kind: string; id?: string; fromId?: string; partySize?: number }, table: TableRow) => void;
 }) {
@@ -68,6 +70,8 @@ export function FloorCanvas({
   const choosing = seatMode || moveMode || combining;
 
   function visualFor(t: TableRow) {
+    // A blocked, currently-empty table reads as out of service.
+    if (blockedIds.has(t.id) && t.status !== "OCCUPIED") return stateStyle("BLOCKED");
     const vis = deriveTableState(t);
     // Upgrade OPEN→UPCOMING styling when a reservation is assigned.
     if (vis.state === "OPEN" && t.status !== "OCCUPIED" && t.status !== "DIRTY"
@@ -152,8 +156,9 @@ export function FloorCanvas({
   function tableClasses(t: TableRow) {
     let eligible = false;
     let combineSelected = false;
-    if (seatMode) eligible = isEligibleForSeating(t, seatPartySize, tables);
-    else if (moveMode) eligible = isEligibleForSeating(t, 1, tables);
+    const blocked = blockedIds.has(t.id);
+    if (seatMode) eligible = !blocked && isEligibleForSeating(t, seatPartySize, tables);
+    else if (moveMode) eligible = !blocked && isEligibleForSeating(t, 1, tables);
     else if (combining) {
       const isTarget = t.id !== combinePrimaryId && !t.primaryTableId
         && t.status !== "OCCUPIED" && t.status !== "DIRTY";
