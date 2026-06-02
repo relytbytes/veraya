@@ -479,10 +479,19 @@ export default function POSScreen() {
     setScannerOpen(false);
     try {
       const result = await barcodeSearch(barcode);
-      if (result.menuItem) {
-        addItem({ menuItemId: result.menuItem.id, name: result.menuItem.name, price: Number(result.menuItem.price) });
+      // The lookup resolves a product/ingredient name; match it to the menu.
+      const productName = result.local?.name ?? result.external?.name ?? null;
+      const needle = productName?.toLowerCase();
+      const match = needle
+        ? menuItems.find((m) => m.name.toLowerCase() === needle)
+          ?? menuItems.find((m) => m.name.toLowerCase().includes(needle))
+        : null;
+      if (match) {
+        addItem({ menuItemId: match.id, name: match.name, price: Number(match.price) });
+      } else if (productName) {
+        Alert.alert("No menu match", `Scanned "${productName}" but no menu item matches it.`);
       } else {
-        Alert.alert("Not found", `No menu item matched barcode ${barcode}`);
+        Alert.alert("Not found", `No product matched barcode ${barcode}.`);
       }
     } catch {
       Alert.alert("Error", "Could not look up barcode.");

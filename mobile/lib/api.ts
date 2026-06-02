@@ -93,7 +93,15 @@ export const kitchenAction = (body: object) =>
 export const getCategories = () => request<Category[]>("/api/categories");
 export const getMenuItems = <T = MenuItem>() => request<T[]>("/api/menu");
 export const barcodeSearch = (barcode: string) =>
-  request<{ menuItem?: MenuItem; ingredient?: Ingredient }>(`/api/barcode-lookup?barcode=${barcode}`);
+  request<{
+    barcode: string;
+    valid?: boolean;
+    local: Ingredient | null;
+    external: { name: string; brand: string | null; category: string | null; quantity: string | null } | null;
+    source?: string | null;
+    suggestions: Ingredient[];
+    aiFallback?: boolean;
+  }>(`/api/barcode-lookup?barcode=${encodeURIComponent(barcode)}`);
 
 // Inventory
 export const getInventory = () =>

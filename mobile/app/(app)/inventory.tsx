@@ -64,15 +64,24 @@ export default function InventoryScreen() {
     setScannerOpen(false);
     try {
       const result = await barcodeSearch(barcode);
-      if (result.ingredient) {
-        const inv = inventory.find((i) => i.ingredient.id === result.ingredient!.id);
+      // A barcode already attached to one of our ingredients (local), else the
+      // closest existing match the lookup suggested.
+      const match = result.local ?? result.suggestions?.[0] ?? null;
+      if (match) {
+        const inv = inventory.find((i) => i.ingredient.id === match.id);
         setScanResult({
-          name: result.ingredient.name,
+          name: match.name,
           qty: inv ? Number(inv.quantity) : 0,
-          unit: result.ingredient.unit,
+          unit: match.unit,
         });
+      } else if (result.external) {
+        // Recognized product, but it isn't in this inventory yet.
+        Alert.alert(
+          "Not in inventory",
+          `"${result.external.name}" isn't in your inventory yet. Use Import Ingredients to add it.`,
+        );
       } else {
-        Alert.alert("Not found", `No ingredient matched barcode ${barcode}`);
+        Alert.alert("Not found", `No product matched barcode ${barcode}.`);
       }
     } catch {
       Alert.alert("Error", "Could not look up barcode.");

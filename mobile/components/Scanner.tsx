@@ -15,6 +15,10 @@ export function Scanner({ onScan, onClose, hint = "Align barcode in the frame" }
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const cooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Synchronous lock — the camera fires several onBarcodeScanned events in one
+  // frame batch before the `scanned` state flips, which would fire onScan (and
+  // its lookup) multiple times for a single physical scan.
+  const lock = useRef(false);
 
   useEffect(() => {
     Camera.requestCameraPermissionsAsync().then(({ status }) => {
@@ -24,11 +28,12 @@ export function Scanner({ onScan, onClose, hint = "Align barcode in the frame" }
   }, []);
 
   function handleBarcode({ data }: BarcodeScanningResult) {
-    if (scanned) return;
+    if (lock.current) return;
+    lock.current = true;
     setScanned(true);
     onScan(data);
     // Allow rescan after 2s
-    cooldown.current = setTimeout(() => setScanned(false), 2000);
+    cooldown.current = setTimeout(() => { lock.current = false; setScanned(false); }, 2000);
   }
 
   if (hasPermission === null) {
