@@ -234,6 +234,8 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [taxRate, setTaxRate] = useState(0.0875);
+  const [receiptName, setReceiptName] = useState("");
+  const [receiptFooter, setReceiptFooter] = useState("");
 
   // Takeout payment dialog
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -347,6 +349,8 @@ export default function POSPage() {
         if (settingsRes.ok) {
           const s = await settingsRes.json();
           if (s.taxRate) setTaxRate(Number(s.taxRate) / 100);
+          if (s.restaurantName) setReceiptName(String(s.restaurantName));
+          if (s.receiptFooter) setReceiptFooter(String(s.receiptFooter));
           if (s.floorPlanObjects) {
             try { setFloorObjects(JSON.parse(s.floorPlanObjects)); } catch { /* ignore */ }
           }
@@ -1800,7 +1804,7 @@ export default function POSPage() {
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <DialogFooter>
             {recallOrder?.status === "COMPLETED" ? (
               <Button variant="destructive" onClick={voidOrder} disabled={voiding}>
                 {voiding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} Void Order
@@ -1936,7 +1940,7 @@ export default function POSPage() {
               {/* Receipt Preview */}
               <div ref={receiptRef} className="border border-dashed border-gray-300 rounded-lg p-4 font-mono text-xs">
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontWeight: "bold", fontSize: "15px" }}>RECEIPT</p>
+                  <p style={{ fontWeight: "bold", fontSize: "15px" }}>{receiptName || "RECEIPT"}</p>
                   <p>{new Date().toLocaleString()}</p>
                   {completedOrder.tableNumber && <p>Table {completedOrder.tableNumber}</p>}
                   <p>{completedOrder.type === "TAKEOUT" ? "TAKEOUT" : "DINE IN"}</p>
@@ -1968,7 +1972,7 @@ export default function POSPage() {
                   {completedOrder.change > 0 && <span>Change: {formatCurrency(completedOrder.change)}</span>}
                 </div>
                 <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
-                <p style={{ textAlign: "center" }}>Thank you!</p>
+                <p style={{ textAlign: "center", whiteSpace: "pre-line" }}>{receiptFooter || "Thank you!"}</p>
               </div>
             </>
           )}
