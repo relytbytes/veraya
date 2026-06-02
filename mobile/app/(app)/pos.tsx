@@ -15,6 +15,7 @@ import {
   getStaff, searchCustomers, createCustomer, getLoyalty, loyaltyAction,
   getModifiers,
 } from "@/lib/api";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { Table, Order, WaitlistEntry, Reservation, StaffMember, Customer, MenuItem, Modifier } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import { Scanner } from "@/components/Scanner";
@@ -165,9 +166,10 @@ export default function POSScreen() {
     enabled: !!checkCustomer,
   });
 
-  const { data: tables = [], refetch: refetchTables, isRefetching } = useQuery({
+  const { data: tables = [], refetch: refetchTables } = useQuery({
     queryKey: ["tables"], queryFn: getTables, refetchInterval: 30_000, // fallback; SSE drives live updates
   });
+  const { refreshing, run } = useManualRefresh();
   const { data: openOrders = [] } = useQuery({
     queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 30_000, // fallback; SSE drives live updates
   });
@@ -1412,8 +1414,8 @@ export default function POSScreen() {
               else { setHostStandVisible(false); openTable(t); }
             }}
             onLayoutSaved={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["tables"] }); }}
-            onRefresh={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); }}
-            isRefreshing={isRefetching}
+            onRefresh={() => run(() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); })}
+            isRefreshing={refreshing}
             todayReservations={todayReservations}
             waitingList={waitingList}
             onAddWalkIn={() => { setWalkInName(""); setWalkInPhone(""); setWalkInParty("2"); setWalkInServerId(""); setSeatModal(availableTables[0] ?? null); }}
@@ -1501,7 +1503,7 @@ export default function POSScreen() {
               </View>
             </View>
 
-            <ScrollView scrollEnabled={!canvasEditing} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); }} tintColor={C.gold} />}>
+            <ScrollView scrollEnabled={!canvasEditing} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); })} tintColor={C.gold} />}>
               {floorView === "grid" ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, padding: 16 }}>
                   {[...tables].sort((a, b) => a.number - b.number).map((t) => {
@@ -1809,8 +1811,8 @@ export default function POSScreen() {
             else { setHostStandVisible(false); openTable(t); }
           }}
           onLayoutSaved={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["tables"] }); }}
-          onRefresh={() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); }}
-          isRefreshing={isRefetching}
+          onRefresh={() => run(() => { refetchTables(); qc.invalidateQueries({ queryKey: ["waitlist"] }); qc.invalidateQueries({ queryKey: ["reservations", today] }); })}
+          isRefreshing={refreshing}
           todayReservations={todayReservations}
           waitingList={waitingList}
           onAddWalkIn={() => { setWalkInName(""); setWalkInPhone(""); setWalkInParty("2"); setWalkInServerId(""); setSeatModal(tables.find(t => t.status === "AVAILABLE") ?? null); }}
@@ -1845,7 +1847,7 @@ export default function POSScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        <ScrollView scrollEnabled={!canvasEditing} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchTables} tintColor={C.gold} />}>
+        <ScrollView scrollEnabled={!canvasEditing} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetchTables)} tintColor={C.gold} />}>
           <TableCanvas
             tables={tables}
             openOrders={openOrders}

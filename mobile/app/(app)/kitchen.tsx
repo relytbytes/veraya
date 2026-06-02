@@ -4,6 +4,7 @@ import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHe
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getKitchenOrders, kitchenAction } from "@/lib/api";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { Order } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
@@ -27,11 +28,12 @@ export default function KitchenScreen() {
   const [bumping, setBumping] = useState<string | null>(null);
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
-  const { data: orders = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["kitchen"],
     queryFn: getKitchenOrders,
     refetchInterval: 30_000, // fallback; live updates arrive via SSE (RealtimeProvider)
   });
+  const { refreshing, run } = useManualRefresh();
 
   async function bump(orderId: string) {
     setBumping(orderId);
@@ -66,7 +68,7 @@ export default function KitchenScreen() {
       ) : orders.length === 0 ? (
         <Animated.ScrollView
           contentContainerClassName="flex-1 items-center justify-center gap-3"
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
@@ -91,7 +93,7 @@ export default function KitchenScreen() {
       ) : (
         <Animated.ScrollView
           contentContainerClassName="p-4 gap-4"
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >

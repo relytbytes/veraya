@@ -7,6 +7,7 @@ import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHe
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getInventory, getStorageAreas, barcodeSearch, patchInventoryItem } from "@/lib/api";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { InventoryItem } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
 import { ShelfSetup } from "@/components/ShelfSetup";
@@ -31,11 +32,12 @@ export default function InventoryScreen() {
   const [editMax, setEditMax] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const { data: inventory = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: inventory = [], isLoading, refetch } = useQuery({
     queryKey: ["inventory"],
     queryFn: getInventory,
     refetchInterval: 60_000,
   });
+  const { refreshing, run } = useManualRefresh();
 
   const { data: storageAreas = [] } = useQuery({
     queryKey: ["storageAreas"],
@@ -490,7 +492,7 @@ export default function InventoryScreen() {
 
       <Animated.ScrollView
         contentContainerClassName="p-4 gap-4"
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

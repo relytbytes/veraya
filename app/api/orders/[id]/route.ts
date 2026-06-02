@@ -162,10 +162,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Fire held items — POS fires specific items to the kitchen
   if (fireItemIds && fireItemIds.length > 0) {
+    // Flip held items to fresh, UNSENT kitchen tickets. Don't pre-set sentAt —
+    // that made fired items render as already-acknowledged on the KDS instead
+    // of appearing as new work to cook.
     await prisma.orderItem.updateMany({
       where: { id: { in: fireItemIds }, orderId: id },
-      data: { heldForFire: false, sentAt: new Date() },
+      data: { heldForFire: false },
     });
+    // If the check was already bumped to READY, late-fired items would be
+    // filtered off the KDS (only OPEN/IN_PROGRESS show) — reopen it so they appear.
+    const current = await prisma.order.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status === "READY") {
+      await prisma.order.update({ where: { id }, data: { status: "IN_PROGRESS" } });
+      emit({ type: "order.updated", orderId: id, status: "IN_PROGRESS" });
+    }
     for (const orderItemId of fireItemIds) {
       emit({ type: "item.fired", orderId: id, orderItemId });
     }
