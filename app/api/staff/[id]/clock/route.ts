@@ -49,6 +49,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { userId: id },
     orderBy: { clockIn: "desc" },
     take: 30,
+    include: {
+      edits: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true, reason: true, createdAt: true,
+          editedBy: { select: { name: true } },
+        },
+      },
+    },
   });
   return Response.json(entries);
 }

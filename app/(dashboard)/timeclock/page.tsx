@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Clock, Loader2, LogIn, LogOut } from "lucide-react";
+import { Clock, Loader2, LogIn, LogOut, Pencil } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ClockEditRecord {
+  id: string;
+  reason: string;
+  createdAt: string;
+  editedBy: { name: string | null } | null;
+}
 
 interface ClockEntry {
   id: string;
@@ -18,6 +27,7 @@ interface ClockEntry {
   clockOut: string | null;
   notes: string | null;
   createdAt: string;
+  edits?: ClockEditRecord[];
 }
 
 interface StaffMember {
@@ -88,6 +98,14 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// ISO -> value for <input type="datetime-local"> (local wall-clock, no seconds).
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function initials(name: string): string {
   return name
     .split(" ")
@@ -101,7 +119,15 @@ function initials(name: string): string {
 
 export default function TimeClockPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<string>("");
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  // Punch editing (manager/admin only)
+  const [editEntry, setEditEntry] = useState<ClockEntry | null>(null);
+  const [editIn, setEditIn] = useState("");
+  const [editOut, setEditOut] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
   const [myEntries, setMyEntries] = useState<ClockEntry[]>([]);
   const [staffClock, setStaffClock] = useState<Record<string, ClockEntry | null>>({});
   const [loading, setLoading] = useState(true);
@@ -116,6 +142,7 @@ export default function TimeClockPage() {
       .then((s) => {
         const id = s?.user?.id as string | undefined;
         if (id) setCurrentUserId(id);
+        if (s?.user?.role) setRole(String(s.user.role));
       })
       .catch(() => {});
   }, []);
@@ -183,6 +210,45 @@ export default function TimeClockPage() {
       await loadAll();
     } finally {
       setClocking(false);
+    }
+  }
+
+  const isManager = role === "ADMIN" || role === "MANAGER";
+
+  function openEdit(entry: ClockEntry) {
+    setEditEntry(entry);
+    setEditIn(toLocalInput(entry.clockIn));
+    setEditOut(toLocalInput(entry.clockOut));
+    setEditReason("");
+    setEditError("");
+  }
+
+  async function saveEdit() {
+    if (!editEntry) return;
+    if (!editReason.trim()) { setEditError("A reason is required."); return; }
+    if (!editIn) { setEditError("Clock-in time is required."); return; }
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const res = await fetch(`/api/timeclock/${editEntry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clockIn: new Date(editIn).toISOString(),
+          clockOut: editOut ? new Date(editOut).toISOString() : null,
+          reason: editReason.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? "Could not save the edit.");
+      }
+      setEditEntry(null);
+      await loadAll();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -391,6 +457,7 @@ export default function TimeClockPage() {
                     <th className="px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Time Out</th>
                     <th className="px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">Duration</th>
                     <th className="px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide hidden sm:table-cell">Notes</th>
+                    {isManager && <th className="px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide text-right">Edit</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -424,8 +491,26 @@ export default function TimeClockPage() {
                             : formatDuration(entry.clockIn, entry.clockOut)}
                         </td>
                         <td className="px-4 py-3 text-gray-400 text-xs hidden sm:table-cell max-w-[200px] truncate">
+                          {entry.edits && entry.edits.length > 0 && (
+                            <span
+                              className="mr-1.5 inline-flex items-center rounded-full bg-warning-100 px-1.5 py-0.5 text-[10px] font-medium text-warning-800 align-middle"
+                              title={`Edited by ${entry.edits[0].editedBy?.name ?? "manager"}: ${entry.edits[0].reason}`}
+                            >
+                              Edited
+                            </span>
+                          )}
                           {entry.notes ?? "—"}
                         </td>
+                        {isManager && (
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => openEdit(entry)}
+                              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                            >
+                              <Pencil className="h-3 w-3" /> Edit
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -436,6 +521,42 @@ export default function TimeClockPage() {
         </div>
 
       </div>
+
+      {/* ── Edit Punch Dialog (manager/admin) ─────────────────────────────── */}
+      <Dialog open={editEntry !== null} onOpenChange={(o) => { if (!o) setEditEntry(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Punch</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Clock In</Label>
+              <Input type="datetime-local" value={editIn} onChange={(e) => setEditIn(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Clock Out</Label>
+              <Input type="datetime-local" value={editOut} onChange={(e) => setEditOut(e.target.value)} />
+              <p className="text-xs text-gray-400">Leave blank if the shift is still open.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Reason for edit <span className="text-red-500">*</span></Label>
+              <Input
+                placeholder="e.g. forgot to clock out, fixing a mis-punch"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+              />
+              <p className="text-xs text-gray-400">Required. Recorded in the audit trail with your name.</p>
+            </div>
+            {editError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">{editError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEntry(null)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={editSaving || !editReason.trim()}>
+              {editSaving && <Loader2 className="h-4 w-4 animate-spin" />} Save Edit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -97,6 +97,7 @@ model User {
   purchaseOrders      PurchaseOrder[]
   transactions        InventoryTransaction[]
   clockEntries        ClockEntry[]
+  clockEntryEdits     ClockEntryEdit[]       @relation("ClockEntryEditor")
   shifts              Shift[]
   auditLogs           AuditLog[]
   servedTables        Table[]                @relation("TableServer")
@@ -375,7 +376,25 @@ model ClockEntry {
   notes     String?
   createdAt DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user  User             @relation(fields: [userId], references: [id])
+  edits ClockEntryEdit[]
+}
+
+// Full audit trail of manual punch edits. Every edit records who changed it,
+// the before/after times, and a mandatory reason (payroll/labor compliance).
+model ClockEntryEdit {
+  id           String    @id @default(cuid())
+  clockEntryId String
+  editedById   String?
+  reason       String
+  prevClockIn  DateTime
+  prevClockOut DateTime?
+  newClockIn   DateTime
+  newClockOut  DateTime?
+  createdAt    DateTime  @default(now())
+
+  clockEntry ClockEntry @relation(fields: [clockEntryId], references: [id], onDelete: Cascade)
+  editedBy   User?      @relation("ClockEntryEditor", fields: [editedById], references: [id])
 }
 
 // ─── Staff Scheduling ─────────────────────────────────────────────────────────
