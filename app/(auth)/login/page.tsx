@@ -43,7 +43,7 @@ export default function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/icon-512.png?v=2" alt="Veraya" width={104} height={104} className="rounded-2xl mb-4 shadow-lg" />
           <h1 className="text-3xl font-bold text-white">Veraya</h1>
-          <p className="text-sm font-medium text-gray-300 mt-2 text-center">All in one restaurant platform. Powered by Vera</p>
+          <p className="text-sm font-medium text-gray-300 mt-2 text-center">The all-in-one restaurant platform. Powered by Vera</p>
         </div>
 
         {/* Form */}
