@@ -1,7 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { X, Clock, Users, ArrowRightLeft, CheckCircle2, Loader2, Armchair, Trash2, UserPlus, Link2, Unlink } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, Clock, Users, ArrowRightLeft, CheckCircle2, Loader2, Armchair, Trash2, UserPlus, Link2, Unlink, ClipboardList } from "lucide-react";
 import {
   type TableRow, type Reservation, type StaffMember, type CustomerProfile, BRAND,
   SERVICE_STAGES, STAGE_LABELS, deriveTableState, nextReservationForTable,
@@ -35,6 +36,7 @@ export function TablePanel({
   onSplit: () => void;
   onEditGuest: (c: CustomerProfile) => void;
 }) {
+  const router = useRouter();
   const linked = linkedTablesOf(table.id, tables);
   const isPrimary = linked.length > 0;
   const isMember = !!table.primaryTableId;
@@ -136,6 +138,16 @@ export function TablePanel({
             {seatedRes?.customer && (
               <GuestCard customer={seatedRes.customer} onEdit={() => onEditGuest(seatedRes.customer!)} />
             )}
+
+            {/* Open a check / start an order for this table in the POS */}
+            <button
+              disabled={busy}
+              onClick={() => router.push(`/pos?table=${table.id}`)}
+              className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold text-white py-2.5 rounded-lg disabled:opacity-50"
+              style={{ background: BRAND.gold }}
+            >
+              <ClipboardList className="h-4 w-4" /> Open check
+            </button>
 
             {/* Stage stepper */}
             <div>

@@ -600,21 +600,41 @@ export default function POSPage() {
       // Fallback: fetch from API (cross-day orders, stale state, etc.)
       try {
         const res = await fetch(`/api/orders?tableId=${t.id}`);
-        if (!res.ok) throw new Error();
-        const orders: OpenOrder[] = await res.json();
-        const open = orders.find((o) => ["OPEN", "IN_PROGRESS", "READY", "COMPLETED"].includes(o.status));
-        if (open) { openRecallDialog(open); return; }
-        await Promise.all([loadTables(), loadOpenOrders()]);
-        showToast(`No open order found for Table ${t.number}. Status refreshed.`, "warn");
+        if (res.ok) {
+          const orders: OpenOrder[] = await res.json();
+          const open = orders.find((o) => ["OPEN", "IN_PROGRESS", "READY", "COMPLETED"].includes(o.status));
+          if (open) { openRecallDialog(open); return; }
+        }
       } catch {
         showToast(`Could not load orders for Table ${t.number}. Check connection.`);
+        return;
       }
+      // Occupied but no order yet (e.g. just seated from the host stand) —
+      // open a fresh check for the table rather than dead-ending.
+      setTableId(t.id);
+      setOrderType("DINE_IN");
+      setView("order");
       return;
     }
     setTableId(t.id);
     setOrderType("DINE_IN");
     setView("order");
   }
+
+  // Deep link from the host stand's "Open check": /pos?table=<id> jumps straight
+  // into that table's check (recall existing order, or start a fresh one).
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current || tables.length === 0) return;
+    const tid = new URLSearchParams(window.location.search).get("table");
+    if (!tid) { deepLinkHandled.current = true; return; }
+    const t = tables.find((x) => x.id === tid);
+    if (t) {
+      deepLinkHandled.current = true;
+      selectTableFromFloorPlan(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables]);
 
   // ── DINE_IN: send to kitchen (no payment yet) ──────────────────────────────
   // Also handles "add items to existing order" when addingToOrder is set.
