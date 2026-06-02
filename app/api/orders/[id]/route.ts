@@ -38,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     compItem?: { itemId: string; reason?: string; managerPin?: string };
     compCheck?: { reason?: string; managerPin?: string };
     reopen?: { reason?: string; managerPin?: string };
+    holdFireMins?: number; // auto-fire newly held items after N minutes (0 = manual)
     addItems?: Array<{
       menuItemId: string;
       quantity: number;
@@ -47,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       held?: boolean;
     }>;
   };
-  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems, reopen } = body;
+  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems, reopen, holdFireMins } = body;
 
   // Helper: recalculate order subtotal/tax/total after item changes
   async function recalcTotals(orderId: string) {
@@ -200,7 +201,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // of appearing as new work to cook.
     await prisma.orderItem.updateMany({
       where: { id: { in: fireItemIds }, orderId: id },
-      data: { heldForFire: false, firedAt: new Date() }, // stamps a new fire round on the KDS
+      data: { heldForFire: false, firedAt: new Date(), fireAt: null, courseNo: null }, // stamps a new fire round on the KDS
     });
     // Deplete ingredient inventory for the items just fired.
     const justFired = await prisma.orderItem.findMany({
@@ -342,6 +343,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (addItems && addItems.length > 0) {
     // One timestamp for the batch → these added items read as one fire round.
     const firedNow = new Date();
+    // A new hold batch becomes the next course; stamp the auto-fire time if a
+    // timer was chosen so the held course paces itself.
+    const holdFireAt = holdFireMins && holdFireMins > 0 ? new Date(Date.now() + holdFireMins * 60000) : null;
+    const maxCourse = await prisma.orderItem.aggregate({
+      where: { orderId: id, heldForFire: true }, _max: { courseNo: true },
+    });
+    const nextCourse = (maxCourse._max.courseNo ?? 0) + 1;
     for (const item of addItems) {
       const newItem = await prisma.orderItem.create({
         data: {
@@ -352,6 +360,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           notes: item.notes ?? null,
           heldForFire: item.held ?? false,
           firedAt: item.held ? null : firedNow,
+          ...(item.held ? { courseNo: nextCourse, fireAt: holdFireAt } : {}),
         },
       });
       // Attach modifiers if any

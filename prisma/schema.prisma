@@ -355,6 +355,8 @@ model OrderItem {
   sentAt      DateTime?
   completedAt DateTime?
   heldForFire Boolean   @default(false)
+  courseNo    Int?      // coursing: which held course this item belongs to (1,2,3…)
+  fireAt      DateTime? // auto-fire time for a held course (null = fire manually)
   voided      Boolean   @default(false)
   voidReason  String?
   comped      Boolean   @default(false)

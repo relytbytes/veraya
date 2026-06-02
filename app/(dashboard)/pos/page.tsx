@@ -318,6 +318,7 @@ export default function POSPage() {
 
   // Hold / Fire state
   const [holdMode, setHoldMode] = useState(false); // When true: tapping cart items toggles their held state
+  const [holdFireMins, setHoldFireMins] = useState(0); // 0 = fire held items manually; >0 = auto-fire after N min
   const [firing, setFiring] = useState(false);
   const [voidingItemId, setVoidingItemId] = useState<string | null>(null);
   const [compingItemId, setCompingItemId] = useState<string | null>(null);
@@ -407,6 +408,22 @@ export default function POSPage() {
   // Live: reflect floor changes (seating/moves from the host stand), kitchen
   // bumps, and 86 changes from other terminals without a manual refresh.
   useRealtime(["floor", "kitchen"], () => { loadTables(); loadOpenOrders(); loadEightySix(); });
+
+  // Auto-fire pacing: while the POS is open, poke the auto-fire endpoint every
+  // 45s so held courses whose timer elapsed fire to the kitchen on their own.
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/cron/auto-fire", { method: "POST" });
+        if (res.ok) {
+          const d = await res.json().catch(() => ({ fired: 0 }));
+          if (d.fired > 0) { loadTables(); loadOpenOrders(); }
+        }
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(tick, 45_000);
+    return () => clearInterval(id);
+  }, [loadTables, loadOpenOrders]);
 
   // ── Cart helpers ───────────────────────────────────────────────────────────
 
@@ -763,6 +780,7 @@ export default function POSPage() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            holdFireMins: cart.some((c) => c.held) ? holdFireMins : 0,
             addItems: cart.map((c) => ({
               menuItemId: c.menuItemId,
               quantity: c.quantity,
@@ -792,6 +810,7 @@ export default function POSPage() {
           body: JSON.stringify({
             tableId: tableId || null,
             type: "DINE_IN",
+            holdFireMins: cart.some((c) => c.held) ? holdFireMins : 0,
             items: cart.map((c) => ({
               menuItemId: c.menuItemId,
               quantity: c.quantity,
@@ -1543,9 +1562,30 @@ export default function POSPage() {
                 </Button>
               )}
               {holdMode && (
-                <p className="text-center text-xs text-amber-600 font-medium">
-                  Tap items above to hold/unhold · press Done when finished
-                </p>
+                <div className="space-y-2">
+                  <p className="text-center text-xs text-amber-600 font-medium">
+                    Tap items above to hold/unhold · press Done when finished
+                  </p>
+                  {cart.some((c) => c.held) && (
+                    <div>
+                      <p className="text-[11px] font-medium text-gray-500 mb-1">Auto-fire held course</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[{ m: 0, label: "Manual" }, { m: 10, label: "10 min" }, { m: 20, label: "20 min" }, { m: 30, label: "30 min" }].map(({ m, label }) => (
+                          <button
+                            key={m}
+                            onClick={() => setHoldFireMins(m)}
+                            className={cn(
+                              "rounded-lg border py-1.5 text-xs font-medium transition-colors",
+                              holdFireMins === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50",
+                            )}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

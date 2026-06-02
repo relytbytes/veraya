@@ -52,12 +52,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { tableId, type, notes, items } = body as {
+    const { tableId, type, notes, items, holdFireMins } = body as {
       tableId?: string;
       type?: string;
       notes?: string;
+      holdFireMins?: number; // auto-fire held items after N minutes (0/undefined = manual)
       items: { menuItemId: string; quantity: number; unitPrice: number; notes?: string; modifierIds?: string[]; held?: boolean }[];
     };
+    // Held items become a course; if a timer was chosen, stamp their auto-fire time.
+    const holdFireAt = holdFireMins && holdFireMins > 0 ? new Date(Date.now() + holdFireMins * 60000) : null;
 
     if (!items?.length) {
       return Response.json({ error: "At least one item is required" }, { status: 400 });
@@ -113,6 +116,7 @@ export async function POST(req: NextRequest) {
             notes: i.notes,
             heldForFire: i.held ?? false,
             firedAt: i.held ? null : firedNow,
+            ...(i.held ? { courseNo: 1, fireAt: holdFireAt } : {}),
             modifiers: {
               create: i.modifierIds?.map((id) => ({ modifierOptionId: id })) ?? [],
             },
