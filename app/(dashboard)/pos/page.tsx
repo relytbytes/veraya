@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, type CSSProperties } from "react";
 import {
   Plus, Minus, X, ShoppingCart, CreditCard, Loader2,
   LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
@@ -66,21 +66,34 @@ interface CompletedOrder {
   change: number;
 }
 
-const TABLE_STATUS_COLORS: Record<string, string> = {
-  AVAILABLE: "bg-green-100 border-green-300 text-green-800",
-  OCCUPIED:  "bg-red-100 border-red-300 text-red-800",
-  RESERVED:  "bg-warning-100 border-warning-300 text-warning-800",
-  DIRTY:     "bg-gray-100 border-gray-300 text-gray-600",
-};
+// Floor-plan table visuals. These mirror the host stand's table-state colors
+// (see host-utils deriveTableState) so a table reads the same everywhere:
+// jade=seated/apps, gold=entrees/dessert, blue=check, red=bussing/dirty,
+// teal=reserved, neutral=open. Dynamic brand hues are applied via inline style
+// (Tailwind's JIT can't see interpolated arbitrary classes), matching the host.
+function floorVisual(status: string, serviceStage: string | null): { hue: string; label: string; open: boolean } {
+  if (status === "OCCUPIED") {
+    const s = serviceStage ?? "SEATED";
+    if (s === "APPS")          return { hue: "#1E7A45", label: "Apps",    open: false };
+    if (s === "ENTREES")       return { hue: "#E0A82E", label: "Entrees", open: false };
+    if (s === "DESSERT")       return { hue: "#E0A82E", label: "Dessert", open: false };
+    if (s === "CHECK_DROPPED") return { hue: "#2E6EB0", label: "Check",   open: false };
+    if (s === "CHECK_PAID")    return { hue: "#2E6EB0", label: "Paid",    open: false };
+    if (s === "BUSSING")       return { hue: "#D44030", label: "Bussing", open: false };
+    return { hue: "#1E7A45", label: "Seated", open: false };
+  }
+  if (status === "DIRTY")    return { hue: "#D44030", label: "Cleaning", open: false };
+  if (status === "RESERVED") return { hue: "#21A090", label: "Reserved", open: false };
+  return { hue: "#8A97A6", label: "Open", open: true };
+}
 
-// Floor-plan status styling — distinct, non-colliding (yellow uses the default
-// Tailwind ramp, not the teal-remapped amber-*, so "reserved" reads as gold).
-const FLOOR_STATUS: Record<string, { dot: string; card: string; label: string }> = {
-  AVAILABLE: { dot: "bg-green-500",  card: "bg-white border-green-300 hover:border-green-500",     label: "Open" },
-  OCCUPIED:  { dot: "bg-red-500",    card: "bg-red-50 border-red-300 hover:border-red-400",        label: "Seated" },
-  RESERVED:  { dot: "bg-warning-400", card: "bg-warning-50 border-warning-300 hover:border-warning-400", label: "Reserved" },
-  DIRTY:     { dot: "bg-gray-400",   card: "bg-gray-50 border-gray-300 hover:border-gray-400",     label: "Cleaning" },
-};
+// Inline styles for a floor-plan table from its visual (light POS theme):
+// open = white card + gray border; otherwise a soft tint with a solid border.
+function floorCardStyle(v: { hue: string; open: boolean }): CSSProperties {
+  return v.open
+    ? { backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" }
+    : { backgroundColor: v.hue + "1A", borderColor: v.hue };
+}
 // Elapsed-time urgency chip for a seated table.
 function timeChipClass(mins: number) {
   return mins > 90 ? "bg-red-100 text-red-700" : mins > 60 ? "bg-warning-100 text-warning-800" : "bg-gray-100 text-gray-500";
@@ -119,7 +132,7 @@ function itemInitials(name: string) {
 }
 
 type POSView = "order" | "floorplan" | "checks";
-type TipPreset = "15" | "18" | "20" | "custom" | "none";
+type TipPreset = "18" | "20" | "22" | "custom" | "none";
 
 // ── Tip Section Component ──────────────────────────────────────────────────────
 
@@ -142,7 +155,7 @@ function TipSection({
     <div className="space-y-2">
       <Label>Tip</Label>
       <div className="grid grid-cols-4 gap-2">
-        {(["15", "18", "20"] as const).map((pct) => (
+        {(["18", "20", "22"] as const).map((pct) => (
           <button
             key={pct}
             onClick={() => { setTipPreset(pct); setCustomTip(""); }}
@@ -188,9 +201,9 @@ function TipSection({
 
 function computeTip(preset: TipPreset, customTip: string, subtotal: number): number {
   if (preset === "none") return 0;
-  if (preset === "15") return Math.round(subtotal * 0.15 * 100) / 100;
   if (preset === "18") return Math.round(subtotal * 0.18 * 100) / 100;
   if (preset === "20") return Math.round(subtotal * 0.20 * 100) / 100;
+  if (preset === "22") return Math.round(subtotal * 0.22 * 100) / 100;
   if (preset === "custom") return Math.max(0, Number(customTip) || 0);
   return 0;
 }
@@ -2201,13 +2214,13 @@ function FloorPlanView({
       {/* Summary bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {[
-          { key: "available", label: "Open", value: counts.available, dot: "bg-green-500" },
-          { key: "occupied",  label: "Seated", value: counts.occupied, dot: "bg-red-500" },
-          { key: "reserved",  label: "Reserved", value: counts.reserved, dot: "bg-warning-400" },
-          { key: "dirty",     label: "Cleaning", value: counts.dirty, dot: "bg-gray-400" },
+          { key: "available", label: "Open", value: counts.available, dot: "#8A97A6" },
+          { key: "occupied",  label: "Seated", value: counts.occupied, dot: "#1E7A45" },
+          { key: "reserved",  label: "Reserved", value: counts.reserved, dot: "#21A090" },
+          { key: "dirty",     label: "Cleaning", value: counts.dirty, dot: "#D44030" },
         ].map(({ key, label, value, dot }) => (
           <div key={key} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
-            <span className={cn("h-2.5 w-2.5 rounded-full", dot)} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dot }} />
             <span className="text-base font-bold text-gray-900 tabular-nums">{value}</span>
             <span className="text-xs text-gray-500">{label}</span>
           </div>
@@ -2279,9 +2292,8 @@ function FloorPlanView({
                 key={t.id}
                 onClick={handleClick}
                 className={cn(
-                  "absolute flex flex-col items-center justify-center border-2 shadow-sm hover:scale-105 transition-transform cursor-pointer",
+                  "absolute flex flex-col items-center justify-center border-2 shadow-sm hover:scale-105 transition-transform cursor-pointer text-gray-900",
                   isRect ? "rounded-lg" : "rounded-full",
-                  TABLE_STATUS_COLORS[t.status] ?? "bg-gray-50 border-gray-200",
                   t.id === selectedTableId && "ring-2 ring-amber-500 ring-offset-2",
                 )}
                 style={{
@@ -2290,6 +2302,7 @@ function FloorPlanView({
                   width: isRect ? "72px" : "60px",
                   height: isRect ? "60px" : "60px",
                   transform: `translate(-50%, -50%) rotate(${t.rotation}deg)`,
+                  ...floorCardStyle(floorVisual(t.status, t.serviceStage)),
                 }}
               >
                 <span className="text-sm font-bold leading-none">{t.number}</span>
@@ -2298,7 +2311,7 @@ function FloorPlanView({
                     <span className="text-[10px] font-semibold text-amber-700">{formatCurrency(Number(order.total))}</span>
                     <span className="text-[9px] text-gray-500 tabular-nums">{elapsedLabel(order.createdAt)}</span>
                     {t.serviceStage && (
-                      <span className="text-[8px] font-bold text-blue-700 uppercase">{STAGE_ABBREV[t.serviceStage] ?? t.serviceStage}</span>
+                      <span className="text-[8px] font-bold uppercase" style={{ color: floorVisual(t.status, t.serviceStage).hue }}>{STAGE_ABBREV[t.serviceStage] ?? t.serviceStage}</span>
                     )}
                     {order.items.some((i) => i.heldForFire) && (
                       <span className="text-[9px] text-orange-600 font-bold flex items-center gap-0.5">
@@ -2319,7 +2332,8 @@ function FloorPlanView({
                 <button
                   key={t.id}
                   onClick={() => t.status === "OCCUPIED" ? onSelectTable(t) : setSelectedTable(t)}
-                  className={cn("px-2 py-0.5 text-xs rounded border font-medium", TABLE_STATUS_COLORS[t.status] ?? "")}
+                  className="px-2 py-0.5 text-xs rounded border font-medium text-gray-900"
+                  style={floorCardStyle(floorVisual(t.status, t.serviceStage))}
                 >
                   T{t.number}
                 </button>
@@ -2333,7 +2347,7 @@ function FloorPlanView({
             const isSelected = t.id === selectedTableId;
             const isOccupied = t.status === "OCCUPIED";
             const order = isOccupied ? getOrderForTable(t.id) : undefined;
-            const st = FLOOR_STATUS[t.status] ?? FLOOR_STATUS.DIRTY;
+            const v = floorVisual(t.status, t.serviceStage);
             const mins = order ? Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000) : 0;
             const heldCount = order ? order.items.filter((i) => i.heldForFire && !i.voided).length : 0;
             const itemCount = order ? order.items.filter((i) => !i.voided).length : 0;
@@ -2345,15 +2359,15 @@ function FloorPlanView({
                 onClick={handleClick}
                 className={cn(
                   "relative flex min-h-[104px] flex-col rounded-xl border-2 p-3 text-left shadow-sm transition-all hover:shadow-md active:scale-[0.98] cursor-pointer",
-                  st.card,
                   isSelected && "ring-2 ring-amber-500 ring-offset-2",
                 )}
+                style={floorCardStyle(v)}
               >
                 <div className="flex items-start justify-between">
                   <span className="text-2xl font-bold leading-none text-gray-900">{t.number}</span>
                   <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                    <span className={cn("h-2 w-2 rounded-full", st.dot)} />
-                    {st.label}
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: v.hue }} />
+                    {v.label}
                   </span>
                 </div>
 

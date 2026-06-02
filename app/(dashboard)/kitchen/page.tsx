@@ -73,7 +73,7 @@ function elapsedSeconds(dateStr: string) {
 
 function urgencyColor(createdAt: string) {
   const secs = elapsedSeconds(createdAt);
-  if (secs < 300) return "border-green-400 bg-green-50";
+  if (secs < 300) return "border-[#1E7A45] bg-[#1E7A45]/10";
   if (secs < 600) return "border-warning-400 bg-warning-50";
   return "border-red-500 bg-red-50";
 }
@@ -522,7 +522,7 @@ function TicketCard({
                   className={cn(
                     "w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 transition-all",
                     item.completedAt
-                      ? "bg-green-900/40 opacity-60"
+                      ? "bg-[#1E7A45]/25 opacity-60"
                       : item.sentAt
                       ? "bg-warning-900/40"
                       : "bg-gray-800/60 hover:bg-gray-700/60"
@@ -532,7 +532,7 @@ function TicketCard({
                     className={cn(
                       "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
                       item.completedAt
-                        ? "border-green-400 bg-green-400 text-gray-900"
+                        ? "border-[#1E7A45] bg-[#1E7A45] text-white"
                         : "border-gray-500"
                     )}
                   >
@@ -580,7 +580,7 @@ function TicketCard({
           className={cn(
             "w-full py-2 rounded-lg text-sm font-bold transition-all",
             allDone
-              ? "bg-green-500 hover:bg-green-400 text-white"
+              ? "bg-[#1E7A45] hover:bg-[#259457] text-white"
               : "bg-amber-500 hover:bg-amber-400 text-gray-900"
           )}
         >

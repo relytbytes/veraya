@@ -346,20 +346,30 @@ const STATE_STYLE: Record<TableState, { cls: string; style: { background: string
   BUSSING:  { cls: "", style: { background: BRAND.coral,     borderColor: BRAND.coral,      color: "#FFFFFF"   }, label: "Bussing" },
 };
 
+// Short, precise course-stage labels for the floor chip + panel, so every
+// system (host, POS, KDS) reads the same words. The color stays bucketed by
+// state; only the label is stage-precise.
+const STAGE_SHORT: Record<string, string> = {
+  SEATED: "Seated", APPS: "Apps", ENTREES: "Entrees", DESSERT: "Dessert",
+  CHECK_DROPPED: "Check", CHECK_PAID: "Paid", BUSSING: "Bussing",
+};
+
 export function deriveTableState(table: TableRow): TableVisual {
   let state: TableState;
+  let stageLabel: string | undefined;
   if (table.status === "OCCUPIED") {
     const stage = table.serviceStage ?? "SEATED";
     if (stage === "SEATED" || stage === "APPS") state = "SEATED";
     else if (stage === "ENTREES" || stage === "DESSERT") state = "DINING";
     else if (stage === "CHECK_DROPPED" || stage === "CHECK_PAID") state = "CHECK";
     else state = "BUSSING";
+    stageLabel = STAGE_SHORT[stage];
   } else if (table.status === "DIRTY") {
     state = "BUSSING";
   } else {
     state = "OPEN"; // refined to UPCOMING by the caller when a reservation is assigned
   }
-  return { state, ...STATE_STYLE[state] };
+  return { state, ...STATE_STYLE[state], ...(stageLabel ? { label: stageLabel } : {}) };
 }
 
 export function stateStyle(state: TableState) {
