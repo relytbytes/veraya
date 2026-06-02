@@ -2,6 +2,20 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import OpenAI from "openai";
+import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
+
+// Operating window (estimate until per-restaurant hours are wired in).
+const OPEN_HOUR = 11;
+const CLOSE_HOUR = 22;
+
+// Hours between two "HH:MM" 24h strings (handles past-midnight closes).
+function shiftHours(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60;
+  return mins / 60;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,65 +37,6 @@ function toNowWindow(d: Date) {
 
 function fmt(n: number) { return `$${n.toFixed(2)}`; }
 
-export interface HealthFactor { label: string; delta: number }
-
-// Signal-weighted health score. Starts at 100 and deducts points scaled to how
-// far each real metric is off — so a genuinely bad service lands in the 20s-40s,
-// not a floor of 60. Returns a breakdown so the UI can explain the number.
-function computeHealth(d: {
-  pacingRatio: number | null;
-  projectedLaborPct: number | null;
-  outOfStockCount: number;
-  lowStockCount: number;
-  active86Count: number;
-  voidTotal: number;
-  voidCount: number;
-  salesToday: number;
-  priceChangeCount: number;
-  confirmedCovers: number;
-  inService: boolean;
-}): { score: number; breakdown: HealthFactor[]; unassessed: string[] } {
-  const f: HealthFactor[] = [];
-  const unassessed: string[] = [];
-  const add = (label: string, pen: number) => { if (pen > 0) f.push({ label, delta: -Math.round(pen) }); };
-
-  // Sales pacing — biggest lever. Full credit at ≥95% of normal; ramps to -35.
-  if (d.pacingRatio !== null) {
-    if (d.pacingRatio < 0.95) add(`Sales pacing ${(d.pacingRatio * 100).toFixed(0)}% of normal`, Math.min(35, (0.95 - d.pacingRatio) * 70));
-  } else {
-    unassessed.push("Sales pace — no comparable day yet to measure against");
-  }
-  // Labor as % of sales — target 30%, every point over costs 1.5 (cap -25).
-  if (d.projectedLaborPct !== null) {
-    if (d.projectedLaborPct > 30) add(`Labor projected at ${d.projectedLaborPct.toFixed(0)}%`, Math.min(25, (d.projectedLaborPct - 30) * 1.5));
-  } else {
-    unassessed.push("Labor % — not enough sales/clock data yet");
-  }
-  // Out of stock — each missing item is serious (cap -30).
-  if (d.outOfStockCount > 0) add(`${d.outOfStockCount} item${d.outOfStockCount > 1 ? "s" : ""} out of stock`, Math.min(30, d.outOfStockCount * 10));
-  // Below par (cap -12).
-  if (d.lowStockCount > 0) add(`${d.lowStockCount} item${d.lowStockCount > 1 ? "s" : ""} below par`, Math.min(12, d.lowStockCount * 2));
-  // 86'd items (cap -15).
-  if (d.active86Count > 0) add(`${d.active86Count} item${d.active86Count > 1 ? "s" : ""} 86'd`, Math.min(15, d.active86Count * 3));
-  // Voids as a share of sales (cap -15).
-  if (d.voidTotal > 0 && d.salesToday > 0) {
-    add(`$${d.voidTotal.toFixed(0)} in voids (${d.voidCount})`, Math.min(15, (d.voidTotal / d.salesToday) * 100 * 1.5));
-  } else if (d.voidCount >= 3) {
-    add(`${d.voidCount} voids today`, Math.min(10, d.voidCount));
-  }
-  // No covers on the books during service (cap -10).
-  if (d.inService && d.confirmedCovers === 0) add("No reservations booked today", 10);
-  // Vendor price swings (cap -9).
-  if (d.priceChangeCount > 0) add(`${d.priceChangeCount} vendor price swing${d.priceChangeCount > 1 ? "s" : ""}`, Math.min(9, d.priceChangeCount * 3));
-
-  const total = f.reduce((s, x) => s + x.delta, 0);
-  let score = Math.max(0, Math.min(100, 100 + total));
-  // Honesty cap: if the headline signal (sales pace) couldn't be assessed, don't
-  // present a flawless score — we genuinely don't know how the day is going.
-  if (d.pacingRatio === null) score = Math.min(score, 80);
-  f.sort((a, b) => a.delta - b.delta); // biggest drag first
-  return { score, breakdown: f, unassessed };
-}
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
@@ -323,119 +278,86 @@ export async function GET(req: NextRequest) {
 
   const contextBlock = contextLines.join("\n");
 
-  // ── Always build a deterministic narrative (AI enhances, not replaces) ──────
-
-  const fallbackAlerts = buildFallbackAlerts({
-    pacingRatio, lowStock, outOfStock, active86, voids, comps,
-    voidTotal, compTotal, priceChanges, projectedLaborPct, confirmedCovers,
-  });
-
-  const deterministicNarrative = buildNarrative({
-    now, salesToday, refSales, pacingRatio, todayOrderCount: todaySales._count,
-    activeClock: activeClock.length, projectedLaborPct, lowStockCount: lowStock.length,
-    outOfStockCount: outOfStock.length, active86Count: active86.length,
-    confirmedCovers,
-  });
-
   const rawSignals = {
     salesToday, refSales, pacingRatio, laborSoFar, projectedLaborPct,
     lowStockCount: lowStock.length, active86Count: active86.length,
     voidTotal, confirmedCovers,
   };
 
-  // Signal-weighted health — independent of how many alerts the AI/fallback emits.
-  const health = computeHealth({
-    pacingRatio, projectedLaborPct,
+  // Expected (normal) full-day revenue: average of completed sales on the same
+  // weekday over the last 8 weeks. Anchors pacing + the fixed-cost estimate.
+  const dow = now.getDay();
+  const histStart = new Date(now); histStart.setDate(histStart.getDate() - 56); histStart.setHours(0, 0, 0, 0);
+  const histOrders = await prisma.order.findMany({
+    where: { status: "COMPLETED", createdAt: { gte: histStart, lt: todayStart } },
+    select: { createdAt: true, total: true },
+    take: 5000,
+  });
+  const dayTotals = new Map<string, number>();
+  for (const o of histOrders) {
+    const d = new Date(o.createdAt);
+    if (d.getDay() !== dow) continue;
+    const key = localDateStr(d);
+    dayTotals.set(key, (dayTotals.get(key) ?? 0) + Number(o.total));
+  }
+  const expectedRevenue = dayTotals.size > 0
+    ? [...dayTotals.values()].reduce((s, v) => s + v, 0) / dayTotals.size
+    : null;
+
+  // Planned labor for the whole day from scheduled shifts.
+  const scheduledLaborFullDay = tonightShifts.reduce(
+    (sum, s) => sum + shiftHours(s.startTime, s.endTime) * Number(s.user.hourlyRate ?? 0), 0,
+  );
+
+  // ── Economics-grounded diagnosis ─────────────────────────────────────────────
+  const diag = buildDiagnosis({
+    nowHour: now.getHours(), openHour: OPEN_HOUR, closeHour: CLOSE_HOUR,
+    salesToday, ordersToday: todaySales._count,
+    expectedRevenue,
+    laborSoFar,
+    scheduledLaborFullDay: scheduledLaborFullDay > 0 ? scheduledLaborFullDay : null,
+    activeStaff: activeClock.length,
+    confirmedCovers, expectedCovers: null,
+    openOrders,
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
-    active86Count: active86.length, voidTotal, voidCount: voids.length,
-    salesToday, priceChangeCount: priceChanges.length,
-    confirmedCovers, inService: now.getHours() >= 11 && now.getHours() < 23,
+    active86Count: active86.length,
+    voidTotal, voidCount: voids.length, compTotal,
+    priceChangeCount: priceChanges.length,
   });
 
-  // ── Try AI to enhance narrative + alerts ─────────────────────────────────
+  const alerts = issuesToAlerts(diag.dimensions);
 
+  // Optional AI: phrase the deterministic diagnosis into a natural two-sentence read.
+  let narrative = diag.headline;
   const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    try {
+      const client = new OpenAI({ apiKey });
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini", max_tokens: 160, temperature: 0.3,
+        messages: [
+          { role: "system", content: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings." },
+          { role: "user", content: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}` },
+        ],
+      });
+      narrative = completion.choices[0]?.message?.content?.trim() || diag.headline;
+    } catch (err) {
+      console.error("[/api/vera] narrative AI failed:", (err as Error)?.message ?? err);
+    }
+  }
 
   const cacheHeaders = { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=60" } };
-
-  if (!apiKey) {
-    return Response.json({
-      healthScore: health.score,
-      healthBreakdown: health.breakdown,
-      healthUnassessed: health.unassessed,
-      narrative: deterministicNarrative,
-      alerts: fallbackAlerts,
-      rawSignals,
-    }, cacheHeaders);
-  }
-
-  try {
-    const client = new OpenAI({ apiKey });
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 800,
-      temperature: 0.3,
-      // Force a valid JSON object so parsing can't silently fail and drop us to
-      // the generic fallback. (The prompt already specifies the JSON shape.)
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `You are the operations intelligence layer for a restaurant management system.
-Your job: analyze the restaurant's current operational data and give the manager a concise, specific, actionable briefing.
-
-Be direct. Use actual numbers. No filler phrases like "it's important to" or "you should consider."
-Every alert must reference a specific number from the data.
-
-Respond ONLY with valid JSON in this exact shape:
-{
-  "narrative": "<2 sentences. What is the story of today so far? Reference actual numbers.>",
-  "alerts": [
-    {
-      "severity": "HIGH" | "MEDIUM" | "LOW",
-      "category": "SALES" | "LABOR" | "INVENTORY" | "COSTS" | "RESERVATIONS" | "OPERATIONS",
-      "message": "<specific, actionable, one sentence with actual numbers>",
-      "link": "/reports" | "/inventory" | "/purchasing" | "/pos" | "/staff" | "/manager-log" | "/host"
-    }
-  ]
-}
-
-Generate 4–7 alerts. Only generate an alert if the data actually supports it. Do not invent issues.
-Sort by severity descending (HIGH first).`,
-        },
-        {
-          role: "user",
-          content: contextBlock,
-        },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content ?? "";
-    const jsonStr = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-    const parsed = JSON.parse(jsonStr) as { narrative: string; alerts: { severity: string; category: string; message: string; link: string }[] };
-
-    const finalAlerts = parsed.alerts?.length ? parsed.alerts : fallbackAlerts;
-    return Response.json({
-      healthScore: health.score,
-      healthBreakdown: health.breakdown,
-      healthUnassessed: health.unassessed,
-      narrative: parsed.narrative || deterministicNarrative,
-      alerts: finalAlerts,
-      rawSignals,
-    }, cacheHeaders);
-
-  } catch (err) {
-    // AI failed — log it server-side and return deterministic data (fully functional without AI)
-    console.error("[/api/vera] OpenAI call failed:", (err as Error)?.message ?? err);
-    return Response.json({
-      healthScore: health.score,
-      healthBreakdown: health.breakdown,
-      healthUnassessed: health.unassessed,
-      narrative: deterministicNarrative,
-      alerts: fallbackAlerts,
-      rawSignals,
-    }, cacheHeaders);
-  }
+  return Response.json({
+    healthScore: diag.healthScore,
+    status: diag.status,
+    confidence: diag.confidence,
+    headline: diag.headline,
+    narrative,
+    projection: diag.projection,
+    dimensions: diag.dimensions,
+    alerts,
+    rawSignals,
+  }, cacheHeaders);
   } catch (err) {
     // Transient failure (e.g. brief SQLite contention) — return a clean 503 the
     // client retries, rather than an unhandled 500 that flashes an error.

@@ -1,0 +1,409 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Vera health engine
+//
+// Grounds the dashboard's health read in economics, not a vibe. Two stages:
+//   1) project today's P&L (revenue / labor / COGS / fixed overhead → net + break-even)
+//   2) score five operational dimensions and roll them into one honest number,
+//      with hard overrides for "projected to lose money" and "empty during service".
+//
+// Pure + deterministic: the route gathers signals, this turns them into a diagnosis.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Tunable assumptions (estimates until configured per-restaurant).
+const COGS_TARGET = 0.30;       // food/bev cost as a share of revenue
+const OTHER_OPEX_PCT = 0.12;    // other variable opex (supplies, marketing, fees, breakage)
+const OCCUPANCY_PCT = 0.09;     // rent + utilities + insurance as a share of a NORMAL day
+const DEFAULT_FIXED_DAILY = 250; // fallback daily fixed overhead when there's no history
+const TARGET_MARGIN = 0.10;     // healthy net margin
+const LABOR_TARGET_PCT = 30;    // labor as a share of revenue
+
+export type Status = "excellent" | "good" | "fair" | "strained" | "critical";
+
+export interface HealthMetric { label: string; value: string; target?: string; status: Status }
+export interface HealthIssue {
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  message: string;
+  impact?: string;   // e.g. "−$380 projected today"
+  action?: string;   // concrete next step
+  link?: string;
+}
+export interface Dimension {
+  key: string;
+  label: string;
+  score: number;
+  status: Status;
+  confidence: number; // 0..1 — how much real data backs this
+  summary: string;
+  metrics: HealthMetric[];
+  wins: string[];
+  issues: HealthIssue[];
+}
+export interface Projection {
+  expectedRevenue: number | null; // a normal same-DOW day
+  projectedRevenue: number;       // where today is heading
+  salesToday: number;
+  projectedCOGS: number;
+  projectedLabor: number;
+  fixedDaily: number;
+  projectedNet: number;
+  projectedMarginPct: number;
+  breakEvenRevenue: number;
+  breakEvenProgressPct: number | null;
+  serviceElapsedPct: number;
+  inService: boolean;
+}
+export interface Diagnosis {
+  healthScore: number;
+  status: Status;
+  headline: string;
+  confidence: number;
+  projection: Projection;
+  dimensions: Dimension[];
+}
+
+export interface HealthInput {
+  nowHour: number;             // 0..23 (local)
+  openHour: number;            // operating window
+  closeHour: number;
+  salesToday: number;
+  ordersToday: number;
+  expectedRevenue: number | null; // 8-week same-DOW average full-day revenue
+  laborSoFar: number;          // $ spent on clocked-in staff so far today
+  scheduledLaborFullDay: number | null; // planned labor $ for the whole day (from shifts)
+  activeStaff: number;
+  confirmedCovers: number;     // covers booked today (active reservations)
+  expectedCovers: number | null;
+  openOrders: number;
+  outOfStockCount: number;
+  lowStockCount: number;
+  active86Count: number;
+  voidTotal: number;
+  voidCount: number;
+  compTotal: number;
+  priceChangeCount: number;
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+const pct = (n: number) => `${Math.round(n)}%`;
+
+function statusFromScore(s: number): Status {
+  if (s >= 90) return "excellent";
+  if (s >= 75) return "good";
+  if (s >= 60) return "fair";
+  if (s >= 45) return "strained";
+  return "critical";
+}
+
+// ── projection ──────────────────────────────────────────────────────────────
+
+function project(i: HealthInput): Projection {
+  const span = Math.max(1, i.closeHour - i.openHour);
+  const serviceElapsed = clamp((i.nowHour - i.openHour) / span, 0, 1);
+  const inService = i.nowHour >= i.openHour && i.nowHour < i.closeHour;
+
+  // Revenue: extrapolate today's pace against the expected curve. With no
+  // baseline, extrapolate by elapsed service time but conservatively — a tiny
+  // early sample shouldn't blow up into a huge projected day.
+  let projectedRevenue: number;
+  if (i.expectedRevenue && i.expectedRevenue > 0) {
+    const expectedSoFar = i.expectedRevenue * serviceElapsed;
+    const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
+    // Before service really gets going, trust the forecast; later, trust the pace.
+    projectedRevenue = serviceElapsed < 0.1 ? Math.max(i.salesToday, i.expectedRevenue) : i.expectedRevenue * paceRatio;
+  } else {
+    projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
+  }
+
+  // Labor: prefer the scheduled plan; else extrapolate the current burn.
+  const projectedLabor = i.scheduledLaborFullDay && i.scheduledLaborFullDay > 0
+    ? Math.max(i.scheduledLaborFullDay, i.laborSoFar)
+    : (serviceElapsed > 0.1 ? i.laborSoFar / serviceElapsed : i.laborSoFar);
+
+  const projectedCOGS = projectedRevenue * COGS_TARGET;
+  const otherOpex = projectedRevenue * OTHER_OPEX_PCT;
+  // Fixed overhead is anchored to a NORMAL day, so it doesn't vanish on a dead one.
+  const fixedDaily = i.expectedRevenue && i.expectedRevenue > 0
+    ? i.expectedRevenue * OCCUPANCY_PCT
+    : DEFAULT_FIXED_DAILY;
+
+  const projectedNet = projectedRevenue - projectedCOGS - otherOpex - projectedLabor - fixedDaily;
+  const projectedMarginPct = projectedRevenue > 0 ? (projectedNet / projectedRevenue) * 100 : (projectedNet < 0 ? -100 : 0);
+  const breakEvenRevenue = (projectedLabor + fixedDaily) / (1 - COGS_TARGET - OTHER_OPEX_PCT);
+  const breakEvenProgressPct = breakEvenRevenue > 0 ? (projectedRevenue / breakEvenRevenue) * 100 : null;
+
+  return {
+    expectedRevenue: i.expectedRevenue,
+    projectedRevenue, salesToday: i.salesToday,
+    projectedCOGS, projectedLabor, fixedDaily,
+    projectedNet, projectedMarginPct,
+    breakEvenRevenue, breakEvenProgressPct,
+    serviceElapsedPct: serviceElapsed * 100, inService,
+  };
+}
+
+// ── dimensions ────────────────────────────────────────────────────────────────
+
+function profitability(i: HealthInput, p: Projection): Dimension {
+  const issues: HealthIssue[] = [];
+  const wins: string[] = [];
+  const hasForecast = i.expectedRevenue !== null;
+
+  // Without a comparable day, the revenue projection is too rough to call a
+  // profit or loss — present it as unknown rather than fabricating a verdict.
+  if (!hasForecast) {
+    const score = 62;
+    return {
+      key: "profitability", label: "Profitability", score, status: statusFromScore(score),
+      confidence: 0.35,
+      summary: "Limited history — profit can't be projected confidently yet.",
+      metrics: [
+        { label: "Sales so far", value: money(i.salesToday), status: "good" },
+        { label: "Est. break-even", value: money(p.breakEvenRevenue), status: "good" },
+      ],
+      wins: [],
+      issues: [{ severity: "LOW", message: "Not enough comparable days to project profit", action: "This sharpens after a few weeks of sales history", link: "/reports" }],
+    };
+  }
+
+  // Score off projected margin: ~break-even = 50, target margin = ~80, loss → 0.
+  const score = clamp(Math.round(50 + p.projectedMarginPct * 2.5), 0, 100);
+
+  const metrics: HealthMetric[] = [
+    { label: "Projected net", value: money(p.projectedNet), target: `${pct(TARGET_MARGIN * 100)} margin`, status: statusFromScore(score) },
+    { label: "Break-even", value: money(p.breakEvenRevenue), status: "good" },
+    { label: "On track for", value: money(p.projectedRevenue), status: p.breakEvenProgressPct != null && p.breakEvenProgressPct >= 100 ? "good" : "strained" },
+  ];
+
+  if (p.projectedNet < 0) {
+    issues.push({
+      severity: "HIGH",
+      message: `Projected to lose ${money(p.projectedNet)} today`,
+      impact: `Break-even needs ${money(p.breakEvenRevenue)}; on pace for ${money(p.projectedRevenue)}`,
+      action: i.activeStaff > 0 && p.projectedRevenue < p.breakEvenRevenue * 0.6
+        ? "Cut labor to your break-even staffing or drive covers now"
+        : "Push covers / check spend — you're under break-even",
+      link: "/reports",
+    });
+  } else if (p.projectedMarginPct < TARGET_MARGIN * 100) {
+    issues.push({
+      severity: "MEDIUM",
+      message: `Thin margin — projected ${pct(p.projectedMarginPct)} net`,
+      impact: `${money(p.projectedNet)} on ${money(p.projectedRevenue)}`,
+      action: "Watch labor and comps; small covers bump clears it",
+      link: "/reports",
+    });
+  } else {
+    wins.push(`Projected ${pct(p.projectedMarginPct)} net margin (${money(p.projectedNet)})`);
+  }
+
+  return {
+    key: "profitability", label: "Profitability", score, status: statusFromScore(score),
+    confidence: hasForecast ? 0.85 : 0.5,
+    summary: p.projectedNet < 0
+      ? `On pace to lose money today.`
+      : `On pace for ${money(p.projectedNet)} net (${pct(p.projectedMarginPct)}).`,
+    metrics: metrics.filter(m => m.value),
+    wins, issues,
+  };
+}
+
+function demand(i: HealthInput, p: Projection): Dimension {
+  const issues: HealthIssue[] = [];
+  const wins: string[] = [];
+  const hasForecast = i.expectedRevenue !== null;
+  const paceRatio = hasForecast && i.expectedRevenue! > 0 ? p.projectedRevenue / i.expectedRevenue! : null;
+
+  let score: number;
+  if (paceRatio !== null) score = clamp(Math.round(paceRatio * 100), 0, 100);
+  else score = i.salesToday > 0 ? 65 : 40; // no baseline → neutral-ish, can't grade
+
+  const metrics: HealthMetric[] = [
+    { label: "Sales so far", value: money(i.salesToday), target: hasForecast ? `${money(i.expectedRevenue!)} normal` : undefined, status: statusFromScore(score) },
+    { label: "Pace vs normal", value: paceRatio !== null ? pct(paceRatio * 100) : "—", status: statusFromScore(score) },
+    { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" : "strained" },
+  ];
+
+  // Empty-room detection during service is the loudest demand signal.
+  const emptyRoom = p.inService && i.openOrders === 0 && i.salesToday < (i.expectedRevenue ?? 200) * 0.05;
+  if (emptyRoom) {
+    issues.push({
+      severity: "HIGH",
+      message: "Dining room is empty during service",
+      impact: hasForecast ? `Normally ~${money(i.expectedRevenue! * p.serviceElapsedPct / 100)} by now` : "No orders open",
+      action: "Drive demand — promo blast, walk-in push, or trim the floor",
+      link: "/host",
+    });
+  } else if (paceRatio !== null && paceRatio < 0.8) {
+    issues.push({
+      severity: paceRatio < 0.6 ? "HIGH" : "MEDIUM",
+      message: `Sales pacing ${pct(paceRatio * 100)} of a normal ${dayLabel(i)}`,
+      impact: hasForecast ? `Trending ${money(p.projectedRevenue - i.expectedRevenue!)} vs normal` : undefined,
+      action: "Check covers + reservations; consider a demand push",
+      link: "/reports",
+    });
+  } else if (paceRatio !== null && paceRatio >= 1.0) {
+    wins.push(`Pacing ${pct(paceRatio * 100)} of normal — strong demand`);
+  }
+  if (i.confirmedCovers === 0 && p.inService) {
+    issues.push({ severity: "MEDIUM", message: "No reservations on the books", action: "Walk-ins only tonight — staff for variance", link: "/reservations" });
+  } else if (i.confirmedCovers > 0) {
+    wins.push(`${i.confirmedCovers} covers booked`);
+  }
+
+  return {
+    key: "demand", label: "Demand", score, status: statusFromScore(score),
+    confidence: hasForecast ? 0.8 : 0.35,
+    summary: paceRatio !== null ? `Pacing ${pct(paceRatio * 100)} of a normal ${dayLabel(i)}.` : `No comparable day yet — pace can't be graded.`,
+    metrics, wins, issues,
+  };
+}
+
+function labor(i: HealthInput, p: Projection): Dimension {
+  const issues: HealthIssue[] = [];
+  const wins: string[] = [];
+  const laborPct = p.projectedRevenue > 0 ? (p.projectedLabor / p.projectedRevenue) * 100 : (p.projectedLabor > 0 ? 999 : 0);
+  const assessable = p.projectedRevenue > 0 || i.activeStaff > 0;
+
+  // Score off labor % vs target. 25%→100, 30%→80, 40%→40, ≥50%→low.
+  let score: number;
+  if (!assessable) score = 70;
+  else if (laborPct >= 999) score = 5;
+  else score = clamp(Math.round(100 - Math.max(0, laborPct - 25) * 4), 0, 100);
+
+  const metrics: HealthMetric[] = [
+    { label: "Labor %", value: laborPct >= 999 ? "—" : pct(laborPct), target: `${LABOR_TARGET_PCT}%`, status: statusFromScore(score) },
+    { label: "Staff on", value: String(i.activeStaff), status: "good" },
+    { label: "Projected labor", value: money(p.projectedLabor), status: statusFromScore(score) },
+  ];
+
+  if (laborPct >= 999) {
+    issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `Burning ${money(p.projectedLabor)} against ${money(p.projectedRevenue)}`, action: "Send staff home or drive covers", link: "/timeclock" });
+  } else if (laborPct > 38) {
+    issues.push({ severity: laborPct > 50 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Cut a position or extend only if covers justify it", link: "/staff" });
+  } else if (assessable && laborPct <= LABOR_TARGET_PCT) {
+    wins.push(`Labor on target at ${pct(laborPct)}`);
+  }
+
+  return {
+    key: "labor", label: "Labor", score, status: statusFromScore(score),
+    confidence: assessable ? 0.75 : 0.4,
+    summary: laborPct >= 999 ? "Staffed with no sales to cover it." : assessable ? `Labor tracking ${pct(laborPct)} of sales.` : "Not enough data to grade labor.",
+    metrics, wins, issues,
+  };
+}
+
+function costInventory(i: HealthInput): Dimension {
+  const issues: HealthIssue[] = [];
+  const wins: string[] = [];
+  let penalty = 0;
+  if (i.outOfStockCount > 0) { penalty += Math.min(40, i.outOfStockCount * 14); issues.push({ severity: "HIGH", message: `${i.outOfStockCount} item${i.outOfStockCount > 1 ? "s" : ""} out of stock`, action: "Reorder or 86 affected dishes", link: "/inventory" }); }
+  if (i.active86Count > 0) { penalty += Math.min(20, i.active86Count * 5); issues.push({ severity: "MEDIUM", message: `${i.active86Count} item${i.active86Count > 1 ? "s" : ""} 86'd`, action: "Confirm the floor knows", link: "/kitchen" }); }
+  if (i.lowStockCount > 0) { penalty += Math.min(15, i.lowStockCount * 3); issues.push({ severity: "LOW", message: `${i.lowStockCount} item${i.lowStockCount > 1 ? "s" : ""} below par`, action: "Add to the next order", link: "/purchasing/reorder" }); }
+  if (i.priceChangeCount > 0) { penalty += Math.min(12, i.priceChangeCount * 3); issues.push({ severity: "LOW", message: `${i.priceChangeCount} vendor price swing${i.priceChangeCount > 1 ? "s" : ""}`, action: "Review costs / re-bid", link: "/purchasing" }); }
+  if (penalty === 0) wins.push("No stock-outs, 86s, or price spikes");
+
+  const score = clamp(100 - penalty, 0, 100);
+  return {
+    key: "cost", label: "Cost & Inventory", score, status: statusFromScore(score),
+    confidence: 0.8,
+    summary: penalty === 0 ? "Inventory clean." : `${issues.length} cost/inventory issue${issues.length > 1 ? "s" : ""} to clear.`,
+    metrics: [
+      { label: "Out of stock", value: String(i.outOfStockCount), status: i.outOfStockCount ? "critical" : "good" },
+      { label: "86'd", value: String(i.active86Count), status: i.active86Count ? "fair" : "good" },
+      { label: "Below par", value: String(i.lowStockCount), status: i.lowStockCount ? "fair" : "good" },
+    ],
+    wins, issues,
+  };
+}
+
+function service(i: HealthInput): Dimension {
+  const issues: HealthIssue[] = [];
+  const wins: string[] = [];
+  const lossRate = i.salesToday > 0 ? ((i.voidTotal + i.compTotal) / i.salesToday) * 100 : 0;
+  const score = i.salesToday > 0 ? clamp(Math.round(100 - lossRate * 6), 30, 100) : 75;
+  if (lossRate > 4) issues.push({ severity: lossRate > 8 ? "HIGH" : "MEDIUM", message: `Voids + comps at ${pct(lossRate)} of sales`, impact: money(i.voidTotal + i.compTotal), action: "Spot-check reasons — training or theft signal", link: "/reports" });
+  else if (i.salesToday > 0) wins.push(`Voids/comps low at ${pct(lossRate)}`);
+
+  return {
+    key: "service", label: "Service", score, status: statusFromScore(score),
+    confidence: i.salesToday > 0 ? 0.6 : 0.3,
+    summary: i.salesToday > 0 ? `Voids + comps ${pct(lossRate)} of sales.` : "No service data yet.",
+    metrics: [
+      { label: "Voids", value: `${money(i.voidTotal)} (${i.voidCount})`, status: i.voidTotal ? "fair" : "good" },
+      { label: "Comps", value: money(i.compTotal), status: i.compTotal ? "fair" : "good" },
+    ],
+    wins, issues,
+  };
+}
+
+function dayLabel(_i: HealthInput) { return "day"; }
+
+// ── roll-up ───────────────────────────────────────────────────────────────────
+
+const WEIGHTS: Record<string, number> = { profitability: 0.35, demand: 0.25, labor: 0.20, cost: 0.15, service: 0.05 };
+
+export function buildDiagnosis(input: HealthInput): Diagnosis {
+  const p = project(input);
+  const dims = [profitability(input, p), demand(input, p), labor(input, p), costInventory(input), service(input)];
+
+  // Confidence-weighted roll-up.
+  let wSum = 0, scoreSum = 0, confSum = 0;
+  for (const d of dims) {
+    const w = (WEIGHTS[d.key] ?? 0) * (0.4 + 0.6 * d.confidence); // low-confidence dims pull less weight
+    wSum += w; scoreSum += d.score * w; confSum += d.confidence * (WEIGHTS[d.key] ?? 0);
+  }
+  let score = wSum > 0 ? Math.round(scoreSum / wSum) : 70;
+
+  const hasHighIssue = dims.some(d => d.issues.some(x => x.severity === "HIGH"));
+  const noBaseline = input.expectedRevenue === null;
+
+  // Hard overrides — economics and honesty trump the weighted average.
+  // Loss override only fires when we have a baseline to trust the projection.
+  const lossOverride = !noBaseline && p.projectedNet < 0 && (p.inService || input.salesToday > 0);
+  // Empty-room is a real-time fact regardless of history.
+  const emptyOverride = p.inService && input.openOrders === 0 && input.salesToday < (input.expectedRevenue ?? 200) * 0.05;
+  if (lossOverride) score = Math.min(score, 32);
+  if (emptyOverride) score = Math.min(score, 22);
+  // A live HIGH issue can't sit under a top-tier score.
+  if (hasHighIssue) score = Math.min(score, 78);
+  // No comparable day yet → we can't grade demand/profit with confidence, so we
+  // don't claim an "excellent" day off an extrapolation.
+  if (noBaseline) score = Math.min(score, 70);
+
+  const status = statusFromScore(score);
+
+  // Headline: lead with the economic reality.
+  let headline: string;
+  if (emptyOverride) headline = `Empty dining room during service — burning ${money(p.projectedLabor + p.fixedDaily)}/day in fixed cost with no covers.`;
+  else if (lossOverride) headline = `On pace to lose ${money(p.projectedNet)} today. Break-even is ${money(p.breakEvenRevenue)}; trending ${money(p.projectedRevenue)}.`;
+  else if (noBaseline) headline = `Limited sales history — pace and profit can't be graded yet. A few comparable days unlocks the full read; live issues still flagged below.`;
+  else if (status === "excellent") headline = `Strong day — projected ${money(p.projectedNet)} net at ${pct(p.projectedMarginPct)} margin.`;
+  else if (status === "good") headline = `Solid — on pace for ${money(p.projectedNet)} net. ${topIssue(dims) ?? "Nothing urgent."}`;
+  else headline = topIssue(dims) ?? `Tracking toward ${money(p.projectedNet)} net.`;
+
+  const confidence = clamp(confSum, 0, 1);
+  return { healthScore: score, status, headline, confidence, projection: p, dimensions: dims };
+}
+
+function topIssue(dims: Dimension[]): string | null {
+  const all = dims.flatMap(d => d.issues);
+  const high = all.find(x => x.severity === "HIGH") ?? all.find(x => x.severity === "MEDIUM") ?? all[0];
+  return high?.message ?? null;
+}
+
+// Flatten dimension issues into the legacy alert shape the rest of the UI uses.
+export function issuesToAlerts(dims: Dimension[]): { severity: string; category: string; message: string; link: string }[] {
+  const catFor: Record<string, string> = { profitability: "COSTS", demand: "SALES", labor: "LABOR", cost: "INVENTORY", service: "OPERATIONS" };
+  return dims.flatMap(d => d.issues.map(x => ({
+    severity: x.severity,
+    category: catFor[d.key] ?? "OPERATIONS",
+    message: x.action ? `${x.message} — ${x.action}` : x.message,
+    link: x.link ?? "/",
+  }))).sort((a, b) => {
+    const o = { HIGH: 0, MEDIUM: 1, LOW: 2 } as Record<string, number>;
+    return (o[a.severity] ?? 3) - (o[b.severity] ?? 3);
+  });
+}

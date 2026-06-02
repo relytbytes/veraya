@@ -411,9 +411,29 @@ export interface VeraAlert {
   link: string;
 }
 
+export type VeraStatus = "excellent" | "good" | "fair" | "strained" | "critical";
+export interface VeraHealthMetric { label: string; value: string; target?: string; status: VeraStatus }
+export interface VeraHealthIssue { severity: "HIGH" | "MEDIUM" | "LOW"; message: string; impact?: string; action?: string; link?: string }
+export interface VeraDimension {
+  key: string; label: string; score: number; status: VeraStatus; confidence: number;
+  summary: string; metrics: VeraHealthMetric[]; wins: string[]; issues: VeraHealthIssue[];
+}
+export interface VeraProjection {
+  expectedRevenue: number | null; projectedRevenue: number; salesToday: number;
+  projectedCOGS: number; projectedLabor: number; fixedDaily: number;
+  projectedNet: number; projectedMarginPct: number;
+  breakEvenRevenue: number; breakEvenProgressPct: number | null;
+  serviceElapsedPct: number; inService: boolean;
+}
+
 export interface VeraData {
   healthScore: number;
+  status?: VeraStatus;
+  confidence?: number;
+  headline?: string;
   narrative: string;
+  projection?: VeraProjection;
+  dimensions?: VeraDimension[];
   alerts: VeraAlert[];
   rawSignals: {
     salesToday: number;

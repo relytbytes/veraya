@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import {
   RefreshCw, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle2, AlertCircle, Info,
+  AlertTriangle, CheckCircle2, AlertCircle, Info, ChevronDown,
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,26 +38,58 @@ interface Prediction {
   hoursUntilMin: number | null;
 }
 
-interface HealthFactor { label: string; delta: number }
+type Status = "excellent" | "good" | "fair" | "strained" | "critical";
+
+interface HealthMetric { label: string; value: string; target?: string; status: Status }
+interface HealthIssue { severity: "HIGH" | "MEDIUM" | "LOW"; message: string; impact?: string; action?: string; link?: string }
+interface Dimension {
+  key: string; label: string; score: number; status: Status; confidence: number;
+  summary: string; metrics: HealthMetric[]; wins: string[]; issues: HealthIssue[];
+}
+interface Projection {
+  expectedRevenue: number | null; projectedRevenue: number; salesToday: number;
+  projectedCOGS: number; projectedLabor: number; fixedDaily: number;
+  projectedNet: number; projectedMarginPct: number;
+  breakEvenRevenue: number; breakEvenProgressPct: number | null;
+  serviceElapsedPct: number; inService: boolean;
+}
 
 interface VeraData {
   healthScore: number;
-  healthBreakdown?: HealthFactor[];
-  healthUnassessed?: string[];
+  status: Status;
+  confidence: number;
+  headline: string;
   narrative: string;
+  projection: Projection;
+  dimensions: Dimension[];
   alerts: VeraAlert[];
   rawSignals: {
-    salesToday: number;
-    refSales: number;
-    pacingRatio: number | null;
-    laborSoFar: number;
-    projectedLaborPct: number | null;
-    lowStockCount: number;
-    active86Count: number;
-    voidTotal: number;
-    confirmedCovers: number;
+    salesToday: number; refSales: number; pacingRatio: number | null;
+    laborSoFar: number; projectedLaborPct: number | null;
+    lowStockCount: number; active86Count: number; voidTotal: number; confirmedCovers: number;
   };
 }
+
+const dol = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+const pctTxt = (n: number) => `${Math.round(n)}%`;
+
+function dimColor(status: Status) {
+  switch (status) {
+    case "excellent": return { chip: "bg-emerald-50 text-emerald-700 border-emerald-200", bar: "bg-emerald-500" };
+    case "good":      return { chip: "bg-teal-50 text-teal-700 border-teal-200",          bar: "bg-teal-500"    };
+    case "fair":      return { chip: "bg-amber-50 text-amber-700 border-amber-200",        bar: "bg-amber-500"   };
+    case "strained":  return { chip: "bg-orange-50 text-orange-700 border-orange-200",     bar: "bg-orange-500"  };
+    default:          return { chip: "bg-red-50 text-red-700 border-red-200",              bar: "bg-red-500"     };
+  }
+}
+
+const DIM_ICON: Record<string, ReactNode> = {
+  profitability: <DollarSign className="h-3.5 w-3.5" />,
+  demand: <TrendingUp className="h-3.5 w-3.5" />,
+  labor: <Users className="h-3.5 w-3.5" />,
+  cost: <Package className="h-3.5 w-3.5" />,
+  service: <UtensilsCrossed className="h-3.5 w-3.5" />,
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +136,7 @@ export function VeraPanel() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [expandedDim, setExpandedDim] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -275,104 +307,29 @@ export function VeraPanel() {
           <p className="text-sm leading-relaxed text-gray-600">{data.narrative}</p>
         </div>
 
-        {/* Health score — click to see what's driving it */}
-        <button
-          type="button"
-          onClick={() => setShowBreakdown((v) => !v)}
-          className="flex flex-col items-center gap-1.5 shrink-0 group"
-          title="What's affecting this score?"
-        >
-          <div className={cn(
-            "flex flex-col items-center justify-center h-14 w-14 rounded-xl ring-2 border bg-white transition-transform group-hover:scale-105",
-            health!.ring, health!.badge
-          )}>
-            <span className={cn("text-xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
+        {/* Overall health */}
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          <div className={cn("flex flex-col items-center justify-center h-16 w-16 rounded-2xl ring-2 border bg-white", health!.ring, health!.badge)}>
+            <span className={cn("text-2xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
             <span className="text-[8px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">/ 100</span>
           </div>
-          <span className={cn("text-[10px] font-semibold text-center leading-tight max-w-[56px]", health!.labelColor)}>
-            {health!.label}
-          </span>
-        </button>
+          <span className={cn("text-[10px] font-semibold text-center leading-tight", health!.labelColor)}>{health!.label}</span>
+        </div>
       </div>
 
-      {/* Score breakdown — why the number is what it is */}
-      {showBreakdown && (
-        <div className="px-5 pb-4 -mt-1">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">What&apos;s affecting the score</p>
-            {(data.healthBreakdown?.length ?? 0) === 0 ? (
-              <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Everything&apos;s tracking well — no deductions.
-              </p>
-            ) : (
-              <ul className="space-y-1.5">
-                {data.healthBreakdown!.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-gray-600 truncate">{f.label}</span>
-                    <span className={cn(
-                      "font-bold tabular-nums shrink-0",
-                      f.delta <= -15 ? "text-red-600" : f.delta <= -8 ? "text-orange-500" : "text-amber-600",
-                    )}>{f.delta}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {(data.healthUnassessed?.length ?? 0) > 0 && (
-              <ul className="mt-2 space-y-1 border-t border-gray-200 pt-2">
-                {data.healthUnassessed!.map((u, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-400">
-                    <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                    <span>{u}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2.5 flex items-center justify-between border-t border-gray-200 pt-2 text-xs">
-              <span className="font-medium text-gray-500">Health score</span>
-              <span className="font-bold text-gray-900 tabular-nums">{data.healthScore} / 100</span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Day P&L projection */}
+      <div className="grid grid-cols-3 border-y border-gray-100 divide-x divide-gray-100">
+        <PLCell label="On pace for" value={dol(data.projection.projectedRevenue)} sub={data.projection.expectedRevenue != null ? `${pctTxt((data.projection.projectedRevenue / Math.max(data.projection.expectedRevenue, 1)) * 100)} of normal` : "no baseline yet"} />
+        <PLCell label="Projected net" value={dol(data.projection.projectedNet)} valueClass={data.projection.projectedNet >= 0 ? "text-emerald-600" : "text-red-600"} sub={`${pctTxt(data.projection.projectedMarginPct)} margin`} />
+        <PLCell label="Break-even" value={dol(data.projection.breakEvenRevenue)} sub={data.projection.breakEvenProgressPct != null ? `${pctTxt(data.projection.breakEvenProgressPct)} there` : "—"} />
+      </div>
 
-      {/* Signal pills */}
-      {data.rawSignals && (
-        <div className="flex gap-2 px-5 pb-4 overflow-x-auto scrollbar-none">
-          {data.rawSignals.pacingRatio !== null && (
-            <SignalPill
-              icon={data.rawSignals.pacingRatio >= 0.95 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              label="Sales pace"
-              value={`${(data.rawSignals.pacingRatio * 100).toFixed(0)}%`}
-              ok={data.rawSignals.pacingRatio >= 0.93}
-              warn={data.rawSignals.pacingRatio >= 0.80}
-              href="/reports"
-            />
-          )}
-          {data.rawSignals.salesToday > 0 && (
-            <SignalPill icon={<DollarSign className="h-3 w-3" />} label="Today" value={fmt(data.rawSignals.salesToday)} ok href="/reports" />
-          )}
-          {data.rawSignals.projectedLaborPct !== null && (
-            <SignalPill
-              icon={<Users className="h-3 w-3" />}
-              label="Labor"
-              value={`${data.rawSignals.projectedLaborPct.toFixed(1)}%`}
-              ok={data.rawSignals.projectedLaborPct < 33}
-              warn={data.rawSignals.projectedLaborPct < 38}
-              href="/staff"
-            />
-          )}
-          {data.rawSignals.lowStockCount > 0 && (
-            <SignalPill icon={<Package className="h-3 w-3" />} label="Low stock" value={String(data.rawSignals.lowStockCount)} ok={false} warn={data.rawSignals.lowStockCount < 4} href="/inventory" />
-          )}
-          {data.rawSignals.active86Count > 0 && (
-            <SignalPill icon={<UtensilsCrossed className="h-3 w-3" />} label="86'd" value={String(data.rawSignals.active86Count)} ok={false} warn href="/pos" />
-          )}
-          {data.rawSignals.confirmedCovers > 0 && (
-            <SignalPill icon={<Calendar className="h-3 w-3" />} label="Covers tonight" value={String(data.rawSignals.confirmedCovers)} ok href="/host" />
-          )}
-        </div>
-      )}
-
+      {/* Dimensions — the finite detail */}
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {data.dimensions.map((d) => (
+          <DimensionCard key={d.key} d={d} expanded={expandedDim === d.key} onToggle={() => setExpandedDim(expandedDim === d.key ? null : d.key)} />
+        ))}
+      </div>
       {/* Vera caught — anomalies (price creep, comp/void outliers) */}
       {anomalies.length > 0 && (
         <div className="px-5 pb-1">
@@ -442,23 +399,6 @@ export function VeraPanel() {
         </div>
       )}
 
-      {/* Divider */}
-      <div className="border-t border-gray-100 mx-5" />
-
-      {/* Alerts */}
-      <div className="p-5 pt-4 space-y-2">
-        {data.alerts.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-600 py-1">
-            <CheckCircle2 className="h-4 w-4" />
-            All systems looking good — no significant issues detected.
-          </div>
-        ) : (
-          <>
-            {highAlerts.map((alert, i)  => <AlertRow key={`h-${i}`} alert={alert} />)}
-            {otherAlerts.map((alert, i) => <AlertRow key={`o-${i}`} alert={alert} />)}
-          </>
-        )}
-      </div>
 
       {/* Footer */}
       <div className="border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
@@ -477,6 +417,82 @@ export function VeraPanel() {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+function PLCell({ label, value, sub, valueClass }: { label: string; value: string; sub?: string; valueClass?: string }) {
+  return (
+    <div className="px-4 py-3 text-center">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <p className={cn("text-lg font-bold tabular-nums leading-tight mt-0.5", valueClass ?? "text-gray-900")}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function issueColor(sev: string) {
+  if (sev === "HIGH") return "border-red-200 bg-red-50/70 text-red-700";
+  if (sev === "MEDIUM") return "border-amber-200 bg-amber-50/70 text-amber-800";
+  return "border-gray-200 bg-gray-50 text-gray-600";
+}
+
+function DimensionCard({ d, expanded, onToggle }: { d: Dimension; expanded: boolean; onToggle: () => void }) {
+  const c = dimColor(d.status);
+  const hasDetail = d.issues.length > 0 || d.wins.length > 0 || d.metrics.length > 0;
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors"
+      >
+        <span className={cn("flex h-7 w-7 items-center justify-center rounded-lg border shrink-0", c.chip)}>{DIM_ICON[d.key]}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">{d.label}</span>
+            {d.issues.some(x => x.severity === "HIGH") && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+          </div>
+          <p className="text-[11px] text-gray-500 truncate">{d.summary}</p>
+        </div>
+        <span className={cn("text-sm font-bold tabular-nums shrink-0", c.chip.split(" ")[1])}>{d.score}</span>
+        {hasDetail && (
+          <ChevronDown className={cn("h-4 w-4 text-gray-300 shrink-0 transition-transform", expanded && "rotate-180")} />
+        )}
+      </button>
+
+      {expanded && hasDetail && (
+        <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-gray-100">
+          {d.metrics.length > 0 && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
+              {d.metrics.map((m, i) => (
+                <div key={i} className="text-[11px]">
+                  <span className="text-gray-400">{m.label}: </span>
+                  <span className="font-semibold text-gray-700 tabular-nums">{m.value}</span>
+                  {m.target && <span className="text-gray-400"> / {m.target}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {d.wins.map((w, i) => (
+            <div key={`w-${i}`} className="flex items-start gap-1.5 text-[11px] text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-px text-emerald-500" /> <span>{w}</span>
+            </div>
+          ))}
+          {d.issues.map((iss, i) => {
+            const body = (
+              <div className={cn("rounded-lg border px-2.5 py-1.5", issueColor(iss.severity))}>
+                <p className="text-[11px] font-medium leading-snug">{iss.message}</p>
+                {iss.impact && <p className="text-[10px] opacity-80 mt-0.5">{iss.impact}</p>}
+                {iss.action && <p className="text-[10px] mt-0.5 font-semibold">→ {iss.action}</p>}
+              </div>
+            );
+            return iss.link
+              ? <Link key={`i-${i}`} href={iss.link} className="block hover:opacity-90">{body}</Link>
+              : <div key={`i-${i}`}>{body}</div>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AlertRow({ alert }: { alert: VeraAlert }) {
   const cfg = severityConfig(alert.severity);

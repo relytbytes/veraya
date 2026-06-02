@@ -170,45 +170,47 @@ export function VeraCard() {
         </View>
       </View>
 
-      {/* Signal pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 14, gap: 8 }}
-      >
-        {sig.pacingRatio !== null && (
-          <SignalPill
-            icon={sig.pacingRatio >= 0.95 ? "trending-up-outline" : "trending-down-outline"}
-            label="Sales pace"
-            value={`${(sig.pacingRatio * 100).toFixed(0)}%`}
-            ok={sig.pacingRatio >= 0.93}
-            warn={sig.pacingRatio >= 0.80}
-            onPress={() => router.push("/(app)/reports" as never)}
-          />
-        )}
-        {sig.salesToday > 0 && (
-          <SignalPill icon="cash-outline" label="Today" value={fmt(sig.salesToday)} ok onPress={() => router.push("/(app)/reports" as never)} />
-        )}
-        {sig.projectedLaborPct !== null && (
-          <SignalPill
-            icon="people-outline"
-            label="Labor"
-            value={`${sig.projectedLaborPct.toFixed(1)}%`}
-            ok={sig.projectedLaborPct < 33}
-            warn={sig.projectedLaborPct < 38}
-            onPress={() => router.push("/(app)/staff" as never)}
-          />
-        )}
-        {sig.lowStockCount > 0 && (
-          <SignalPill icon="cube-outline" label="Low stock" value={String(sig.lowStockCount)} ok={false} warn={sig.lowStockCount < 4} onPress={() => router.push("/(app)/inventory" as never)} />
-        )}
-        {sig.active86Count > 0 && (
-          <SignalPill icon="close-circle-outline" label="86'd" value={String(sig.active86Count)} ok={false} warn onPress={() => router.push("/(app)/pos" as never)} />
-        )}
-        {sig.confirmedCovers > 0 && (
-          <SignalPill icon="calendar-outline" label="Covers" value={String(sig.confirmedCovers)} ok onPress={() => router.push("/(app)/reservations" as never)} />
-        )}
-      </ScrollView>
+      {/* Day P&L projection */}
+      {data.projection && (
+        <View style={{ flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.rim }}>
+          {[
+            { label: "On pace", value: fmt(data.projection.projectedRevenue), color: C.pearl },
+            { label: "Net", value: fmt(data.projection.projectedNet), color: data.projection.projectedNet >= 0 ? C.jade : C.coral },
+            { label: "Break-even", value: fmt(data.projection.breakEvenRevenue), color: C.pearl },
+          ].map((cell, i) => (
+            <View key={i} style={{ flex: 1, alignItems: "center", paddingVertical: 10, borderLeftWidth: i ? 1 : 0, borderColor: C.rim }}>
+              <Text style={{ fontSize: 9, color: C.smoke, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>{cell.label}</Text>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: cell.color, marginTop: 2 }}>{cell.value}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Dimension chips — tap to jump to the issue */}
+      {data.dimensions && data.dimensions.length > 0 && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 14 }}>
+          {data.dimensions.map((d) => {
+            const dc = d.score >= 75 ? C.jade : d.score >= 60 ? C.gold : d.score >= 45 ? C.ember : C.coral;
+            const topIssue = d.issues[0];
+            return (
+              <TouchableOpacity
+                key={d.key}
+                activeOpacity={0.7}
+                onPress={() => topIssue?.link && router.push(linkToRoute(topIssue.link) as never)}
+                style={{ width: "47%", flexGrow: 1, borderWidth: 1, borderColor: C.rim, borderRadius: 12, padding: 10, backgroundColor: C.surfaceHi }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>{d.label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: dc }}>{d.score}</Text>
+                </View>
+                <Text style={{ fontSize: 10, color: C.mist, marginTop: 3 }} numberOfLines={2}>
+                  {topIssue ? (topIssue.action ?? topIssue.message) : (d.wins[0] ?? d.summary)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {/* Vera caught — anomalies */}
       {anomalies.length > 0 && (
