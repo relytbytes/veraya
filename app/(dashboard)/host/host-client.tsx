@@ -405,6 +405,7 @@ export function HostClient() {
       await api("/api/waitlist", {
         name: data.name.trim(), partySize: Number(data.partySize),
         phone: data.phone || undefined, notes: data.notes || undefined,
+        customerId: data.customerId || undefined,
       }, "POST");
       setWalkInOpen(false); setWalkInTarget(null);
       await loadAll(date);
