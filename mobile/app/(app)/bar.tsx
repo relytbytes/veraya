@@ -109,7 +109,9 @@ export default function BarScreen() {
                 </View>
 
                 <View className="p-3 gap-2">
-                  {fireRounds(order.items).map((round, ri, arr) => (
+                  {fireRounds(order.items).map((round, ri, arr) => {
+                    const isCurrentRound = round.key === arr[arr.length - 1]?.key;
+                    return (
                     <View key={round.key} style={{ gap: 8 }}>
                       {arr.length > 1 && (
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 2 }}>
@@ -122,10 +124,13 @@ export default function BarScreen() {
                           <View style={{ flex: 1, height: 1, backgroundColor: C.rim }} />
                         </View>
                       )}
-                      {round.items.map((item) => (
+                      {round.items.map((item) => {
+                        const locked = !!item.completedAt && !isCurrentRound;
+                        return (
                         <TouchableOpacity
                           key={item.id}
-                          onPress={() => toggleItem(order.id, item.id, !item.completedAt)}
+                          disabled={locked}
+                          onPress={() => { if (!locked) toggleItem(order.id, item.id, !item.completedAt); }}
                           style={{
                             flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
                             backgroundColor: item.completedAt ? T.jade : item.sentAt ? T.ember : C.surfaceHi,
@@ -139,9 +144,11 @@ export default function BarScreen() {
                             {item.quantity}× {item.menuItem.name}
                           </Text>
                         </TouchableOpacity>
-                      ))}
+                        );
+                      })}
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
 
                 <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>

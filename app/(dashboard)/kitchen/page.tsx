@@ -502,7 +502,12 @@ function TicketCard({
         {(() => {
           const rounds = fireRounds(order.items);
           const multi = rounds.length > 1;
-          return rounds.map((round, ri) => (
+          // Only the latest course can be un-selected; earlier courses lock
+          // once completed so a finished course can't be accidentally reopened.
+          const currentKey = rounds[rounds.length - 1]?.key;
+          return rounds.map((round, ri) => {
+            const isCurrentRound = round.key === currentKey;
+            return (
             <div key={round.key} className="space-y-2">
               {multi && (
                 <div className="flex items-center gap-2 pt-1">
@@ -515,17 +520,21 @@ function TicketCard({
                   <div className="flex-1 border-t border-gray-700/60" />
                 </div>
               )}
-              {round.items.map((item) => (
+              {round.items.map((item) => {
+                const locked = !!item.completedAt && !isCurrentRound;
+                return (
                 <button
                   key={item.id}
-                  onClick={() => onToggleItem(order.id, item.id, !item.completedAt)}
+                  onClick={() => { if (!locked) onToggleItem(order.id, item.id, !item.completedAt); }}
+                  title={locked ? "Completed in an earlier course — can't unselect" : undefined}
                   className={cn(
                     "w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 transition-all",
                     item.completedAt
                       ? "bg-[#1E7A45]/25 opacity-60"
                       : item.sentAt
                       ? "bg-warning-900/40"
-                      : "bg-gray-800/60 hover:bg-gray-700/60"
+                      : "bg-gray-800/60 hover:bg-gray-700/60",
+                    locked && "cursor-default"
                   )}
                 >
                   <span
@@ -560,9 +569,11 @@ function TicketCard({
                     )}
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
-          ));
+            );
+          });
         })()}
 
         {order.notes && (

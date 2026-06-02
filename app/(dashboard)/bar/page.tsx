@@ -247,7 +247,11 @@ function TicketCard({
         {(() => {
           const rounds = fireRounds(order.items);
           const multi = rounds.length > 1;
-          return rounds.map((round, ri) => (
+          // Only the current round can be un-selected; earlier rounds lock once done.
+          const currentKey = rounds[rounds.length - 1]?.key;
+          return rounds.map((round, ri) => {
+            const isCurrentRound = round.key === currentKey;
+            return (
             <div key={round.key} className="space-y-2">
               {multi && (
                 <div className="flex items-center gap-2 pt-1">
@@ -260,13 +264,17 @@ function TicketCard({
                   <div className="flex-1 border-t border-gray-700/60" />
                 </div>
               )}
-              {round.items.map((item) => (
+              {round.items.map((item) => {
+                const locked = !!item.completedAt && !isCurrentRound;
+                return (
                 <button
                   key={item.id}
-                  onClick={() => onToggleItem(order.id, item.id, !item.completedAt)}
+                  onClick={() => { if (!locked) onToggleItem(order.id, item.id, !item.completedAt); }}
+                  title={locked ? "Completed in an earlier round — can't unselect" : undefined}
                   className={cn(
                     "w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 transition-all",
-                    item.completedAt ? "bg-[#1E7A45]/25 opacity-60" : item.sentAt ? "bg-teal-900/40" : "bg-gray-800/60 hover:bg-gray-700/60"
+                    item.completedAt ? "bg-[#1E7A45]/25 opacity-60" : item.sentAt ? "bg-teal-900/40" : "bg-gray-800/60 hover:bg-gray-700/60",
+                    locked && "cursor-default"
                   )}
                 >
                   <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", item.completedAt ? "border-[#1E7A45] bg-[#1E7A45] text-white" : "border-gray-500")}>
@@ -282,9 +290,11 @@ function TicketCard({
                     {item.notes && <p className="text-xs text-teal-300 mt-0.5">⚠ {item.notes}</p>}
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
-          ));
+            );
+          });
         })()}
         {order.notes && <p className="text-xs text-amber-200 bg-amber-900/30 rounded px-2 py-1 mt-2">📝 {order.notes}</p>}
       </div>
