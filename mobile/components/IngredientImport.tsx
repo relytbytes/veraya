@@ -191,24 +191,30 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
 
   if (!visible) return null;
 
-  // Camera views render outside the modal for native camera access
+  // Camera views need their own full-screen Modal — otherwise the bare
+  // absolute-fill camera renders behind the inventory screen's header/empty
+  // state (which sit later in the tree) and the content bleeds over the feed.
   if (mode === "photo-capture") {
     return (
-      <PhotoCapture
-        hint="Point at a delivery, invoice, or pantry shelf — AI will extract all ingredients"
-        onCapture={handlePhotoCapture}
-        onClose={() => setMode("choose")}
-      />
+      <Modal visible animationType="slide" onRequestClose={() => setMode("choose")}>
+        <PhotoCapture
+          hint="Point at a delivery, invoice, or pantry shelf — AI will extract all ingredients"
+          onCapture={handlePhotoCapture}
+          onClose={() => setMode("choose")}
+        />
+      </Modal>
     );
   }
 
   if (mode === "barcode-scan") {
     return (
-      <Scanner
-        hint="Scan a product barcode to look up ingredient details"
-        onScan={handleBarcodeScan}
-        onClose={() => setMode("choose")}
-      />
+      <Modal visible animationType="slide" onRequestClose={() => setMode("choose")}>
+        <Scanner
+          hint="Scan a product barcode to look up ingredient details"
+          onScan={handleBarcodeScan}
+          onClose={() => setMode("choose")}
+        />
+      </Modal>
     );
   }
 
