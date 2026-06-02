@@ -543,6 +543,7 @@ model Reservation {
   stripePaymentIntentId String?
   cardLast4             String?
   cardBrand             String?
+  feeCents              Int?              // no-show / late-cancel fee captured from the hold
   reminderSentAt        DateTime?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt

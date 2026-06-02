@@ -5,6 +5,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { tableHasConflict } from "@/lib/reservations";
 import { publish } from "@/lib/realtime";
 import { applyAutoTags } from "@/lib/customer-tags";
+import { settleReservationHold } from "@/lib/reservation-fees";
 
 export async function PATCH(
   req: NextRequest,
@@ -107,6 +108,17 @@ export async function PATCH(
       where: { id: priorTableId },
       data: { status: "DIRTY" },
     });
+  }
+
+  // Settle the card hold on a status change: release on seat/complete, capture
+  // (fee) on no-show or late cancel. Records the captured fee on the reservation.
+  if (reservation.stripePaymentIntentId &&
+      (status === "SEATED" || status === "COMPLETED" || status === "NO_SHOW" || status === "CANCELLED")) {
+    const { feeCents } = await settleReservationHold(reservation, status);
+    if (feeCents != null) {
+      await prisma.reservation.update({ where: { id }, data: { feeCents } });
+      updated = { ...updated, feeCents };
+    }
   }
 
   // Bump visit count when seated, then refresh auto loyalty tags.
