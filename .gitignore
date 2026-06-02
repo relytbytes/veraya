@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# local dev database (recreate via prisma migrate + npm run db:seed)
+prisma/dev.db
+prisma/dev.db-journal
