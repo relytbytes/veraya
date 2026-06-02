@@ -41,7 +41,7 @@ export default function LoginPage() {
         {/* Logo — the real app icon, for continuity with the home screen + app icon */}
         <div className="flex flex-col items-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-512.png" alt="Veraya" width={56} height={56} className="rounded-2xl mb-4 shadow-lg" />
+          <img src="/icon-512.png?v=2" alt="Veraya" width={56} height={56} className="rounded-2xl mb-4 shadow-lg" />
           <h1 className="text-2xl font-bold text-white">Veraya</h1>
           <p className="text-sm font-medium text-gray-200 mt-2 text-center">Built for one restaurant. Ready for a hundred.</p>
           <p className="text-xs text-gray-400 mt-1.5 text-center max-w-xs leading-relaxed">

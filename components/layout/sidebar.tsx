@@ -39,7 +39,7 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-700">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
-          <Image src="/icon-512.png" alt="Veraya" width={28} height={28} className="rounded-lg" />
+          <Image src="/icon-512.png?v=2" alt="Veraya" width={28} height={28} className="rounded-lg" />
         </div>
         <div>
           <p className="text-sm font-bold leading-none" style={{ color: "#21A090" }}>Veraya</p>
