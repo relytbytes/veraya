@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getBarOrders, kitchenAction } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
+import { fireRounds } from "@/lib/fire-rounds";
 import type { Order } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
@@ -108,23 +109,38 @@ export default function BarScreen() {
                 </View>
 
                 <View className="p-3 gap-2">
-                  {order.items.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() => toggleItem(order.id, item.id, !item.completedAt)}
-                      style={{
-                        flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
-                        backgroundColor: item.completedAt ? T.jade : item.sentAt ? T.ember : C.surfaceHi,
-                        opacity: item.completedAt ? 0.65 : 1,
-                      }}
-                    >
-                      <View style={{ height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: item.completedAt ? C.jade : C.rim, backgroundColor: item.completedAt ? C.jade : "transparent", alignItems: "center", justifyContent: "center" }}>
-                        {item.completedAt && <Ionicons name="checkmark" size={12} color={C.void} />}
-                      </View>
-                      <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: item.completedAt ? C.smoke : C.pearl, textDecorationLine: item.completedAt ? "line-through" : "none" }}>
-                        {item.quantity}× {item.menuItem.name}
-                      </Text>
-                    </TouchableOpacity>
+                  {fireRounds(order.items).map((round, ri, arr) => (
+                    <View key={round.key} style={{ gap: 8 }}>
+                      {arr.length > 1 && (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 2 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "800", color: C.jade, letterSpacing: 1, textTransform: "uppercase" }}>Round {ri + 1}</Text>
+                          {round.firedAt && (
+                            <Text style={{ fontSize: 10, color: C.smoke, fontFamily: "monospace" }}>
+                              {new Date(round.firedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                            </Text>
+                          )}
+                          <View style={{ flex: 1, height: 1, backgroundColor: C.rim }} />
+                        </View>
+                      )}
+                      {round.items.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          onPress={() => toggleItem(order.id, item.id, !item.completedAt)}
+                          style={{
+                            flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
+                            backgroundColor: item.completedAt ? T.jade : item.sentAt ? T.ember : C.surfaceHi,
+                            opacity: item.completedAt ? 0.65 : 1,
+                          }}
+                        >
+                          <View style={{ height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: item.completedAt ? C.jade : C.rim, backgroundColor: item.completedAt ? C.jade : "transparent", alignItems: "center", justifyContent: "center" }}>
+                            {item.completedAt && <Ionicons name="checkmark" size={12} color={C.void} />}
+                          </View>
+                          <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: item.completedAt ? C.smoke : C.pearl, textDecorationLine: item.completedAt ? "line-through" : "none" }}>
+                            {item.quantity}× {item.menuItem.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   ))}
                 </View>
 

@@ -310,7 +310,7 @@ export interface StorageArea {
 export interface OrderItem {
   id: string; quantity: number; unitPrice: number; course: number;
   heldForFire: boolean; voided: boolean; comped: boolean;
-  sentAt: string | null; completedAt: string | null;
+  firedAt: string | null; sentAt: string | null; completedAt: string | null;
   menuItem: { name: string; category: { id: string; name: string } };
 }
 

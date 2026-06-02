@@ -87,6 +87,10 @@ export async function POST(req: NextRequest) {
       validTableId = tbl.id;
     }
 
+    // One timestamp for the whole batch so everything fired together reads as a
+    // single KDS fire round. Held items aren't fired yet, so firedAt stays null.
+    const firedNow = new Date();
+
     // Create order first — this is the critical operation.
     const order = await prisma.order.create({
       data: {
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
             unitPrice: i.unitPrice,
             notes: i.notes,
             heldForFire: i.held ?? false,
+            firedAt: i.held ? null : firedNow,
             modifiers: {
               create: i.modifierIds?.map((id) => ({ modifierOptionId: id })) ?? [],
             },

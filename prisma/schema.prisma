@@ -340,6 +340,7 @@ model OrderItem {
   unitPrice   Decimal
   course      Int       @default(1) // for coursing/firing
   notes       String?
+  firedAt     DateTime? // when this item was fired to the kitchen/bar — groups KDS tickets into fire rounds
   sentAt      DateTime?
   completedAt DateTime?
   heldForFire Boolean   @default(false)

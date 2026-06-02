@@ -17,10 +17,28 @@ interface BarOrderItem {
   menuItemId: string;
   quantity: number;
   notes: string | null;
+  firedAt: string | null;
   sentAt: string | null;
   completedAt: string | null;
   menuItem: { id: string; name: string; prepTime: number | null };
   modifiers: BarOrderItemModifier[];
+}
+
+// Group a ticket's items into fire rounds by firedAt (see kitchen page).
+function fireRounds<T extends { firedAt: string | null }>(items: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const it of items) {
+    const k = it.firedAt ?? "initial";
+    const arr = groups.get(k) ?? [];
+    arr.push(it);
+    groups.set(k, arr);
+  }
+  const keys = [...groups.keys()].sort((a, b) => {
+    if (a === "initial") return -1;
+    if (b === "initial") return 1;
+    return new Date(a).getTime() - new Date(b).getTime();
+  });
+  return keys.map((k) => ({ key: k, firedAt: k === "initial" ? null : k, items: groups.get(k)! }));
 }
 
 interface BarOrder {
@@ -226,29 +244,48 @@ function TicketCard({
       </div>
 
       <div className="flex-1 p-3 space-y-2">
-        {order.items.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onToggleItem(order.id, item.id, !item.completedAt)}
-            className={cn(
-              "w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 transition-all",
-              item.completedAt ? "bg-green-900/40 opacity-60" : item.sentAt ? "bg-teal-900/40" : "bg-gray-800/60 hover:bg-gray-700/60"
-            )}
-          >
-            <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", item.completedAt ? "border-green-400 bg-green-400 text-gray-900" : "border-gray-500")}>
-              {item.completedAt && <CheckCircle2 className="h-3 w-3" />}
-            </span>
-            <div className="flex-1 min-w-0">
-              <span className={cn("text-sm font-semibold", item.completedAt ? "line-through text-gray-500" : "text-white")}>
-                {item.quantity}× {item.menuItem.name}
-              </span>
-              {(item.modifiers ?? []).length > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">{item.modifiers.map((m) => m.option.name).join(", ")}</p>
+        {(() => {
+          const rounds = fireRounds(order.items);
+          const multi = rounds.length > 1;
+          return rounds.map((round, ri) => (
+            <div key={round.key} className="space-y-2">
+              {multi && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-teal-300">Round {ri + 1}</span>
+                  {round.firedAt && (
+                    <span className="text-[10px] text-gray-500 font-mono">
+                      {new Date(round.firedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  <div className="flex-1 border-t border-gray-700/60" />
+                </div>
               )}
-              {item.notes && <p className="text-xs text-teal-300 mt-0.5">⚠ {item.notes}</p>}
+              {round.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onToggleItem(order.id, item.id, !item.completedAt)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg flex items-start gap-2 transition-all",
+                    item.completedAt ? "bg-green-900/40 opacity-60" : item.sentAt ? "bg-teal-900/40" : "bg-gray-800/60 hover:bg-gray-700/60"
+                  )}
+                >
+                  <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", item.completedAt ? "border-green-400 bg-green-400 text-gray-900" : "border-gray-500")}>
+                    {item.completedAt && <CheckCircle2 className="h-3 w-3" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <span className={cn("text-sm font-semibold", item.completedAt ? "line-through text-gray-500" : "text-white")}>
+                      {item.quantity}× {item.menuItem.name}
+                    </span>
+                    {(item.modifiers ?? []).length > 0 && (
+                      <p className="text-xs text-gray-400 mt-0.5">{item.modifiers.map((m) => m.option.name).join(", ")}</p>
+                    )}
+                    {item.notes && <p className="text-xs text-teal-300 mt-0.5">⚠ {item.notes}</p>}
+                  </div>
+                </button>
+              ))}
             </div>
-          </button>
-        ))}
+          ));
+        })()}
         {order.notes && <p className="text-xs text-amber-200 bg-amber-900/30 rounded px-2 py-1 mt-2">📝 {order.notes}</p>}
       </div>
 

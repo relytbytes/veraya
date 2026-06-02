@@ -167,7 +167,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // of appearing as new work to cook.
     await prisma.orderItem.updateMany({
       where: { id: { in: fireItemIds }, orderId: id },
-      data: { heldForFire: false },
+      data: { heldForFire: false, firedAt: new Date() }, // stamps a new fire round on the KDS
     });
     // If the check was already bumped to READY, late-fired items would be
     // filtered off the KDS (only OPEN/IN_PROGRESS show) — reopen it so they appear.
@@ -270,6 +270,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Add items to an existing open order (e.g. recall → add more items)
   if (addItems && addItems.length > 0) {
+    // One timestamp for the batch → these added items read as one fire round.
+    const firedNow = new Date();
     for (const item of addItems) {
       const newItem = await prisma.orderItem.create({
         data: {
@@ -279,6 +281,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           unitPrice: item.unitPrice,
           notes: item.notes ?? null,
           heldForFire: item.held ?? false,
+          firedAt: item.held ? null : firedNow,
         },
       });
       // Attach modifiers if any
