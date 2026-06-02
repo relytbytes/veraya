@@ -5,6 +5,7 @@ import {
   Plus, Minus, X, ShoppingCart, CreditCard, Loader2,
   LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
   Timer, Flame, AlertCircle, CheckCircle2, Users, Search,
+  Banknote, Landmark,
 } from "lucide-react";
 import { useRealtime } from "@/lib/use-realtime";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,38 @@ function itemInitials(name: string) {
 
 type POSView = "order" | "floorplan" | "checks";
 type TipPreset = "18" | "20" | "22" | "custom" | "none";
+
+// ── Payment method picker ──────────────────────────────────────────────────────
+// One clear, icon-led selector used everywhere a tender is chosen (takeout,
+// split, recall) so the screen reads the same each time. Debit carries a quiet
+// "lower fees" hint to nudge the cheaper-to-process choice.
+type PayMethod = "CASH" | "CREDIT" | "DEBIT";
+const PAY_METHODS: { m: PayMethod; label: string; hint?: string; Icon: typeof CreditCard }[] = [
+  { m: "CASH", label: "Cash", Icon: Banknote },
+  { m: "CREDIT", label: "Credit", Icon: CreditCard },
+  { m: "DEBIT", label: "Debit", hint: "Lower fees", Icon: Landmark },
+];
+
+function PaymentMethodPicker({ value, onChange }: { value: PayMethod; onChange: (m: PayMethod) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {PAY_METHODS.map(({ m, label, hint, Icon }) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          className={cn(
+            "flex flex-col items-center justify-center gap-1 rounded-xl border py-3 text-sm font-semibold transition-colors",
+            value === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50",
+          )}
+        >
+          <Icon className="h-5 w-5" />
+          {label}
+          {hint && <span className="text-[10px] font-medium text-green-600 leading-none">{hint}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ── Tip Section Component ──────────────────────────────────────────────────────
 
@@ -1517,16 +1550,7 @@ export default function POSPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Payment Method</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
-                  <button key={m} onClick={() => setPayMethod(m)}
-                    className={cn("rounded-lg border py-2 text-sm font-medium transition-colors",
-                      payMethod === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
-                  >
-                    {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
-                  </button>
-                ))}
-              </div>
+              <PaymentMethodPicker value={payMethod} onChange={setPayMethod} />
             </div>
 
             <TipSection
@@ -1763,26 +1787,10 @@ export default function POSPage() {
                           </div>
                           {!isPaid && (
                             <>
-                              <div className="grid grid-cols-3 gap-1.5">
-                                {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
-                                  <button
-                                    key={m}
-                                    onClick={() => setSplitMethods((prev) => {
-                                      const arr = [...prev];
-                                      arr[idx] = m;
-                                      return arr;
-                                    })}
-                                    className={cn(
-                                      "rounded-lg border py-1.5 text-xs font-medium transition-colors",
-                                      splitMethods[idx] === m
-                                        ? "border-amber-500 bg-amber-50 text-amber-700"
-                                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                                    )}
-                                  >
-                                    {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
-                                  </button>
-                                ))}
-                              </div>
+                              <PaymentMethodPicker
+                                value={splitMethods[idx]}
+                                onChange={(m) => setSplitMethods((prev) => { const arr = [...prev]; arr[idx] = m; return arr; })}
+                              />
                               <Button
                                 size="sm"
                                 className="w-full"
@@ -1803,16 +1811,7 @@ export default function POSPage() {
                 /* Normal single payment */
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["CASH", "CREDIT", "DEBIT"] as const).map((m) => (
-                      <button key={m} onClick={() => setRecallPayMethod(m)}
-                        className={cn("rounded-lg border py-2 text-sm font-medium transition-colors",
-                          recallPayMethod === m ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}
-                      >
-                        {m === "CASH" ? "Cash" : m === "CREDIT" ? "Credit" : "Debit"}
-                      </button>
-                    ))}
-                  </div>
+                  <PaymentMethodPicker value={recallPayMethod} onChange={setRecallPayMethod} />
                   {recallPayMethod === "CASH" && (
                     <div className="space-y-1.5">
                       <Label>Cash Received</Label>
