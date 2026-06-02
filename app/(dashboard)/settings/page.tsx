@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard } from "lucide-react";
+import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
@@ -35,6 +35,10 @@ export default function SettingsPage() {
     taxRate: "8.75",
     currency: "USD",
     receiptFooter: "",
+    fixedMonthlyCost: "",
+    targetFoodCostPct: "30",
+    serviceOpen: "11:00",
+    serviceClose: "22:00",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -272,6 +276,63 @@ export default function SettingsPage() {
                     Save Settings
                   </>
                 )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vera economics — drives the live P&L projection + break-even */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-teal-600" /> Vera Economics
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Vera uses these to project your daily P&amp;L and break-even. Leave blank to use industry estimates.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Fixed monthly costs ($)</Label>
+                <Input
+                  type="number"
+                  value={settings.fixedMonthlyCost}
+                  onChange={(e) => setSettings({ ...settings, fixedMonthlyCost: e.target.value })}
+                  placeholder="rent + utilities + insurance"
+                />
+                <p className="text-[11px] text-gray-400">Sliced to a daily break-even (÷ 30.4).</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Target food cost (%)</Label>
+                <Input
+                  type="number"
+                  value={settings.targetFoodCostPct}
+                  onChange={(e) => setSettings({ ...settings, targetFoodCostPct: e.target.value })}
+                  placeholder="30"
+                />
+                <p className="text-[11px] text-gray-400">COGS as a share of sales.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Open time</Label>
+                <Input
+                  type="time"
+                  value={settings.serviceOpen}
+                  onChange={(e) => setSettings({ ...settings, serviceOpen: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Close time</Label>
+                <Input
+                  type="time"
+                  value={settings.serviceClose}
+                  onChange={(e) => setSettings({ ...settings, serviceClose: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={saveSettings} disabled={settingsSaving}>
+                {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : settingsSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Settings</>)}
               </Button>
             </div>
           </CardContent>

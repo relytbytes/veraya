@@ -309,9 +309,26 @@ export async function GET(req: NextRequest) {
     (sum, s) => sum + shiftHours(s.startTime, s.endTime) * Number(s.user.hourlyRate ?? 0), 0,
   );
 
+  // Configured economics (fall back to estimates when blank).
+  const cfg = await prisma.restaurantSettings.findMany({
+    where: { key: { in: ["fixedMonthlyCost", "serviceOpen", "serviceClose", "targetFoodCostPct"] } },
+  }).catch(() => [] as { key: string; value: string }[]);
+  const cfgMap = Object.fromEntries(cfg.map((s) => [s.key, s.value]));
+  const parseHour = (v: string | undefined, fallback: number) => {
+    if (!v) return fallback;
+    const [h, m] = v.split(":").map(Number);
+    return isNaN(h) ? fallback : h + (m || 0) / 60;
+  };
+  const fixedMonthly = Number(cfgMap.fixedMonthlyCost);
+  const fixedDailyOverride = fixedMonthly > 0 ? fixedMonthly / 30.4 : null;
+  const foodPct = Number(cfgMap.targetFoodCostPct);
+  const cogsTargetPct = foodPct > 0 ? foodPct / 100 : null;
+  const openHour = parseHour(cfgMap.serviceOpen, OPEN_HOUR);
+  const closeHour = parseHour(cfgMap.serviceClose, CLOSE_HOUR);
+
   // ── Economics-grounded diagnosis ─────────────────────────────────────────────
   const diag = buildDiagnosis({
-    nowHour: now.getHours(), openHour: OPEN_HOUR, closeHour: CLOSE_HOUR,
+    nowHour: now.getHours() + now.getMinutes() / 60, openHour, closeHour,
     salesToday, ordersToday: todaySales._count,
     expectedRevenue,
     laborSoFar,
@@ -323,6 +340,7 @@ export async function GET(req: NextRequest) {
     active86Count: active86.length,
     voidTotal, voidCount: voids.length, compTotal,
     priceChangeCount: priceChanges.length,
+    fixedDailyOverride, cogsTargetPct,
   });
 
   const alerts = issuesToAlerts(diag.dimensions);

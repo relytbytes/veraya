@@ -81,6 +81,8 @@ export interface HealthInput {
   voidCount: number;
   compTotal: number;
   priceChangeCount: number;
+  fixedDailyOverride?: number | null; // configured daily fixed cost (else estimated)
+  cogsTargetPct?: number | null;      // configured food-cost target as a fraction (else 0.30)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -122,16 +124,18 @@ function project(i: HealthInput): Projection {
     ? Math.max(i.scheduledLaborFullDay, i.laborSoFar)
     : (serviceElapsed > 0.1 ? i.laborSoFar / serviceElapsed : i.laborSoFar);
 
-  const projectedCOGS = projectedRevenue * COGS_TARGET;
+  const cogsRate = i.cogsTargetPct && i.cogsTargetPct > 0 ? i.cogsTargetPct : COGS_TARGET;
+  const projectedCOGS = projectedRevenue * cogsRate;
   const otherOpex = projectedRevenue * OTHER_OPEX_PCT;
-  // Fixed overhead is anchored to a NORMAL day, so it doesn't vanish on a dead one.
-  const fixedDaily = i.expectedRevenue && i.expectedRevenue > 0
-    ? i.expectedRevenue * OCCUPANCY_PCT
-    : DEFAULT_FIXED_DAILY;
+  // Fixed overhead: configured daily figure if set, else anchored to a NORMAL
+  // day's revenue (so it doesn't vanish on a dead one), else a flat fallback.
+  const fixedDaily = i.fixedDailyOverride && i.fixedDailyOverride > 0
+    ? i.fixedDailyOverride
+    : (i.expectedRevenue && i.expectedRevenue > 0 ? i.expectedRevenue * OCCUPANCY_PCT : DEFAULT_FIXED_DAILY);
 
   const projectedNet = projectedRevenue - projectedCOGS - otherOpex - projectedLabor - fixedDaily;
   const projectedMarginPct = projectedRevenue > 0 ? (projectedNet / projectedRevenue) * 100 : (projectedNet < 0 ? -100 : 0);
-  const breakEvenRevenue = (projectedLabor + fixedDaily) / (1 - COGS_TARGET - OTHER_OPEX_PCT);
+  const breakEvenRevenue = (projectedLabor + fixedDaily) / (1 - cogsRate - OTHER_OPEX_PCT);
   const breakEvenProgressPct = breakEvenRevenue > 0 ? (projectedRevenue / breakEvenRevenue) * 100 : null;
 
   return {
