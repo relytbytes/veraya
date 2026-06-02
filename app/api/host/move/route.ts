@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
         serviceStage: from.serviceStage,
         stageUpdatedAt: from.stageUpdatedAt,
         serverId: from.serverId,
+        customerId: from.customerId,
       },
     });
 
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
         serviceStage: null,
         stageUpdatedAt: null,
         serverId: null,
+        customerId: null,
       },
     });
 

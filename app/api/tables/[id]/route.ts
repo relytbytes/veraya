@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { status, capacity, notes, number, serviceStage, seatedAt, guestName, partySize, serverId } = body as {
+  const { status, capacity, notes, number, serviceStage, seatedAt, guestName, partySize, serverId, customerId } = body as {
     status?: string;
     capacity?: number;
     notes?: string;
@@ -37,6 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     guestName?: string | null;
     partySize?: number | null;
     serverId?: string | null;
+    customerId?: string | null;
   };
 
   const force = new URL(req.url).searchParams.get("force") === "true";
@@ -73,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(notes !== undefined && { notes }),
       ...(number !== undefined && { number }),
       ...(isReleasing
-        ? { serviceStage: null, stageUpdatedAt: null, seatedAt: null, guestName: null, partySize: null, serverId: null }
+        ? { serviceStage: null, stageUpdatedAt: null, seatedAt: null, guestName: null, partySize: null, serverId: null, customerId: null }
         : serviceStage !== undefined
         ? { serviceStage: stageToSet, stageUpdatedAt: new Date() }
         : {}),
@@ -81,6 +82,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(guestName !== undefined && { guestName }),
       ...(partySize !== undefined && { partySize }),
       ...(serverId !== undefined && { serverId }),
+      ...(customerId !== undefined && { customerId }),
     },
     include: { server: { select: { id: true, name: true } } },
   });

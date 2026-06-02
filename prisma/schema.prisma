@@ -294,6 +294,7 @@ model Table {
   guestName      String?
   partySize      Int?
   serverId       String?
+  customerId     String?     // currently-seated guest (carries to the order)
   // Combine/merge: a linked table points at its primary; the primary's
   // linkedTables span the same party (combined capacity, single check).
   primaryTableId String?
@@ -301,6 +302,7 @@ model Table {
   orders       Order[]
   reservations Reservation[]
   server       User?         @relation("TableServer", fields: [serverId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
   primaryTable Table?        @relation("CombinedTables", fields: [primaryTableId], references: [id])
   linkedTables Table[]       @relation("CombinedTables")
 }
@@ -309,6 +311,7 @@ model Order {
   id                    String      @id @default(cuid())
   tableId               String?
   userId                String?
+  customerId            String?     // linked guest (for dining history, tips, loyalty)
   status                OrderStatus @default(OPEN)
   type                  OrderType   @default(DINE_IN)
   source                String      @default("POS") // POS | ONLINE | PHONE | THIRD_PARTY
@@ -327,6 +330,7 @@ model Order {
 
   table               Table?               @relation(fields: [tableId], references: [id])
   server              User?                @relation(fields: [userId], references: [id])
+  customer            Customer?            @relation(fields: [customerId], references: [id])
   items               OrderItem[]
   payments            Payment[]
   auditLogs           AuditLog[]
@@ -504,6 +508,8 @@ model Customer {
   loyaltyTransactions LoyaltyTransaction[]
   giftCards           GiftCard[]
   events              Event[]
+  orders              Order[]
+  tables              Table[]
 }
 
 // ─── Reservations ─────────────────────────────────────────────────────────────

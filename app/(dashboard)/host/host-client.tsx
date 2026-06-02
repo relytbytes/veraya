@@ -385,6 +385,7 @@ export function HostClient() {
         await api(`/api/tables/${table.id}`, {
           status: "OCCUPIED", guestName: data.name.trim(), partySize: Number(data.partySize),
           seatedAt: new Date().toISOString(), serviceStage: "SEATED",
+          ...(data.customerId ? { customerId: data.customerId } : {}),
           ...(table.serverId ? {} : (() => { const s = suggestServerId(); return s ? { serverId: s } : {}; })()),
         });
         setWalkInOpen(false); setWalkInTarget(null);

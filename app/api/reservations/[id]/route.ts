@@ -97,6 +97,7 @@ export async function PATCH(
         partySize: updated.partySize,
         serviceStage: "SEATED",
         stageUpdatedAt: new Date(),
+        customerId: updated.customerId ?? null,
       },
     });
   }

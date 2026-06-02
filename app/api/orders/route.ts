@@ -82,10 +82,12 @@ export async function POST(req: NextRequest) {
       validUserId = u?.id ?? null;
     }
     let validTableId: string | null = null;
+    let tableCustomerId: string | null = null;
     if (tableId) {
-      const tbl = await prisma.table.findUnique({ where: { id: tableId }, select: { id: true } });
+      const tbl = await prisma.table.findUnique({ where: { id: tableId }, select: { id: true, customerId: true } });
       if (!tbl) return Response.json({ error: "That table no longer exists. Refresh and try again." }, { status: 400 });
       validTableId = tbl.id;
+      tableCustomerId = tbl.customerId; // link the dine-in order to the seated guest
     }
 
     // One timestamp for the whole batch so everything fired together reads as a
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
       data: {
         tableId: validTableId,
         userId: validUserId,
+        customerId: tableCustomerId,
         type: (type as never) ?? "DINE_IN",
         notes,
         subtotal,
