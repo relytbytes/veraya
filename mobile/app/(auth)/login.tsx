@@ -41,7 +41,7 @@ export default function LoginScreen() {
         <View style={{ marginBottom: 40, alignItems: "center" }}>
           <Image
             source={require("../../assets/icon.png")}
-            style={{ width: 84, height: 84, borderRadius: 20, marginBottom: 16, ...shadow.md }}
+            style={{ width: 104, height: 104, borderRadius: 24, marginBottom: 16, ...shadow.md }}
           />
           <Text style={{ fontSize: 28, fontWeight: "800", color: C.pearl, letterSpacing: -0.5 }}>Veraya</Text>
           <Text style={{ color: C.mist, marginTop: 4, fontSize: 15 }}>Staff Portal</Text>
