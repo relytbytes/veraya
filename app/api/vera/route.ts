@@ -296,8 +296,14 @@ export async function GET(req: NextRequest) {
   const avgCheckToday = todaySales._count > 0 ? salesToday / todaySales._count : null;
   const dowLabel = now.toLocaleDateString("en-US", { weekday: "long" });
 
-  // Learned-from-feedback: per-indicator dismissed/helpful tallies.
-  const fbRows = await prisma.veraFeedback.groupBy({ by: ["key", "action"], _count: true }).catch(() => [] as { key: string; action: string; _count: number }[]);
+  // Learned-from-feedback: per-indicator dismissed/helpful tallies. Wrapped so a
+  // not-yet-migrated table (e.g. a stale process) can't blank the dashboard.
+  let fbRows: { key: string; action: string; _count: number }[] = [];
+  try {
+    fbRows = await prisma.veraFeedback.groupBy({ by: ["key", "action"], _count: true });
+  } catch {
+    fbRows = [];
+  }
   const feedback: Record<string, { dismissed: number; helpful: number }> = {};
   for (const r of fbRows) {
     const e = feedback[r.key] ?? { dismissed: 0, helpful: 0 };

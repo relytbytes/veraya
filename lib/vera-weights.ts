@@ -49,9 +49,14 @@ export async function getLearnedWeights(now: Date = new Date()): Promise<Learned
 }
 
 async function compute(): Promise<LearnedWeights> {
-  const rows = await prisma.veraDaySnapshot
-    .findMany({ orderBy: { date: "desc" }, take: 120 })
-    .catch(() => [] as { scores: string; actualMarginPct: number }[]);
+  // Never let a learning-data hiccup (e.g. table not yet migrated on a stale
+  // process) break the core diagnosis — fall back to default weights.
+  let rows: { scores: string; actualMarginPct: number }[] = [];
+  try {
+    rows = await prisma.veraDaySnapshot.findMany({ orderBy: { date: "desc" }, take: 120 });
+  } catch {
+    rows = [];
+  }
   const n = rows.length;
 
   const fallback: LearnedWeights = {
