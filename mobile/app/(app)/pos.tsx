@@ -357,7 +357,11 @@ export default function POSScreen() {
     if (t.status === "OCCUPIED") {
       if (isTablet) { setTableInfoModal(t); return; }
       const order = openOrders.find((o) => o.tableId === t.id);
-      if (order) openCloseScreen(order);
+      if (order) { openCloseScreen(order); return; }
+      // Seated (e.g. from the host stand) but no order yet → start a fresh check.
+      setTable(t.id);
+      setOrderType("DINE_IN");
+      setScreen("order");
       return;
     }
     // AVAILABLE or RESERVED
@@ -1008,7 +1012,7 @@ export default function POSScreen() {
                     >
                       <Text style={{ fontWeight: "600", color: C.mist }}>Mark Dirty</Text>
                     </TouchableOpacity>
-                    {openOrders.find(o => o.tableId === tableInfoModal.id) && (
+                    {openOrders.find(o => o.tableId === tableInfoModal.id) ? (
                       <TouchableOpacity
                         onPress={() => {
                           const ord = openOrders.find(o => o.tableId === tableInfoModal.id)!;
@@ -1018,6 +1022,19 @@ export default function POSScreen() {
                         style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: C.gold, alignItems: "center", ...shadow.gold }}
                       >
                         <Text style={{ fontWeight: "700", color: C.void }}>Close Check</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const id = tableInfoModal.id;
+                          setTableInfoModal(null);
+                          setTable(id);
+                          setOrderType("DINE_IN");
+                          setScreen("order");
+                        }}
+                        style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: C.gold, alignItems: "center", ...shadow.gold }}
+                      >
+                        <Text style={{ fontWeight: "700", color: C.void }}>Open Check</Text>
                       </TouchableOpacity>
                     )}
                   </View>
