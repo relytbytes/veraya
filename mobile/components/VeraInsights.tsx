@@ -1,19 +1,9 @@
-import { View, Text } from "react-native";
+import { View, Text, Image } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getVeraForecast, getVeraSetup } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
-
-// Small Vera coin (navy circle + teal V + gold sparkle), matching VeraCard.
-function VeraCoin({ size = 36 }: { size?: number }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#11302C", borderWidth: 1.5, borderColor: "#244A44", alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontSize: size * 0.5, fontWeight: "900", color: C.gold, lineHeight: size * 0.55 }}>V</Text>
-      <Ionicons name="sparkles" size={size * 0.26} color={C.ember} style={{ position: "absolute", top: size * 0.12, right: size * 0.12 }} />
-    </View>
-  );
-}
 
 // ── Vera Forecast ─────────────────────────────────────────────────────────────
 
@@ -26,7 +16,7 @@ export function VeraForecastCard() {
   return (
     <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden", ...shadow.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14, paddingBottom: 10 }}>
-        <VeraCoin size={32} />
+        <Image source={require("../assets/vera-forecast.png")} style={{ width: 34, height: 34, borderRadius: 8 }} resizeMode="contain" />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: C.pearl }}>Vera Forecast</Text>
           <Text style={{ fontSize: 11, color: C.smoke, textTransform: "uppercase", letterSpacing: 0.6 }}>Tonight</Text>
@@ -84,7 +74,7 @@ export function VeraSetupCard() {
   return (
     <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden", ...shadow.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0C1A1E", padding: 14 }}>
-        <VeraCoin size={36} />
+        <Image source={require("../assets/vera-avatar.png")} style={{ width: 36, height: 36, borderRadius: 10 }} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: "#FFFFFF" }}>Let&apos;s set up Veraya</Text>
           <Text style={{ fontSize: 11, color: "#C7D2DE", marginTop: 1 }}>{data.doneCount} of {data.total} done — Vera starts working once you finish.</Text>

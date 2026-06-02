@@ -58,7 +58,7 @@ export function VeraForecast() {
     <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-        <VeraAvatar src="/vera-forecast.png" fit="contain" className="h-12 w-14 shrink-0" />
+        <VeraAvatar src="/vera-forecast-notext.png" fit="contain" className="h-11 w-11 shrink-0" />
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-900 inline-flex items-center gap-1">
             Vera Forecast <VeraSpark className="h-3 w-3" />

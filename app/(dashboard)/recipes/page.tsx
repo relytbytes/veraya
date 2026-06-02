@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Search, Trash2, Loader2, Check, Sparkles, ChevronRight, X, CheckCircle2, SkipForward, AlertCircle } from "lucide-react";
-import { VeraMark, VeraSpark } from "@/components/brand/vera-mark";
+import { VeraSpark } from "@/components/brand/vera-mark";
+import { VeraAvatar } from "@/components/brand/vera-avatar";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -476,7 +477,7 @@ export default function RecipesPage() {
           {/* Suggest header bar */}
           <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-gray-200 bg-amber-50">
             <div className="flex items-center gap-3">
-              <VeraMark className="h-7 w-7 shrink-0" />
+              <VeraAvatar className="h-7 w-7 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-gray-900">Vera&apos;s Recipe Suggestions</p>
                 <p className="text-xs text-gray-500">

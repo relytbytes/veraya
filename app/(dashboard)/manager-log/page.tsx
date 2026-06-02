@@ -5,7 +5,8 @@ import {
   Plus, Loader2, ClipboardList, AlertTriangle, Wrench,
   DollarSign, FileText, CheckCircle2, Clock, Trash2, Pencil,
 } from "lucide-react";
-import { VeraMark, VeraSpark } from "@/components/brand/vera-mark";
+import { VeraSpark } from "@/components/brand/vera-mark";
+import { VeraAvatar } from "@/components/brand/vera-avatar";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -892,7 +893,7 @@ export default function ManagerLogPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <VeraMark className="h-5 w-5" />
+              <VeraAvatar className="h-5 w-5" />
               Shift Summary
             </DialogTitle>
           </DialogHeader>

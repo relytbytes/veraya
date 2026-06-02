@@ -1,5 +1,5 @@
 import {
-  View, Text, TouchableOpacity, ActivityIndicator, ScrollView,
+  View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
@@ -133,15 +133,8 @@ export function VeraCard() {
     }}>
       {/* Vera header band */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: "#0C1A1E" }}>
-        {/* Vera mark — navy coin, teal V, gold sparkle */}
-        <View style={{
-          width: 44, height: 44, borderRadius: 22,
-          backgroundColor: "#11302C", borderWidth: 1.5, borderColor: "#244A44",
-          alignItems: "center", justifyContent: "center",
-        }}>
-          <Text style={{ fontSize: 22, fontWeight: "900", color: C.gold, lineHeight: 24 }}>V</Text>
-          <Ionicons name="sparkles" size={11} color={C.ember} style={{ position: "absolute", top: 5, right: 5 }} />
-        </View>
+        {/* Vera mark — the face logo */}
+        <Image source={require("../assets/vera-avatar.png")} style={{ width: 44, height: 44, borderRadius: 12 }} />
 
         {/* Identity + narrative */}
         <View style={{ flex: 1 }}>
