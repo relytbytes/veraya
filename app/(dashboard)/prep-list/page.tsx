@@ -331,9 +331,9 @@ function PrepView({
 
       {/* No data warning */}
       {data.weeksAnalyzed === 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-800">
+        <div className="flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-warning-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-warning-800">
             No historical sales data found for this day of week yet. The prep list will populate after your
             first few services on {data.targetDOW}s.
           </p>

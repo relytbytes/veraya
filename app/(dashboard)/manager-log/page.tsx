@@ -215,7 +215,7 @@ function getTypeBadge(entry: LogEntry) {
       const sev = entry.severity ?? "LOW";
       if (sev === "HIGH") return { cls: "bg-red-100 text-red-800 border-red-200", icon: <AlertTriangle className="h-3 w-3" /> };
       if (sev === "MEDIUM") return { cls: "bg-orange-100 text-orange-800 border-orange-200", icon: <AlertTriangle className="h-3 w-3" /> };
-      return { cls: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: <AlertTriangle className="h-3 w-3" /> };
+      return { cls: "bg-warning-100 text-warning-800 border-warning-200", icon: <AlertTriangle className="h-3 w-3" /> };
     }
     case "MAINTENANCE":
       return { cls: "bg-orange-100 text-orange-800 border-orange-200", icon: <Wrench className="h-3 w-3" /> };

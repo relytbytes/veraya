@@ -113,7 +113,7 @@ function StatusBadge({ status }: { status: ReservationStatus }) {
     CONFIRMED: "bg-blue-100 text-blue-700 border-blue-200",
     SEATED: "bg-green-100 text-green-700 border-green-200",
     CANCELLED: "bg-red-100 text-red-700 border-red-200",
-    NO_SHOW: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    NO_SHOW: "bg-warning-100 text-warning-700 border-warning-200",
   };
   return (
     <Badge className={cn("border text-xs font-medium", cls[status])}>
@@ -496,7 +496,7 @@ function ReservationRow({ reservation, tables, onRefresh }: ReservationRowProps)
               <Button
                 size="sm"
                 variant="outline"
-                className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
+                className="text-warning-600 border-warning-200 hover:bg-warning-50"
                 onClick={() => updateStatus("NO_SHOW")}
                 disabled={acting}
               >

@@ -44,7 +44,7 @@ const URGENCY_CONFIG = {
   },
   low: {
     label: "Low Stock",
-    cls: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    cls: "bg-warning-100 text-warning-800 border-warning-200",
     icon: <TrendingDown className="h-3 w-3" />,
   },
   watch: {
@@ -180,11 +180,11 @@ export default function ReorderPage() {
               </div>
             )}
             {lowCount > 0 && (
-              <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 flex items-center gap-3">
-                <TrendingDown className="h-5 w-5 text-yellow-500 shrink-0" />
+              <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 flex items-center gap-3">
+                <TrendingDown className="h-5 w-5 text-warning-500 shrink-0" />
                 <div>
-                  <p className="text-xl font-bold text-yellow-700">{lowCount}</p>
-                  <p className="text-xs text-yellow-500">Low Stock</p>
+                  <p className="text-xl font-bold text-warning-700">{lowCount}</p>
+                  <p className="text-xs text-warning-500">Low Stock</p>
                 </div>
               </div>
             )}

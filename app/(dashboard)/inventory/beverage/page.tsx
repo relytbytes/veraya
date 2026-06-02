@@ -100,7 +100,7 @@ const POUR_COST_COLOR = (pct: number) =>
   pct < 20
     ? "text-green-700 bg-green-50"
     : pct < 30
-    ? "text-yellow-700 bg-yellow-50"
+    ? "text-warning-700 bg-warning-50"
     : "text-red-700 bg-red-50";
 
 function toISO(d: Date) { return d.toISOString().slice(0, 10); }
@@ -345,7 +345,7 @@ export default function BeveragePage() {
               <CardContent className="p-4">
                 <p className="text-xs text-gray-500">Avg Pour Cost %</p>
                 <p className={cn("text-2xl font-bold mt-0.5",
-                  avgPourCostPct < 20 ? "text-green-600" : avgPourCostPct < 30 ? "text-yellow-600" : "text-red-600"
+                  avgPourCostPct < 20 ? "text-green-600" : avgPourCostPct < 30 ? "text-warning-600" : "text-red-600"
                 )}>
                   {avgPourCostPct.toFixed(1)}%
                 </p>
@@ -463,7 +463,7 @@ export default function BeveragePage() {
           {/* Legend */}
           <div className="flex gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-100 inline-block" />Below 20% — excellent</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-100 inline-block" />20–30% — acceptable</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-warning-100 inline-block" />20–30% — acceptable</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-100 inline-block" />Above 30% — over target</span>
           </div>
         </div>
@@ -553,7 +553,7 @@ export default function BeveragePage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {Math.abs(item.varianceCost) > 50 && (
-                              <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                              <AlertTriangle className="h-3.5 w-3.5 text-warning-500 shrink-0" />
                             )}
                             <div>
                               <p className="font-medium text-gray-900">{item.name}</p>

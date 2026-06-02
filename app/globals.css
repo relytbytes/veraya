@@ -5,6 +5,7 @@
  * never purges them at build time.
  */
 @source inline("{bg,text,border}-{red,amber,blue,green,purple}-{100,200,700,800}");
+@source inline("{bg,text,border,ring}-warning-{50,100,200,300,400,500,600,700,800,900}");
 
 /* ── Design-token overrides ────────────────────────────────────────────────────
  *
@@ -46,6 +47,10 @@
   --font-mono: var(--font-geist-mono);
 
   /* ── Amber → Brand Teal (primary accent) ─────────────────────────────────── */
+  /* NOTE: amber-* IS the brand primary (teal). NEVER use amber-* to mean a
+   * warning — it renders teal. For status, use the semantic colors:
+   *   success → green-*   ·   danger → red-*   ·   info → blue-*
+   *   warning → warning-*  (defined below; true warm-gold, never hijacked)       */
   --color-amber-50:  #E7F4F1;   /* tealMuted       */
   --color-amber-100: #C6E8E1;
   --color-amber-200: #97D6CA;
@@ -56,6 +61,18 @@
   --color-amber-700: #1A8174;   /* tealDim         */
   --color-amber-800: #155E54;
   --color-amber-900: #0E443E;
+
+  /* ── Warning → Warm Gold (the semantic caution color) ────────────────────── */
+  --color-warning-50:  #FDF7E9;
+  --color-warning-100: #FBEAC2;
+  --color-warning-200: #F7D88A;
+  --color-warning-300: #F1C453;
+  --color-warning-400: #EAB12E;
+  --color-warning-500: #E0A82E;  /* warm gold (brand accent) */
+  --color-warning-600: #C0871C;
+  --color-warning-700: #976616;
+  --color-warning-800: #6E4A14;
+  --color-warning-900: #4A3210;
 
   /* ── Gray → Cool Navy / Slate / Stone ────────────────────────────────────── */
   --color-gray-50:  #F2F4F7;   /* stone           */

@@ -81,7 +81,7 @@ function dimColor(status: Status) {
   switch (status) {
     case "excellent": return { chip: "bg-emerald-50 text-emerald-700 border-emerald-200", bar: "bg-emerald-500" };
     case "good":      return { chip: "bg-teal-50 text-teal-700 border-teal-200",          bar: "bg-teal-500"    };
-    case "fair":      return { chip: "bg-yellow-50 text-yellow-700 border-yellow-200",        bar: "bg-yellow-500"   };
+    case "fair":      return { chip: "bg-warning-50 text-warning-700 border-warning-200",        bar: "bg-warning-500"   };
     case "strained":  return { chip: "bg-orange-50 text-orange-700 border-orange-200",     bar: "bg-orange-500"  };
     default:          return { chip: "bg-red-50 text-red-700 border-red-200",              bar: "bg-red-500"     };
   }
@@ -100,7 +100,7 @@ const DIM_ICON: Record<string, ReactNode> = {
 function healthColor(score: number) {
   if (score >= 90) return { ring: "ring-emerald-400/50", text: "text-emerald-600", badge: "bg-emerald-50 border-emerald-200", label: "Excellent", labelColor: "text-emerald-600" };
   if (score >= 75) return { ring: "ring-teal-400/50",    text: "text-teal-600",    badge: "bg-teal-50 border-teal-200",     label: "Good",      labelColor: "text-teal-600"    };
-  if (score >= 60) return { ring: "ring-yellow-400/50",   text: "text-yellow-600",   badge: "bg-yellow-50 border-yellow-200",   label: "Fair",      labelColor: "text-yellow-600"   };
+  if (score >= 60) return { ring: "ring-warning-400/50",   text: "text-warning-600",   badge: "bg-warning-50 border-warning-200",   label: "Fair",      labelColor: "text-warning-600"   };
   if (score >= 45) return { ring: "ring-orange-400/50",  text: "text-orange-600",  badge: "bg-orange-50 border-orange-200", label: "Strained",  labelColor: "text-orange-600"  };
   return                   { ring: "ring-red-400/50",    text: "text-red-600",     badge: "bg-red-50 border-red-200",       label: "Critical",  labelColor: "text-red-600"     };
 }
@@ -108,7 +108,7 @@ function healthColor(score: number) {
 function severityConfig(severity: string) {
   switch (severity) {
     case "HIGH":   return { icon: <AlertTriangle className="h-3.5 w-3.5 shrink-0" />, dot: "bg-red-500",    text: "text-red-600",    row: "border-red-200    bg-red-50/60    hover:bg-red-50"    };
-    case "MEDIUM": return { icon: <AlertCircle   className="h-3.5 w-3.5 shrink-0" />, dot: "bg-yellow-400",  text: "text-yellow-600",  row: "border-yellow-200  bg-yellow-50/60  hover:bg-yellow-50"  };
+    case "MEDIUM": return { icon: <AlertCircle   className="h-3.5 w-3.5 shrink-0" />, dot: "bg-warning-400",  text: "text-warning-600",  row: "border-warning-200  bg-warning-50/60  hover:bg-warning-50"  };
     default:       return { icon: <Info          className="h-3.5 w-3.5 shrink-0" />, dot: "bg-blue-400",   text: "text-blue-600",   row: "border-blue-200   bg-blue-50/60   hover:bg-blue-50"   };
   }
 }
@@ -280,9 +280,9 @@ export function VeraPanel() {
   if (error) {
     return (
       <div className="rounded-2xl bg-white border border-gray-200 p-5 flex items-center gap-3">
-        <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />
+        <AlertTriangle className="h-5 w-5 text-warning-500 shrink-0" />
         <p className="text-sm text-gray-500">Could not load operational analysis.</p>
-        <button onClick={() => load(true)} className="ml-auto text-xs text-yellow-600 hover:text-yellow-700 font-medium underline">
+        <button onClick={() => load(true)} className="ml-auto text-xs text-warning-600 hover:text-warning-700 font-medium underline">
           Retry
         </button>
       </div>
@@ -349,7 +349,7 @@ export function VeraPanel() {
                 {ind.tone === "positive"
                   ? <TrendingUp className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
                   : ind.tone === "concern"
-                  ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-yellow-500" />
+                  ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-warning-500" />
                   : <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-gray-400" />}
                 <span className="leading-snug text-gray-700 flex-1">{ind.text}</span>
                 <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -387,10 +387,10 @@ export function VeraPanel() {
                   href={a.link}
                   className={cn(
                     "group flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors",
-                    high ? "border-red-200 bg-red-50/60 hover:bg-red-50" : "border-yellow-200 bg-yellow-50/60 hover:bg-yellow-50",
+                    high ? "border-red-200 bg-red-50/60 hover:bg-red-50" : "border-warning-200 bg-warning-50/60 hover:bg-warning-50",
                   )}
                 >
-                  <AlertTriangle className={cn("h-3.5 w-3.5 shrink-0", high ? "text-red-500" : "text-yellow-500")} />
+                  <AlertTriangle className={cn("h-3.5 w-3.5 shrink-0", high ? "text-red-500" : "text-warning-500")} />
                   <span className="flex-1 leading-snug text-gray-700 group-hover:text-gray-900">{a.title}</span>
                 </Link>
               );
@@ -413,10 +413,10 @@ export function VeraPanel() {
                   key={i}
                   className={cn(
                     "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
-                    crit ? "border-red-200 bg-red-50/60" : "border-yellow-200 bg-yellow-50/60",
+                    crit ? "border-red-200 bg-red-50/60" : "border-warning-200 bg-warning-50/60",
                   )}
                 >
-                  <Clock className={cn("h-3.5 w-3.5 shrink-0", crit ? "text-red-500" : "text-yellow-500")} />
+                  <Clock className={cn("h-3.5 w-3.5 shrink-0", crit ? "text-red-500" : "text-warning-500")} />
                   <span className="flex-1 leading-snug text-gray-700">
                     <span className="font-semibold text-gray-900">{p.name}</span> runs out{" "}
                     <span className="font-medium">{runsOutLabel(p)}</span>
@@ -478,7 +478,7 @@ function PLCell({ label, value, sub, valueClass }: { label: string; value: strin
 
 function issueColor(sev: string) {
   if (sev === "HIGH") return "border-red-200 bg-red-50/70 text-red-700";
-  if (sev === "MEDIUM") return "border-yellow-200 bg-yellow-50/70 text-yellow-800";
+  if (sev === "MEDIUM") return "border-warning-200 bg-warning-50/70 text-warning-800";
   return "border-gray-200 bg-gray-50 text-gray-600";
 }
 
@@ -577,7 +577,7 @@ function SignalPill({
   const color = ok
     ? "text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
     : warn
-    ? "text-yellow-700 border-yellow-200 bg-yellow-50 hover:bg-yellow-100"
+    ? "text-warning-700 border-warning-200 bg-warning-50 hover:bg-warning-100"
     : "text-red-700 border-red-200 bg-red-50 hover:bg-red-100";
 
   return (
