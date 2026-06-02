@@ -49,7 +49,7 @@ export default function BarScreen() {
   }
 
   async function toggleItem(orderId: string, itemId: string, completed: boolean) {
-    await kitchenAction({ orderId, orderItemId: itemId, action: completed ? "complete" : "send", station: "BAR" });
+    await kitchenAction({ orderId, orderItemId: itemId, action: completed ? "complete" : "uncomplete", station: "BAR" });
     qc.invalidateQueries({ queryKey: ["bar"] });
   }
 

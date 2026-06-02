@@ -49,7 +49,7 @@ export default function KitchenScreen() {
   }
 
   async function toggleItem(orderId: string, itemId: string, completed: boolean) {
-    await kitchenAction({ orderId, orderItemId: itemId, action: completed ? "complete" : "send" });
+    await kitchenAction({ orderId, orderItemId: itemId, action: completed ? "complete" : "uncomplete" });
     qc.invalidateQueries({ queryKey: ["kitchen"] });
   }
 

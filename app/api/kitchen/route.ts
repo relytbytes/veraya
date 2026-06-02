@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest) {
   const { orderId, orderItemId, action, station: rawStation } = body as {
     orderId?: string;
     orderItemId?: string;
-    action: "send" | "complete" | "bump";
+    action: "send" | "complete" | "uncomplete" | "bump";
     station?: string;
   };
   const station = (rawStation ?? "KITCHEN").toUpperCase() === "BAR" ? "BAR" : "KITCHEN";
@@ -142,6 +142,15 @@ export async function PATCH(req: NextRequest) {
       emit({ type: "item.completed", orderId, orderItemId });
       if (status) emit({ type: "order.updated", orderId, status });
     }
+  }
+
+  // Un-complete: clear the done stamp so a mis-tapped item goes back to working.
+  if (action === "uncomplete" && orderItemId) {
+    await prisma.orderItem.update({
+      where: { id: orderItemId },
+      data: { completedAt: null },
+    });
+    if (orderId) emit({ type: "item.completed", orderId, orderItemId });
   }
 
   return Response.json({ ok: true });

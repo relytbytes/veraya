@@ -113,7 +113,7 @@ export default function BarPage() {
               ...o,
               items: o.items.map((i) =>
                 i.id === itemId
-                  ? { ...i, ...(completed ? { completedAt: new Date().toISOString() } : { sentAt: new Date().toISOString() }) }
+                  ? { ...i, completedAt: completed ? new Date().toISOString() : null }
                   : i
               ),
             }
@@ -123,7 +123,7 @@ export default function BarPage() {
     const res = await fetch("/api/kitchen", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, orderItemId: itemId, action: completed ? "complete" : "send", station: "BAR" }),
+      body: JSON.stringify({ orderId, orderItemId: itemId, action: completed ? "complete" : "uncomplete", station: "BAR" }),
     });
     if (!res.ok) setOrders(prev);
   }

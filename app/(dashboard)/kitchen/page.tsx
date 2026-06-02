@@ -245,7 +245,7 @@ export default function KitchenPage() {
               status: "IN_PROGRESS",
               items: o.items.map((i) =>
                 i.id === itemId
-                  ? { ...i, ...(completed ? { completedAt: new Date().toISOString() } : { sentAt: new Date().toISOString() }) }
+                  ? { ...i, completedAt: completed ? new Date().toISOString() : null }
                   : i
               ),
             }
@@ -258,7 +258,7 @@ export default function KitchenPage() {
       body: JSON.stringify({
         orderId,
         orderItemId: itemId,
-        action: completed ? "complete" : "send",
+        action: completed ? "complete" : "uncomplete",
       }),
     });
     if (!res.ok) {
