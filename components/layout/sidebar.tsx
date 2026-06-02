@@ -36,15 +36,23 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
   return (
     <aside className="flex h-screen w-56 flex-col bg-gray-900 text-white">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-700">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-6 border-b border-gray-700">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-md shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-512.png?v=2" alt="Veraya" width={28} height={28} className="rounded-lg" />
+          <img src="/icon-512.png?v=2" alt="Veraya" width={44} height={44} className="rounded-xl" />
         </div>
-        <div>
-          <p className="text-sm font-bold leading-none" style={{ color: "#21A090" }}>Veraya</p>
-          <p className="text-xs text-gray-400 mt-0.5">Operating platform</p>
-        </div>
+        <span
+          className="text-3xl font-extrabold tracking-tight leading-none"
+          style={{
+            backgroundImage: "linear-gradient(120deg, #2BB39B 0%, #21A090 40%, #E0A82E 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            color: "transparent",
+          }}
+        >
+          Veraya
+        </span>
       </div>
 
       {/* Search / command palette trigger */}
