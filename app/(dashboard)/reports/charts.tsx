@@ -163,12 +163,16 @@ export function CategoryPieChart({ data }: { data: CategorySale[] }) {
 
 export function TopItemsChart({ data }: { data: TopItem[] }) {
   if (!data.length) return <p className="text-center text-gray-400 py-8 text-sm">No data yet</p>;
+  // Height scales with the number of bars so 10 items aren't crushed; the name
+  // axis gets room and long names are clipped with an ellipsis (full name in tooltip).
+  const height = Math.max(220, data.length * 30 + 20);
+  const clip = (s: string) => (s.length > 22 ? s.slice(0, 21) + "…" : s);
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 40, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#DCE2EA" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} />
-        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} tickLine={false} width={100} />
+        <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} allowDecimals={false} />
+        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} tickLine={false} width={150} interval={0} tickFormatter={clip} />
         <Tooltip
           content={(props) => (
             <SimpleTooltip

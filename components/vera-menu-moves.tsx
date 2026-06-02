@@ -14,7 +14,7 @@ const KLASS: Record<Klass, { label: string; cls: string }> = {
   dog:       { label: "🐕 Dog",       cls: "bg-gray-100 text-gray-600" },
 };
 
-export function VeraMenuMoves({ from, to, periodLabel }: { from?: string; to?: string; periodLabel?: string }) {
+export function VeraMenuMoves({ from, to, periodLabel, refreshKey }: { from?: string; to?: string; periodLabel?: string; refreshKey?: number }) {
   const [moves, setMoves] = useState<MenuMove[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -23,12 +23,12 @@ export function VeraMenuMoves({ from, to, periodLabel }: { from?: string; to?: s
     setMoves(null);
     setFailed(false);
     const qs = from && to ? `?from=${from}&to=${to}` : "";
-    fetch(`/api/vera/menu-moves${qs}`)
+    fetch(`/api/vera/menu-moves${qs}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { moves?: MenuMove[] }) => { if (alive) setMoves(d.moves ?? []); })
       .catch(() => { if (alive) setFailed(true); });
     return () => { alive = false; };
-  }, [from, to]);
+  }, [from, to, refreshKey]);
 
   if (failed) return null;
 

@@ -116,7 +116,7 @@ export async function GET(req: Request) {
     }, {} as Record<Klass, number>);
 
     let aiPowered = false;
-    const cacheHeaders = { headers: { "Cache-Control": "private, max-age=1800, stale-while-revalidate=300" } };
+    const cacheHeaders = { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" } };
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (apiKey && moves.length > 0) {

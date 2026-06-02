@@ -348,6 +348,7 @@ interface VarianceData {
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<"sales" | "pl" | "scheduling" | "variance">("sales");
+  const [menuRefresh, setMenuRefresh] = useState(0);
   const [preset, setPreset] = useState<string>("Last 30d");
   const [range, setRange] = useState(() => PRESETS.find(p => p.label === "Last 30d")!.getRange());
   const [data, setData] = useState<ReportData | null>(null);
@@ -492,7 +493,7 @@ export default function ReportsPage() {
               </>
             )}
             <button
-              onClick={() => load(range.from, range.to, true)}
+              onClick={() => { load(range.from, range.to, true); setMenuRefresh((n) => n + 1); }}
               className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
@@ -686,7 +687,7 @@ export default function ReportsPage() {
         {activeTab === "sales" && <>
 
         {/* Vera's menu-engineering moves */}
-        <VeraMenuMoves from={range.from} to={range.to} periodLabel={preset === "Custom" ? rangeLabel : preset} />
+        <VeraMenuMoves from={range.from} to={range.to} periodLabel={preset === "Custom" ? rangeLabel : preset} refreshKey={menuRefresh} />
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
