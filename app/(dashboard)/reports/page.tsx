@@ -689,7 +689,7 @@ export default function ReportsPage() {
         <VeraMenuMoves />
 
         {/* KPI cards */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {[
             { label: "Revenue",    value: formatCurrency(s?.totalRevenue ?? 0),  icon: <DollarSign className="h-4 w-4 text-green-600" />,  bg: "bg-green-50" },
             { label: "Orders",     value: String(s?.totalOrders ?? 0),            icon: <ShoppingBag className="h-4 w-4 text-blue-600" />,  bg: "bg-blue-50" },
@@ -719,9 +719,9 @@ export default function ReportsPage() {
             <Card key={kpi.label}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-gray-500 truncate">{kpi.label}</p>
-                    <p className={`text-xl font-bold mt-0.5 ${loading ? "text-gray-300" : (kpi as { valueClass?: string }).valueClass ?? "text-gray-900"}`}>
+                    <p className={`text-lg font-bold mt-0.5 tabular-nums truncate ${loading ? "text-gray-300" : (kpi as { valueClass?: string }).valueClass ?? "text-gray-900"}`}>
                       {loading ? "—" : kpi.value}
                     </p>
                   </div>
@@ -1043,7 +1043,7 @@ function PLTab({ data, loading }: { data: COGSData | null; loading: boolean }) {
   return (
     <div className="space-y-6">
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {[
           {
             label: "Revenue",
@@ -1097,7 +1097,7 @@ function PLTab({ data, loading }: { data: COGSData | null; loading: boolean }) {
           <Card key={kpi.label}>
             <CardContent className="p-4">
               <p className="text-xs text-gray-500 truncate">{kpi.label}</p>
-              <p className={cn("text-xl font-bold mt-0.5", kpi.color)}>{kpi.value}</p>
+              <p className={cn("text-lg font-bold mt-0.5 tabular-nums truncate", kpi.color)}>{kpi.value}</p>
               <div className="mt-0.5">{kpi.sub}</div>
             </CardContent>
           </Card>
