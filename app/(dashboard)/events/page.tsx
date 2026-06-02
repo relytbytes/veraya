@@ -449,6 +449,7 @@ const EMPTY_FORM = {
   menuNotes: "",
   depositAmount: "",
   totalAmount: "",
+  publish: "false",
 };
 
 function CreateEventDialog({ open, onClose, onCreated }: CreateEventDialogProps) {
@@ -486,6 +487,7 @@ function CreateEventDialog({ open, onClose, onCreated }: CreateEventDialogProps)
         menuNotes: form.menuNotes || undefined,
         depositAmount: form.depositAmount ? parseFloat(form.depositAmount) : undefined,
         totalAmount: form.totalAmount ? parseFloat(form.totalAmount) : undefined,
+        status: form.publish === "true" ? "CONFIRMED" : "INQUIRY",
       }),
     });
     setSaving(false);
@@ -656,6 +658,21 @@ function CreateEventDialog({ open, onClose, onCreated }: CreateEventDialogProps)
               />
             </div>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.publish === "true"}
+              onChange={(e) => set("publish", e.target.checked ? "true" : "false")}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500"
+            />
+            <span className="text-sm">
+              <span className="font-medium text-gray-900">Show on public events page</span>
+              <span className="block text-xs text-gray-500">
+                Publishes this event to your public booking page so guests can see and inquire. Leave off to keep it as a private inquiry you can confirm later.
+              </span>
+            </span>
+          </label>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

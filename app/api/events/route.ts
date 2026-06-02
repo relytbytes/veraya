@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     name?: string; date?: string; startTime?: string; endTime?: string;
     guestCount?: number; contactName?: string; contactPhone?: string; contactEmail?: string;
     venue?: string; notes?: string; menuNotes?: string;
-    depositAmount?: number; totalAmount?: number; customerId?: string;
+    depositAmount?: number; totalAmount?: number; customerId?: string; status?: string;
   };
 
   if (!body.name?.trim()) return Response.json({ error: "name is required" }, { status: 400 });
@@ -32,9 +32,15 @@ export async function POST(req: NextRequest) {
   if (!body.startTime?.trim()) return Response.json({ error: "startTime is required" }, { status: 400 });
   if (!body.contactName?.trim()) return Response.json({ error: "contactName is required" }, { status: 400 });
 
+  // Status is optional on create; CONFIRMED publishes to the public events
+  // page, INQUIRY keeps it private. Anything else falls back to INQUIRY.
+  const allowedStatus = ["INQUIRY", "CONFIRMED", "COMPLETED", "CANCELLED"];
+  const status = body.status && allowedStatus.includes(body.status) ? body.status : "INQUIRY";
+
   const event = await prisma.event.create({
     data: {
       name: body.name.trim(),
+      status,
       date: body.date.trim(),
       startTime: body.startTime.trim(),
       endTime: body.endTime?.trim() || null,
