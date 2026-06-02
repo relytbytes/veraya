@@ -8,7 +8,7 @@ const DEBOUNCE_MS = 250;
 // Which React Query caches each realtime scope should refresh. `["reservations"]`
 // matches `["reservations", date]` too — React Query invalidation is prefix-based.
 const SCOPE_KEYS: Record<RealtimeScope, string[][]> = {
-  kitchen: [["kitchen"], ["openOrders"], ["dashboard"]],
+  kitchen: [["kitchen"], ["bar"], ["openOrders"], ["dashboard"]],
   floor: [["tables"], ["waitlist"], ["reservations"], ["openOrders"], ["dashboard"]],
 };
 

@@ -10,6 +10,7 @@ import {
   type SalesReport, type LaborReport, type FoodCostReport, type CogsReport, type BevCostItem, type PriceHistoryReport, type VarianceReport,
 } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function toYMD(d: Date): string { return d.toISOString().slice(0, 10); }
 
@@ -675,6 +676,7 @@ const TAB_DEFS: { key: "sales" | "labor" | "foodcost" | "cogs" | "bev" | "prices
 ];
 
 export default function ReportsScreen() {
+  const { refreshing, run } = useManualRefresh();
   const [rangeKey, setRangeKey] = useState<RangeKey>("week");
   const [tab, setTab] = useState<"sales" | "labor" | "foodcost" | "cogs" | "bev" | "prices" | "variance">("sales");
   const range = useMemo(() => getRange(rangeKey), [rangeKey]);
@@ -751,7 +753,7 @@ export default function ReportsScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, gap: 10 }}
-        refreshControl={<RefreshControl refreshing={activeQ.isRefetching} onRefresh={() => activeQ.refetch()} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(() => activeQ.refetch())} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

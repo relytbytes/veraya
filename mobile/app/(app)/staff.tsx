@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getFullStaff, createStaff, patchStaff, getActiveClockIns, getStaffNotes, createStaffNote, deleteStaffNote } from "@/lib/api";
 import type { StaffMember, StaffNote } from "@/lib/api";
 import { C, T, shadow, roleColor, roleBg } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ function initials(name: string) {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function StaffScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -45,7 +47,7 @@ export default function StaffScreen() {
   const [editMember, setEditMember] = useState<StaffMember | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  const { data: staff = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: staff = [], isLoading, refetch } = useQuery({
     queryKey: ["fullStaff"],
     queryFn: getFullStaff,
   });
@@ -78,7 +80,7 @@ export default function StaffScreen() {
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 96 }}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />
         }
         scrollEventThrottle={16}
         onScroll={scrollHandler}

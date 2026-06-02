@@ -8,6 +8,7 @@ import { getDashboardStats } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { VeraCard } from "@/components/VeraCard";
 import { VeraForecastCard, VeraSetupCard } from "@/components/VeraInsights";
@@ -32,6 +33,7 @@ const MODULES: Module[] = [
   { label: "Customers",       description: "CRM, loyalty & profiles",       icon: "person-outline",         color: C.jade,  href: "/(app)/customers" },
   { label: "Events",          description: "Catering & private dining",     icon: "star-outline",           color: C.gold,  href: "/(app)/events" },
   { label: "Gift Cards",      description: "Issue, load & redeem",          icon: "gift-outline",           color: C.coral, href: "/(app)/giftcards" },
+  { label: "Bar",             description: "Drink tickets display",         icon: "wine-outline",           color: C.ember, href: "/(app)/bar" },
   // Operations
   { label: "Menu",            description: "Items, prices & recipes",       icon: "restaurant-outline",     color: C.jade,  href: "/(app)/menu" },
   { label: "Purchase Orders", description: "Supplier orders & receiving",   icon: "receipt-outline",        color: C.sky,   href: "/(app)/invoices" },
@@ -63,12 +65,13 @@ const SECTIONS = [
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const { refreshing, run } = useManualRefresh();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const router = useRouter();
   const [handoffOpen, setHandoffOpen] = useState(false);
 
-  const { data: stats, isLoading, refetch, isRefetching } = useQuery({
+  const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardStats,
     refetchInterval: 30_000,
@@ -150,7 +153,7 @@ export default function HomeScreen() {
       />
 
       <Animated.ScrollView
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}

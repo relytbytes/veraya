@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import type { TrainingAssignment, TrainingTemplate } from "@/lib/api";
 import { C, shadow, roleColor, roleBg } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -421,6 +422,7 @@ function AssignModal({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TrainingScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -429,7 +431,7 @@ export default function TrainingScreen() {
   const [selected, setSelected] = useState<TrainingAssignment | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
 
-  const { data: assignments = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: assignments = [], isLoading, refetch } = useQuery({
     queryKey: ["trainingAssignments"],
     queryFn: getTrainingAssignments,
   });
@@ -493,7 +495,7 @@ export default function TrainingScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

@@ -20,6 +20,7 @@ import { formatCurrency } from "@/lib/utils";
 interface Category {
   id: string;
   name: string;
+  station: string;
   _count: { menuItems: number };
 }
 
@@ -101,6 +102,7 @@ export default function MenuPage() {
   const [drafting, setDrafting] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+  const [newCatStation, setNewCatStation] = useState("KITCHEN");
 
   // Modifier state
   const [modifiers, setModifiers] = useState<Modifier[]>([]);
@@ -293,10 +295,21 @@ export default function MenuPage() {
     await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newCatName.trim() }),
+      body: JSON.stringify({ name: newCatName.trim(), station: newCatStation }),
     });
     setNewCatName("");
-    setCatDialogOpen(false);
+    setNewCatStation("KITCHEN");
+    loadAll();
+  }
+
+  // Route a category's items to the Kitchen or Bar display.
+  async function setCategoryStation(id: string, station: string) {
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, station } : c)));
+    await fetch(`/api/categories/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ station }),
+    });
     loadAll();
   }
 
@@ -744,24 +757,71 @@ export default function MenuPage() {
 
       {/* Category Dialog */}
       <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Category</DialogTitle>
+            <DialogTitle>Categories</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>Category Name *</Label>
+          <div className="space-y-4">
+            {/* New category */}
+            <div className="space-y-2">
+              <Label>New Category</Label>
               <Input
-                placeholder="e.g. Appetizers"
+                placeholder="e.g. Cocktails"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && createCategory()}
               />
+              <div className="flex items-center gap-1.5">
+                {(["KITCHEN", "BAR"] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setNewCatStation(st)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                      newCatStation === st
+                        ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {st === "BAR" ? "Bar" : "Kitchen"}
+                  </button>
+                ))}
+                <Button size="sm" className="ml-auto" onClick={createCategory} disabled={!newCatName.trim()}>Add</Button>
+              </div>
+            </div>
+
+            {/* Routing for existing categories */}
+            <div className="space-y-2 border-t pt-3">
+              <Label className="text-xs uppercase tracking-wide text-gray-500">Routes to</Label>
+              {categories.length === 0 ? (
+                <p className="text-sm text-gray-400">No categories yet.</p>
+              ) : (
+                categories.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">{c.name}</span>
+                    <div className="flex items-center gap-1">
+                      {(["KITCHEN", "BAR"] as const).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setCategoryStation(c.id, st)}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                            (c.station ?? "KITCHEN") === st
+                              ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}
+                        >
+                          {st === "BAR" ? "Bar" : "Kitchen"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCatDialogOpen(false)}>Cancel</Button>
-            <Button onClick={createCategory} disabled={!newCatName.trim()}>Create</Button>
+            <Button variant="outline" onClick={() => setCatDialogOpen(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -16,6 +16,7 @@ import { PhotoCapture } from "@/components/PhotoCapture";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { C } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { useAuthStore } from "@/store/auth";
 
 type AddItemMode = "search" | "scan" | "camera" | "vision_processing" | "vision_result" | "create";
@@ -36,6 +37,7 @@ type DraftItem = {
 type ScreenView = "list" | "detail" | "create";
 
 export default function InvoicesScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
@@ -87,7 +89,7 @@ export default function InvoicesScreen() {
   const [listScanner, setListScanner] = useState(false);
 
   // ── queries ────────────────────────────────────────────────────────────────
-  const { data: pos = [], isRefetching, refetch } = useQuery({
+  const { data: pos = [], refetch } = useQuery({
     queryKey: ["purchaseOrders"],
     queryFn: getPurchaseOrders,
   });
@@ -1320,7 +1322,7 @@ export default function InvoicesScreen() {
 
       <ScrollView
         contentContainerClassName="p-4 gap-3"
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
       >
         {pos.length === 0 && (
           <View className="items-center py-14 gap-4">

@@ -11,6 +11,7 @@ import { getEvents, createEvent, patchEvent, deleteEvent } from "@/lib/api";
 import type { CalEvent } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 type Tab = "upcoming" | "past" | "inquiries";
 
@@ -43,6 +44,7 @@ function todayStr() {
 }
 
 export default function EventsScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const qc = useQueryClient();
@@ -55,7 +57,7 @@ export default function EventsScreen() {
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const { data: events = [], isLoading, isRefetching, refetch } = useQuery({
+  const { data: events = [], isLoading, refetch } = useQuery({
     queryKey: ["events"],
     queryFn: getEvents,
     refetchInterval: 60_000,
@@ -500,7 +502,7 @@ export default function EventsScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 96 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

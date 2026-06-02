@@ -84,8 +84,10 @@ export const createOrder = (body: object) =>
 export const patchOrder = (id: string, body: object) =>
   request<Order>(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
-// Kitchen
-export const getKitchenOrders = () => request<Order[]>("/api/kitchen");
+// Kitchen / Bar — same endpoint, filtered by station (KITCHEN food, BAR drinks)
+export const getKitchenOrders = (station: "KITCHEN" | "BAR" = "KITCHEN") =>
+  request<Order[]>(`/api/kitchen?station=${station}`);
+export const getBarOrders = () => getKitchenOrders("BAR");
 export const kitchenAction = (body: object) =>
   request("/api/kitchen", { method: "PATCH", body: JSON.stringify(body) });
 

@@ -29,7 +29,7 @@ async function main() {
     prisma.category.upsert({ where: { id: "cat-mains" }, update: {}, create: { id: "cat-mains", name: "Main Courses", sortOrder: 2 } }),
     prisma.category.upsert({ where: { id: "cat-sides" }, update: {}, create: { id: "cat-sides", name: "Sides", sortOrder: 3 } }),
     prisma.category.upsert({ where: { id: "cat-desserts" }, update: {}, create: { id: "cat-desserts", name: "Desserts", sortOrder: 4 } }),
-    prisma.category.upsert({ where: { id: "cat-drinks" }, update: {}, create: { id: "cat-drinks", name: "Beverages", sortOrder: 5 } }),
+    prisma.category.upsert({ where: { id: "cat-drinks" }, update: { station: "BAR" }, create: { id: "cat-drinks", name: "Beverages", sortOrder: 5, station: "BAR" } }),
   ]);
   console.log("✓ Categories:", categories.length);
 

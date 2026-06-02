@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getCogsReport } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -137,13 +138,14 @@ const RANGES: { key: RangeKey; label: string }[] = [
 ];
 
 export default function PrimeCostScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const [range, setRange] = useState<RangeKey>("month");
 
   const { from, to } = useMemo(() => getRangeDates(range), [range]);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["primecost", from, to],
     queryFn: () => getCogsReport(from, to),
   });
@@ -216,7 +218,7 @@ export default function PrimeCostScreen() {
       ) : (
         <Animated.ScrollView
           contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 48 }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >

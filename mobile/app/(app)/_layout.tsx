@@ -109,6 +109,7 @@ export default function AppLayout() {
         }}
       />
       {/* Hidden screens — navigated to from Home */}
+      <Tabs.Screen name="bar" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
       <Tabs.Screen name="reservations" options={{ href: null }} />
       <Tabs.Screen name="invoices"     options={{ href: null }} />

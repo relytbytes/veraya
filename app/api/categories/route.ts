@@ -18,12 +18,17 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, description, sortOrder } = body;
+  const { name, description, sortOrder, station } = body;
 
   if (!name) return Response.json({ error: "Name is required" }, { status: 400 });
 
   const category = await prisma.category.create({
-    data: { name, description, sortOrder: sortOrder ?? 0 },
+    data: {
+      name,
+      description,
+      sortOrder: sortOrder ?? 0,
+      station: station === "BAR" ? "BAR" : "KITCHEN",
+    },
   });
   return Response.json(category, { status: 201 });
 }

@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import type { Shift, StaffMember, SchedulingAnalysis } from "@/lib/api";
 import { C, T, shadow, roleColor, roleBg } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ interface SheetState {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ScheduleScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -84,7 +86,7 @@ export default function ScheduleScreen() {
   const fromStr = toDateStr(weekStart);
   const toStr = toDateStr(weekEnd);
 
-  const { data: shifts = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: shifts = [], isLoading, refetch } = useQuery({
     queryKey: ["schedule", fromStr],
     queryFn: () => getSchedule(fromStr, toStr),
   });
@@ -346,7 +348,7 @@ export default function ScheduleScreen() {
       ) : (
         <Animated.ScrollView
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />
           }
           contentContainerStyle={{ paddingBottom: 24 }}
           scrollEventThrottle={16}

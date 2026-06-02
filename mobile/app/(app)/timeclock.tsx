@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getActiveClockIns, clockAction, getFullStaff, getClockHistory } from "@/lib/api";
 import type { ClockEntryWithUser, StaffMember, ClockEntry } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
 
@@ -44,6 +45,7 @@ function useNow(intervalMs = 30000) {
 }
 
 export default function TimeClockScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -51,7 +53,7 @@ export default function TimeClockScreen() {
 
   const today = toDateStr(new Date());
 
-  const { data: activeClockIns = [], isLoading: loadingActive, refetch: refetchActive, isRefetching } = useQuery({
+  const { data: activeClockIns = [], isLoading: loadingActive, refetch: refetchActive } = useQuery({
     queryKey: ["activeClockIns"],
     queryFn: getActiveClockIns,
     refetchInterval: 30_000,
@@ -115,7 +117,7 @@ export default function TimeClockScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetchAll} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetchAll)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

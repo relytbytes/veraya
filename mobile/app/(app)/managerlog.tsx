@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getManagerLog, createManagerLogEntry } from "@/lib/api";
 import type { ManagerLogEntry } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -378,13 +379,14 @@ function AddEntryModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ManagerLogScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const [filter, setFilter] = useState<"" | LogType>("");
   const [addOpen, setAddOpen] = useState(false);
 
-  const { data: entries = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: entries = [], isLoading, refetch } = useQuery({
     queryKey: ["managerLog", filter],
     queryFn: () => getManagerLog(filter || undefined),
   });
@@ -440,7 +442,7 @@ export default function ManagerLogScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 80 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

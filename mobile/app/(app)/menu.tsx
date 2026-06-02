@@ -14,6 +14,7 @@ import type { Category, IngredientFull } from "@/lib/api";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
@@ -83,6 +84,7 @@ function costTintBg(pct: number): string {
 }
 
 export default function MenuScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -108,7 +110,7 @@ export default function MenuScreen() {
   const [addPrepTime, setAddPrepTime] = useState("");
 
   const { data: categories = [] } = useQuery({ queryKey: ["categories"], queryFn: getCategories });
-  const { data: menuItems = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: menuItems = [], isLoading, refetch } = useQuery({
     queryKey: ["menuItems"],
     queryFn: () => getMenuItems<MenuItemFull>(),
   });
@@ -609,7 +611,7 @@ export default function MenuScreen() {
       ) : (
         <Animated.ScrollView
           contentContainerStyle={{ padding: 16, gap: 20 }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >

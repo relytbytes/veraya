@@ -2,6 +2,7 @@ import {
   LayoutDashboard, UtensilsCrossed, Package, ShoppingCart, Users, BarChart3,
   Truck, Settings, ChefHat, CalendarDays, BookOpen, Clock, ConciergeBell,
   ClipboardList, RefreshCw, GlassWater, ListChecks, GraduationCap, PartyPopper,
+  Wine,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ export function canSee(role: string, href: string): boolean {
   if (href === "/timeclock") return true;
   if (href === "/pos") return !BOH.has(role) && role !== "BARBACK";
   if (href === "/kitchen") return BOH.has(role) || role === "FOOD_RUNNER";
+  if (href === "/bar") return role === "BARBACK" || role === "BARTENDER" || BOH.has(role);
   if (href === "/host") return role === "HOST" || role === "SERVER";
   if (href === "/reservations") return role === "HOST";
   return false;
@@ -36,6 +38,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: "/pos",          label: "Point of Sale", icon: ShoppingCart  },
       { href: "/kitchen",      label: "Kitchen",       icon: ChefHat       },
+      { href: "/bar",          label: "Bar",           icon: Wine          },
       { href: "/host",         label: "Host Stand",    icon: ConciergeBell },
       { href: "/reservations", label: "Reservations",  icon: CalendarDays  },
       { href: "/events",       label: "Events",        icon: PartyPopper   },

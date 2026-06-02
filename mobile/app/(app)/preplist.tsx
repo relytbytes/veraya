@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getPrepList } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function addDays(d: Date, n: number) {
   const r = new Date(d);
@@ -28,13 +29,14 @@ function fmtDate(ymd: string) {
 }
 
 export default function PrepListScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
   const [targetDate, setTargetDate] = useState(() => toYMD(addDays(new Date(), 1)));
   const [view, setView] = useState<"prep" | "forecast">("prep");
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["prepList", targetDate],
     queryFn: () => getPrepList(targetDate),
   });
@@ -150,7 +152,7 @@ export default function PrepListScreen() {
       ) : (
         <Animated.ScrollView
           contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 48 }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >

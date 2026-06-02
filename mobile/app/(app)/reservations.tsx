@@ -29,6 +29,7 @@ import {
   type Customer,
 } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ const STATUS_FILTER_MAP: Record<FilterStatus, string | null> = {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ReservationsScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const today = toYMD(new Date());
@@ -94,7 +96,7 @@ export default function ReservationsScreen() {
 
   const qc = useQueryClient();
 
-  const { data: reservations = [], isLoading, refetch, isRefetching } = useQuery({
+  const { data: reservations = [], isLoading, refetch } = useQuery({
     queryKey: ["reservations", selectedDate],
     queryFn: () => getReservations(selectedDate),
     refetchInterval: 60_000,
@@ -229,7 +231,7 @@ export default function ReservationsScreen() {
       {/* Reservation list */}
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

@@ -8,6 +8,7 @@ import { getGiftCards, createGiftCard, lookupGiftCard, giftCardAction } from "@/
 import type { GiftCard } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function formatCode(code: string) { return code.replace(/(.{4})/g, "$1-").slice(0, -1); }
 
@@ -18,6 +19,7 @@ function balanceColor(pct: number) {
 }
 
 export default function GiftCardsScreen() {
+  const { refreshing, run } = useManualRefresh();
   const router = useRouter();
   const qc = useQueryClient();
   const { scrollY, scrollHandler } = useCollapsingHeader();
@@ -40,7 +42,7 @@ export default function GiftCardsScreen() {
   const [actionType, setActionType] = useState<"LOAD" | "REDEEM">("LOAD");
   const [actioning, setActioning] = useState(false);
 
-  const { data: cards = [], isLoading, isRefetching, refetch } = useQuery({
+  const { data: cards = [], isLoading, refetch } = useQuery({
     queryKey: ["giftCards"],
     queryFn: getGiftCards,
     refetchInterval: 60_000,
@@ -390,7 +392,7 @@ export default function GiftCardsScreen() {
 
       <Animated.ScrollView
         contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32 }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >

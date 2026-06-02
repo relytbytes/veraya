@@ -116,6 +116,7 @@ model Category {
   name        String
   description String?
   sortOrder   Int      @default(0)
+  station     String   @default("KITCHEN") // KITCHEN | BAR — routes orders to the right display
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
