@@ -77,8 +77,8 @@ export async function GET(req: NextRequest) {
     lwSales,
     // Tonight's reservations
     tonightReservations,
-    // Current clock-ins (still active: clockOut is null)
-    activeClock,
+    // Today's clock entries (open + closed-today) for true labor-so-far
+    clockEntries,
     // Tonight's scheduled shifts
     tonightShifts,
     // 86 board
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
       orderBy: { time: "asc" },
     }),
     prisma.clockEntry.findMany({
-      where: { clockOut: null },
+      where: { OR: [{ clockOut: null }, { clockIn: { gte: todayStart } }] },
       include: { user: { select: { name: true, role: true, hourlyRate: true } } },
     }),
     prisma.shift.findMany({
@@ -173,11 +173,14 @@ export async function GET(req: NextRequest) {
   const voidTotal = voids.reduce((sum, l) => sum + Number(l.amount ?? 0), 0);
   const compTotal  = comps.reduce((sum, l) => sum + Number(l.amount ?? 0), 0);
 
-  // Labor projection
-  // For each clocked-in staff, calculate hours so far today × rate
+  // Labor so far today: count every clock entry that touched today (still open
+  // OR clocked out today), measuring only the portion within today × rate.
+  const activeClock = clockEntries.filter((c) => !c.clockOut);
   let laborSoFar = 0;
-  for (const c of activeClock) {
-    const hours = (now.getTime() - new Date(c.clockIn).getTime()) / (1000 * 60 * 60);
+  for (const c of clockEntries) {
+    const start = Math.max(new Date(c.clockIn).getTime(), todayStart.getTime());
+    const end = c.clockOut ? new Date(c.clockOut).getTime() : now.getTime();
+    const hours = Math.max(0, (end - start) / (1000 * 60 * 60));
     laborSoFar += hours * Number(c.user.hourlyRate ?? 0);
   }
   // Project for full day: hours so far / fraction of day elapsed

@@ -225,6 +225,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           action: "VOID",
           orderId: id,
+          amount: Number(oi.unitPrice) * oi.quantity,
           reason: voidItem.reason!.trim(),
           notes: `Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
           userId: authorizingManager!.id,
@@ -240,7 +241,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Comp a specific item (goodwill — item made, not charged)
   if (compItem) {
-    await prisma.orderItem.update({
+    const ci = await prisma.orderItem.update({
       where: { id: compItem.itemId, orderId: id },
       data: { comped: true },
     });
@@ -250,6 +251,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           action: "COMP",
           orderId: id,
+          amount: Number(ci.unitPrice) * ci.quantity,
           reason: compItem.reason!.trim(),
           notes: `Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
           userId: authorizingManager!.id,
@@ -291,6 +293,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           action: "COMP",
           orderId: id,
+          amount: Number(order.total),
           reason: compCheck.reason!.trim(),
           notes: `Entire check comped. Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
           userId: authorizingManager!.id,
