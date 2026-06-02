@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/api";
 import { View, Text } from "react-native";
 import { useAuthStore } from "@/store/auth";
+import { RealtimeProvider } from "@/components/RealtimeProvider";
 import { C } from "@/lib/theme";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -47,6 +48,8 @@ export default function AppLayout() {
   const lowStockCount = stats?.lowStockCount ?? 0;
 
   return (
+    <>
+    <RealtimeProvider />
     <Tabs
       initialRouteName="index"
       screenOptions={{
@@ -126,5 +129,6 @@ export default function AppLayout() {
       <Tabs.Screen name="training"     options={{ href: null }} />
       <Tabs.Screen name="primecost"    options={{ href: null }} />
     </Tabs>
+    </>
   );
 }

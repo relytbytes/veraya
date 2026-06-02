@@ -30,7 +30,7 @@ export default function KitchenScreen() {
   const { data: orders = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["kitchen"],
     queryFn: getKitchenOrders,
-    refetchInterval: 10_000,
+    refetchInterval: 30_000, // fallback; live updates arrive via SSE (RealtimeProvider)
   });
 
   async function bump(orderId: string) {

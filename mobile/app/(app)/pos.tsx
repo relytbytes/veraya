@@ -166,10 +166,10 @@ export default function POSScreen() {
   });
 
   const { data: tables = [], refetch: refetchTables, isRefetching } = useQuery({
-    queryKey: ["tables"], queryFn: getTables, refetchInterval: 15_000,
+    queryKey: ["tables"], queryFn: getTables, refetchInterval: 30_000, // fallback; SSE drives live updates
   });
   const { data: openOrders = [] } = useQuery({
-    queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 15_000,
+    queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 30_000, // fallback; SSE drives live updates
   });
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"], queryFn: getCategories,

@@ -1,12 +1,12 @@
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 
-const BASE_URL =
+export const BASE_URL =
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
   process.env.EXPO_PUBLIC_API_URL ??
   "http://localhost:3000";
 
-async function getHeaders(): Promise<Record<string, string>> {
+export async function getHeaders(): Promise<Record<string, string>> {
   const token = await SecureStore.getItemAsync("session_token");
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
