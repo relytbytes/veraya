@@ -38,17 +38,24 @@ function computeHealth(d: {
   voidCount: number;
   salesToday: number;
   priceChangeCount: number;
-}): { score: number; breakdown: HealthFactor[] } {
+  confirmedCovers: number;
+  inService: boolean;
+}): { score: number; breakdown: HealthFactor[]; unassessed: string[] } {
   const f: HealthFactor[] = [];
+  const unassessed: string[] = [];
   const add = (label: string, pen: number) => { if (pen > 0) f.push({ label, delta: -Math.round(pen) }); };
 
   // Sales pacing — biggest lever. Full credit at ≥95% of normal; ramps to -35.
-  if (d.pacingRatio !== null && d.pacingRatio < 0.95) {
-    add(`Sales pacing ${(d.pacingRatio * 100).toFixed(0)}% of normal`, Math.min(35, (0.95 - d.pacingRatio) * 70));
+  if (d.pacingRatio !== null) {
+    if (d.pacingRatio < 0.95) add(`Sales pacing ${(d.pacingRatio * 100).toFixed(0)}% of normal`, Math.min(35, (0.95 - d.pacingRatio) * 70));
+  } else {
+    unassessed.push("Sales pace — no comparable day yet to measure against");
   }
   // Labor as % of sales — target 30%, every point over costs 1.5 (cap -25).
-  if (d.projectedLaborPct !== null && d.projectedLaborPct > 30) {
-    add(`Labor projected at ${d.projectedLaborPct.toFixed(0)}%`, Math.min(25, (d.projectedLaborPct - 30) * 1.5));
+  if (d.projectedLaborPct !== null) {
+    if (d.projectedLaborPct > 30) add(`Labor projected at ${d.projectedLaborPct.toFixed(0)}%`, Math.min(25, (d.projectedLaborPct - 30) * 1.5));
+  } else {
+    unassessed.push("Labor % — not enough sales/clock data yet");
   }
   // Out of stock — each missing item is serious (cap -30).
   if (d.outOfStockCount > 0) add(`${d.outOfStockCount} item${d.outOfStockCount > 1 ? "s" : ""} out of stock`, Math.min(30, d.outOfStockCount * 10));
@@ -62,13 +69,18 @@ function computeHealth(d: {
   } else if (d.voidCount >= 3) {
     add(`${d.voidCount} voids today`, Math.min(10, d.voidCount));
   }
+  // No covers on the books during service (cap -10).
+  if (d.inService && d.confirmedCovers === 0) add("No reservations booked today", 10);
   // Vendor price swings (cap -9).
   if (d.priceChangeCount > 0) add(`${d.priceChangeCount} vendor price swing${d.priceChangeCount > 1 ? "s" : ""}`, Math.min(9, d.priceChangeCount * 3));
 
   const total = f.reduce((s, x) => s + x.delta, 0);
-  const score = Math.max(0, Math.min(100, 100 + total));
+  let score = Math.max(0, Math.min(100, 100 + total));
+  // Honesty cap: if the headline signal (sales pace) couldn't be assessed, don't
+  // present a flawless score — we genuinely don't know how the day is going.
+  if (d.pacingRatio === null) score = Math.min(score, 80);
   f.sort((a, b) => a.delta - b.delta); // biggest drag first
-  return { score, breakdown: f };
+  return { score, breakdown: f, unassessed };
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -337,6 +349,7 @@ export async function GET(req: NextRequest) {
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
     active86Count: active86.length, voidTotal, voidCount: voids.length,
     salesToday, priceChangeCount: priceChanges.length,
+    confirmedCovers, inService: now.getHours() >= 11 && now.getHours() < 23,
   });
 
   // ── Try AI to enhance narrative + alerts ─────────────────────────────────
@@ -349,6 +362,7 @@ export async function GET(req: NextRequest) {
     return Response.json({
       healthScore: health.score,
       healthBreakdown: health.breakdown,
+      healthUnassessed: health.unassessed,
       narrative: deterministicNarrative,
       alerts: fallbackAlerts,
       rawSignals,
@@ -404,6 +418,7 @@ Sort by severity descending (HIGH first).`,
     return Response.json({
       healthScore: health.score,
       healthBreakdown: health.breakdown,
+      healthUnassessed: health.unassessed,
       narrative: parsed.narrative || deterministicNarrative,
       alerts: finalAlerts,
       rawSignals,
@@ -415,6 +430,7 @@ Sort by severity descending (HIGH first).`,
     return Response.json({
       healthScore: health.score,
       healthBreakdown: health.breakdown,
+      healthUnassessed: health.unassessed,
       narrative: deterministicNarrative,
       alerts: fallbackAlerts,
       rawSignals,

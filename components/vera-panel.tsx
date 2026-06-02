@@ -43,6 +43,7 @@ interface HealthFactor { label: string; delta: number }
 interface VeraData {
   healthScore: number;
   healthBreakdown?: HealthFactor[];
+  healthUnassessed?: string[];
   narrative: string;
   alerts: VeraAlert[];
   rawSignals: {
@@ -312,6 +313,16 @@ export function VeraPanel() {
                       "font-bold tabular-nums shrink-0",
                       f.delta <= -15 ? "text-red-600" : f.delta <= -8 ? "text-orange-500" : "text-amber-600",
                     )}>{f.delta}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(data.healthUnassessed?.length ?? 0) > 0 && (
+              <ul className="mt-2 space-y-1 border-t border-gray-200 pt-2">
+                {data.healthUnassessed!.map((u, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-400">
+                    <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                    <span>{u}</span>
                   </li>
                 ))}
               </ul>
