@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Image,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
 import { useAuthStore } from "@/store/auth";
@@ -37,24 +37,12 @@ export default function LoginScreen() {
         contentContainerStyle={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingVertical: 64 }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo */}
+        {/* Logo — the real app icon, for continuity with the home-screen icon */}
         <View style={{ marginBottom: 40, alignItems: "center" }}>
-          <View style={{
-            width: 84, height: 84, borderRadius: 20,
-            backgroundColor: C.void,
-            alignItems: "center", justifyContent: "center",
-            marginBottom: 16,
-            borderWidth: 1, borderColor: C.rim,
-            ...shadow.md,
-          }}>
-            <View style={{
-              width: 64, height: 64, borderRadius: 32,
-              backgroundColor: C.gold,
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Text style={{ fontSize: 34, fontWeight: "800", color: C.void, letterSpacing: -1 }}>V</Text>
-            </View>
-          </View>
+          <Image
+            source={require("../../assets/icon.png")}
+            style={{ width: 84, height: 84, borderRadius: 20, marginBottom: 16, ...shadow.md }}
+          />
           <Text style={{ fontSize: 28, fontWeight: "800", color: C.pearl, letterSpacing: -0.5 }}>Veraya</Text>
           <Text style={{ color: C.mist, marginTop: 4, fontSize: 15 }}>Staff Portal</Text>
         </View>

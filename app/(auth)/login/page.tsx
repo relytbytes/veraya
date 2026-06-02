@@ -4,7 +4,6 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { VerayaMark } from "@/components/brand/veraya-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,11 +38,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950">
       <div className="w-full max-w-sm">
-        {/* Logo */}
+        {/* Logo — the real app icon, for continuity with the home screen + app icon */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white mb-4">
-            <VerayaMark className="h-9 w-9" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-512.png" alt="Veraya" width={56} height={56} className="rounded-2xl mb-4 shadow-lg" />
           <h1 className="text-2xl font-bold text-white">Veraya</h1>
           <p className="text-sm font-medium text-gray-200 mt-2 text-center">Built for one restaurant. Ready for a hundred.</p>
           <p className="text-xs text-gray-400 mt-1.5 text-center max-w-xs leading-relaxed">
