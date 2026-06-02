@@ -12,10 +12,11 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 // ── Colours ───────────────────────────────────────────────────────────────────
 
 function healthColor(score: number) {
-  if (score >= 90) return { ring: C.jade,  text: C.jade,  label: "Strong Day" };
-  if (score >= 75) return { ring: C.ember, text: C.ember, label: "Attention Needed" };
-  if (score >= 60) return { ring: C.gold,  text: C.gold,  label: "Multiple Issues" };
-  return                   { ring: C.coral, text: C.coral, label: "Action Required" };
+  if (score >= 90) return { ring: C.jade,  text: C.jade,  label: "Excellent" };
+  if (score >= 75) return { ring: C.jade,  text: C.jade,  label: "Good" };
+  if (score >= 60) return { ring: C.gold,  text: C.gold,  label: "Fair" };
+  if (score >= 45) return { ring: C.ember, text: C.ember, label: "Strained" };
+  return                   { ring: C.coral, text: C.coral, label: "Critical" };
 }
 
 function severityColor(severity: VeraAlert["severity"]) {

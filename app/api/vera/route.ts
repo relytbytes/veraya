@@ -23,16 +23,52 @@ function toNowWindow(d: Date) {
 
 function fmt(n: number) { return `$${n.toFixed(2)}`; }
 
-// Compute health score from the resolved alerts — guarantees score and alerts are always consistent.
-// HIGH = -15, MEDIUM = -8, LOW = -2
-function computeHealthScore(alerts: { severity: string }[]): number {
-  let score = 100;
-  for (const alert of alerts) {
-    if (alert.severity === "HIGH")        score -= 15;
-    else if (alert.severity === "MEDIUM") score -= 8;
-    else if (alert.severity === "LOW")    score -= 2;
+export interface HealthFactor { label: string; delta: number }
+
+// Signal-weighted health score. Starts at 100 and deducts points scaled to how
+// far each real metric is off — so a genuinely bad service lands in the 20s-40s,
+// not a floor of 60. Returns a breakdown so the UI can explain the number.
+function computeHealth(d: {
+  pacingRatio: number | null;
+  projectedLaborPct: number | null;
+  outOfStockCount: number;
+  lowStockCount: number;
+  active86Count: number;
+  voidTotal: number;
+  voidCount: number;
+  salesToday: number;
+  priceChangeCount: number;
+}): { score: number; breakdown: HealthFactor[] } {
+  const f: HealthFactor[] = [];
+  const add = (label: string, pen: number) => { if (pen > 0) f.push({ label, delta: -Math.round(pen) }); };
+
+  // Sales pacing — biggest lever. Full credit at ≥95% of normal; ramps to -35.
+  if (d.pacingRatio !== null && d.pacingRatio < 0.95) {
+    add(`Sales pacing ${(d.pacingRatio * 100).toFixed(0)}% of normal`, Math.min(35, (0.95 - d.pacingRatio) * 70));
   }
-  return Math.max(0, Math.min(100, Math.round(score)));
+  // Labor as % of sales — target 30%, every point over costs 1.5 (cap -25).
+  if (d.projectedLaborPct !== null && d.projectedLaborPct > 30) {
+    add(`Labor projected at ${d.projectedLaborPct.toFixed(0)}%`, Math.min(25, (d.projectedLaborPct - 30) * 1.5));
+  }
+  // Out of stock — each missing item is serious (cap -30).
+  if (d.outOfStockCount > 0) add(`${d.outOfStockCount} item${d.outOfStockCount > 1 ? "s" : ""} out of stock`, Math.min(30, d.outOfStockCount * 10));
+  // Below par (cap -12).
+  if (d.lowStockCount > 0) add(`${d.lowStockCount} item${d.lowStockCount > 1 ? "s" : ""} below par`, Math.min(12, d.lowStockCount * 2));
+  // 86'd items (cap -15).
+  if (d.active86Count > 0) add(`${d.active86Count} item${d.active86Count > 1 ? "s" : ""} 86'd`, Math.min(15, d.active86Count * 3));
+  // Voids as a share of sales (cap -15).
+  if (d.voidTotal > 0 && d.salesToday > 0) {
+    add(`$${d.voidTotal.toFixed(0)} in voids (${d.voidCount})`, Math.min(15, (d.voidTotal / d.salesToday) * 100 * 1.5));
+  } else if (d.voidCount >= 3) {
+    add(`${d.voidCount} voids today`, Math.min(10, d.voidCount));
+  }
+  // Vendor price swings (cap -9).
+  if (d.priceChangeCount > 0) add(`${d.priceChangeCount} vendor price swing${d.priceChangeCount > 1 ? "s" : ""}`, Math.min(9, d.priceChangeCount * 3));
+
+  const total = f.reduce((s, x) => s + x.delta, 0);
+  const score = Math.max(0, Math.min(100, 100 + total));
+  f.sort((a, b) => a.delta - b.delta); // biggest drag first
+  return { score, breakdown: f };
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -295,6 +331,14 @@ export async function GET(req: NextRequest) {
     voidTotal, confirmedCovers,
   };
 
+  // Signal-weighted health — independent of how many alerts the AI/fallback emits.
+  const health = computeHealth({
+    pacingRatio, projectedLaborPct,
+    outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
+    active86Count: active86.length, voidTotal, voidCount: voids.length,
+    salesToday, priceChangeCount: priceChanges.length,
+  });
+
   // ── Try AI to enhance narrative + alerts ─────────────────────────────────
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -303,7 +347,8 @@ export async function GET(req: NextRequest) {
 
   if (!apiKey) {
     return Response.json({
-      healthScore: computeHealthScore(fallbackAlerts),
+      healthScore: health.score,
+      healthBreakdown: health.breakdown,
       narrative: deterministicNarrative,
       alerts: fallbackAlerts,
       rawSignals,
@@ -357,7 +402,8 @@ Sort by severity descending (HIGH first).`,
 
     const finalAlerts = parsed.alerts?.length ? parsed.alerts : fallbackAlerts;
     return Response.json({
-      healthScore: computeHealthScore(finalAlerts),
+      healthScore: health.score,
+      healthBreakdown: health.breakdown,
       narrative: parsed.narrative || deterministicNarrative,
       alerts: finalAlerts,
       rawSignals,
@@ -367,7 +413,8 @@ Sort by severity descending (HIGH first).`,
     // AI failed — log it server-side and return deterministic data (fully functional without AI)
     console.error("[/api/vera] OpenAI call failed:", (err as Error)?.message ?? err);
     return Response.json({
-      healthScore: computeHealthScore(fallbackAlerts),
+      healthScore: health.score,
+      healthBreakdown: health.breakdown,
       narrative: deterministicNarrative,
       alerts: fallbackAlerts,
       rawSignals,

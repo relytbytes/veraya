@@ -38,8 +38,11 @@ interface Prediction {
   hoursUntilMin: number | null;
 }
 
+interface HealthFactor { label: string; delta: number }
+
 interface VeraData {
   healthScore: number;
+  healthBreakdown?: HealthFactor[];
   narrative: string;
   alerts: VeraAlert[];
   rawSignals: {
@@ -58,10 +61,11 @@ interface VeraData {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function healthColor(score: number) {
-  if (score >= 90) return { ring: "ring-emerald-400/50", text: "text-emerald-600", badge: "bg-emerald-50 border-emerald-200", label: "Strong Day",        labelColor: "text-emerald-600" };
-  if (score >= 75) return { ring: "ring-amber-400/50",   text: "text-amber-600",   badge: "bg-amber-50 border-amber-200",   label: "Attention Needed",  labelColor: "text-amber-600"   };
-  if (score >= 60) return { ring: "ring-orange-400/50",  text: "text-orange-600",  badge: "bg-orange-50 border-orange-200", label: "Multiple Issues",   labelColor: "text-orange-600"  };
-  return                   { ring: "ring-red-400/50",    text: "text-red-600",     badge: "bg-red-50 border-red-200",       label: "Action Required",   labelColor: "text-red-600"     };
+  if (score >= 90) return { ring: "ring-emerald-400/50", text: "text-emerald-600", badge: "bg-emerald-50 border-emerald-200", label: "Excellent", labelColor: "text-emerald-600" };
+  if (score >= 75) return { ring: "ring-teal-400/50",    text: "text-teal-600",    badge: "bg-teal-50 border-teal-200",     label: "Good",      labelColor: "text-teal-600"    };
+  if (score >= 60) return { ring: "ring-amber-400/50",   text: "text-amber-600",   badge: "bg-amber-50 border-amber-200",   label: "Fair",      labelColor: "text-amber-600"   };
+  if (score >= 45) return { ring: "ring-orange-400/50",  text: "text-orange-600",  badge: "bg-orange-50 border-orange-200", label: "Strained",  labelColor: "text-orange-600"  };
+  return                   { ring: "ring-red-400/50",    text: "text-red-600",     badge: "bg-red-50 border-red-200",       label: "Critical",  labelColor: "text-red-600"     };
 }
 
 function severityConfig(severity: string) {
@@ -99,6 +103,7 @@ export function VeraPanel() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -269,20 +274,55 @@ export function VeraPanel() {
           <p className="text-sm leading-relaxed text-gray-600">{data.narrative}</p>
         </div>
 
-        {/* Health score */}
-        <div className="flex flex-col items-center gap-1.5 shrink-0">
+        {/* Health score — click to see what's driving it */}
+        <button
+          type="button"
+          onClick={() => setShowBreakdown((v) => !v)}
+          className="flex flex-col items-center gap-1.5 shrink-0 group"
+          title="What's affecting this score?"
+        >
           <div className={cn(
-            "flex flex-col items-center justify-center h-14 w-14 rounded-xl ring-2 border bg-white",
+            "flex flex-col items-center justify-center h-14 w-14 rounded-xl ring-2 border bg-white transition-transform group-hover:scale-105",
             health!.ring, health!.badge
           )}>
             <span className={cn("text-xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
             <span className="text-[8px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">/ 100</span>
           </div>
-          <span className="text-[10px] font-semibold text-center leading-tight max-w-[56px] text-gray-600">
+          <span className={cn("text-[10px] font-semibold text-center leading-tight max-w-[56px]", health!.labelColor)}>
             {health!.label}
           </span>
-        </div>
+        </button>
       </div>
+
+      {/* Score breakdown — why the number is what it is */}
+      {showBreakdown && (
+        <div className="px-5 pb-4 -mt-1">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">What&apos;s affecting the score</p>
+            {(data.healthBreakdown?.length ?? 0) === 0 ? (
+              <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Everything&apos;s tracking well — no deductions.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {data.healthBreakdown!.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-gray-600 truncate">{f.label}</span>
+                    <span className={cn(
+                      "font-bold tabular-nums shrink-0",
+                      f.delta <= -15 ? "text-red-600" : f.delta <= -8 ? "text-orange-500" : "text-amber-600",
+                    )}>{f.delta}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2.5 flex items-center justify-between border-t border-gray-200 pt-2 text-xs">
+              <span className="font-medium text-gray-500">Health score</span>
+              <span className="font-bold text-gray-900 tabular-nums">{data.healthScore} / 100</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Signal pills */}
       {data.rawSignals && (
