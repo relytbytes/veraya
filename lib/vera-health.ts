@@ -52,6 +52,8 @@ export interface Projection {
   serviceElapsedPct: number;
   inService: boolean;
 }
+export interface Indicator { tone: "positive" | "concern" | "neutral"; text: string }
+
 export interface Diagnosis {
   healthScore: number;
   status: Status;
@@ -59,6 +61,7 @@ export interface Diagnosis {
   confidence: number;
   projection: Projection;
   dimensions: Dimension[];
+  indicators: Indicator[];
 }
 
 export interface HealthInput {
@@ -83,6 +86,11 @@ export interface HealthInput {
   priceChangeCount: number;
   fixedDailyOverride?: number | null; // configured daily fixed cost (else estimated)
   cogsTargetPct?: number | null;      // configured food-cost target as a fraction (else 0.30)
+  expectedByNowFraction?: number | null; // learned cumulative-revenue fraction by now
+  avgCheckToday?: number | null;
+  avgCheckMean?: number | null;       // learned average-check mean
+  avgCheckStdev?: number | null;
+  dowLabel?: string;                  // e.g. "Friday"
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -111,10 +119,13 @@ function project(i: HealthInput): Projection {
   // early sample shouldn't blow up into a huge projected day.
   let projectedRevenue: number;
   if (i.expectedRevenue && i.expectedRevenue > 0) {
-    const expectedSoFar = i.expectedRevenue * serviceElapsed;
+    // Prefer the LEARNED intraday curve ("how much is normally in by now") over a
+    // flat clock fraction — far more accurate, since nights fill in non-linearly.
+    const elapsedFrac = i.expectedByNowFraction != null ? i.expectedByNowFraction : serviceElapsed;
+    const expectedSoFar = i.expectedRevenue * elapsedFrac;
     const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
     // Before service really gets going, trust the forecast; later, trust the pace.
-    projectedRevenue = serviceElapsed < 0.1 ? Math.max(i.salesToday, i.expectedRevenue) : i.expectedRevenue * paceRatio;
+    projectedRevenue = elapsedFrac < 0.05 ? Math.max(i.salesToday, i.expectedRevenue) : i.expectedRevenue * paceRatio;
   } else {
     projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
   }
@@ -439,7 +450,50 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
   // Confidence shown to the user reflects how much of the day Vera has actually
   // observed (time) tempered by per-dimension data coverage.
   const confidence = clamp(Math.min(dataConf, confSum + 0.25), 0.2, 0.97);
-  return { healthScore: score, status, headline, confidence, projection: p, dimensions: dims };
+  const indicators = buildIndicators(input, p, dims, preService);
+  return { healthScore: score, status, headline, confidence, projection: p, dimensions: dims, indicators };
+}
+
+// The digestible "what stands out" — the few things a manager should actually
+// notice, framed against THIS restaurant's learned normal.
+function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preService: boolean): Indicator[] {
+  const out: Indicator[] = [];
+  const day = i.dowLabel ?? "day";
+
+  // Pace vs the learned normal for this day-of-week.
+  if (!preService && i.expectedRevenue && i.expectedRevenue > 0) {
+    const pace = p.projectedRevenue / i.expectedRevenue;
+    if (pace >= 1.08) out.push({ tone: "positive", text: `Running ${pct((pace - 1) * 100)} ahead of a normal ${day} — on pace for ${money(p.projectedRevenue)}.` });
+    else if (pace <= 0.85) out.push({ tone: "concern", text: `Pacing ${pct(pace * 100)} of a normal ${day} (${money(p.projectedRevenue - i.expectedRevenue)} vs typical).` });
+  }
+
+  // Average check vs the learned distribution (z-score).
+  if (i.avgCheckToday != null && i.avgCheckMean != null && i.avgCheckStdev && i.avgCheckStdev > 1e-6) {
+    const z = (i.avgCheckToday - i.avgCheckMean) / i.avgCheckStdev;
+    const diff = i.avgCheckToday - i.avgCheckMean;
+    if (z >= 1) out.push({ tone: "positive", text: `Avg check ${money(i.avgCheckToday)} — ${money(diff)} above your normal. Upsells are landing.` });
+    else if (z <= -1) out.push({ tone: "concern", text: `Avg check ${money(i.avgCheckToday)} — ${money(Math.abs(diff))} below your normal. Check attach/upsell.` });
+  }
+
+  // Profitability.
+  if (p.projectedNet < 0) out.push({ tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
+  else if (!preService && p.projectedMarginPct >= 12) out.push({ tone: "positive", text: `Healthy margin — projected ${pct(p.projectedMarginPct)} net (${money(p.projectedNet)}).` });
+
+  // Pull in any HIGH issues the manager must see.
+  for (const d of dims) {
+    for (const iss of d.issues) {
+      if (iss.severity === "HIGH" && out.length < 6) out.push({ tone: "concern", text: iss.action ? `${iss.message} — ${iss.action}` : iss.message });
+    }
+  }
+
+  // Make sure at least one positive shows when something's genuinely going well.
+  if (!out.some((x) => x.tone === "positive")) {
+    const win = dims.find((d) => d.wins.length > 0)?.wins[0];
+    if (win) out.push({ tone: "positive", text: win });
+  }
+
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x.text) ? false : (seen.add(x.text), true))).slice(0, 6);
 }
 
 function topIssue(dims: Dimension[]): string | null {

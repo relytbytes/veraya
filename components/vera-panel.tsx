@@ -54,6 +54,8 @@ interface Projection {
   serviceElapsedPct: number; inService: boolean;
 }
 
+interface Indicator { tone: "positive" | "concern" | "neutral"; text: string }
+
 interface VeraData {
   healthScore: number;
   status: Status;
@@ -62,6 +64,7 @@ interface VeraData {
   narrative: string;
   projection: Projection;
   dimensions: Dimension[];
+  indicators?: Indicator[];
   alerts: VeraAlert[];
   rawSignals: {
     salesToday: number; refSales: number; pacingRatio: number | null;
@@ -323,6 +326,25 @@ export function VeraPanel() {
         <PLCell label="Projected net" value={dol(data.projection.projectedNet)} valueClass={data.projection.projectedNet >= 0 ? "text-emerald-600" : "text-red-600"} sub={`${pctTxt(data.projection.projectedMarginPct)} margin`} />
         <PLCell label="Break-even" value={dol(data.projection.breakEvenRevenue)} sub={data.projection.breakEvenProgressPct != null ? `${pctTxt(data.projection.breakEvenProgressPct)} there` : "—"} />
       </div>
+
+      {/* What stands out — Vera's read vs your learned normal */}
+      {data.indicators && data.indicators.length > 0 && (
+        <div className="px-4 pt-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">What stands out</p>
+          <div className="space-y-1.5">
+            {data.indicators.map((ind, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                {ind.tone === "positive"
+                  ? <TrendingUp className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
+                  : ind.tone === "concern"
+                  ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                  : <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-gray-400" />}
+                <span className="leading-snug text-gray-700">{ind.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Dimensions — the finite detail */}
       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">

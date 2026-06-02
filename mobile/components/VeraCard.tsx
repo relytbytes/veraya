@@ -186,6 +186,24 @@ export function VeraCard() {
         </View>
       )}
 
+      {/* What stands out — vs the learned normal */}
+      {data.indicators && data.indicators.length > 0 && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 6 }}>
+          <Text style={{ fontSize: 10, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>What stands out</Text>
+          {data.indicators.map((ind, i) => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+              <Ionicons
+                name={ind.tone === "positive" ? "trending-up" : ind.tone === "concern" ? "warning-outline" : "information-circle-outline"}
+                size={14}
+                color={ind.tone === "positive" ? C.jade : ind.tone === "concern" ? C.ember : C.smoke}
+                style={{ marginTop: 1 }}
+              />
+              <Text style={{ flex: 1, fontSize: 12, color: C.mist, lineHeight: 17 }}>{ind.text}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Dimension chips — tap to jump to the issue */}
       {data.dimensions && data.dimensions.length > 0 && (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 14 }}>

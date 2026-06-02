@@ -426,6 +426,8 @@ export interface VeraProjection {
   serviceElapsedPct: number; inService: boolean;
 }
 
+export interface VeraIndicator { tone: "positive" | "concern" | "neutral"; text: string }
+
 export interface VeraData {
   healthScore: number;
   status?: VeraStatus;
@@ -434,6 +436,7 @@ export interface VeraData {
   narrative: string;
   projection?: VeraProjection;
   dimensions?: VeraDimension[];
+  indicators?: VeraIndicator[];
   alerts: VeraAlert[];
   rawSignals: {
     salesToday: number;

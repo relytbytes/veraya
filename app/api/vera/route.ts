@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import OpenAI from "openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
+import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 
 // Operating window (estimate until per-restaurant hours are wired in).
 const OPEN_HOUR = 11;
@@ -284,25 +285,15 @@ export async function GET(req: NextRequest) {
     voidTotal, confirmedCovers,
   };
 
-  // Expected (normal) full-day revenue: average of completed sales on the same
-  // weekday over the last 8 weeks. Anchors pacing + the fixed-cost estimate.
+  // Learned baselines: this restaurant's own normal for the day-of-week + the
+  // intraday revenue curve (how the day fills in hour by hour).
   const dow = now.getDay();
-  const histStart = new Date(now); histStart.setDate(histStart.getDate() - 56); histStart.setHours(0, 0, 0, 0);
-  const histOrders = await prisma.order.findMany({
-    where: { status: "COMPLETED", createdAt: { gte: histStart, lt: todayStart } },
-    select: { createdAt: true, total: true },
-    take: 5000,
-  });
-  const dayTotals = new Map<string, number>();
-  for (const o of histOrders) {
-    const d = new Date(o.createdAt);
-    if (d.getDay() !== dow) continue;
-    const key = localDateStr(d);
-    dayTotals.set(key, (dayTotals.get(key) ?? 0) + Number(o.total));
-  }
-  const expectedRevenue = dayTotals.size > 0
-    ? [...dayTotals.values()].reduce((s, v) => s + v, 0) / dayTotals.size
-    : null;
+  const nowFloat = now.getHours() + now.getMinutes() / 60;
+  const baselines = await getBaselines(now);
+  const expectedRevenue = expectedRevenueForDow(baselines, dow);
+  const expectedByNowFraction = expectedFractionByNow(baselines, dow, nowFloat);
+  const avgCheckToday = todaySales._count > 0 ? salesToday / todaySales._count : null;
+  const dowLabel = now.toLocaleDateString("en-US", { weekday: "long" });
 
   // Planned labor for the whole day from scheduled shifts.
   const scheduledLaborFullDay = tonightShifts.reduce(
@@ -341,6 +332,9 @@ export async function GET(req: NextRequest) {
     voidTotal, voidCount: voids.length, compTotal,
     priceChangeCount: priceChanges.length,
     fixedDailyOverride, cogsTargetPct,
+    expectedByNowFraction,
+    avgCheckToday, avgCheckMean: baselines.avgCheckMean, avgCheckStdev: baselines.avgCheckStdev,
+    dowLabel,
   });
 
   const alerts = issuesToAlerts(diag.dimensions);
@@ -373,6 +367,7 @@ export async function GET(req: NextRequest) {
     narrative,
     projection: diag.projection,
     dimensions: diag.dimensions,
+    indicators: diag.indicators,
     alerts,
     rawSignals,
   }, cacheHeaders);
