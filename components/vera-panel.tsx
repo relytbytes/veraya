@@ -65,6 +65,7 @@ interface VeraData {
   projection: Projection;
   dimensions: Dimension[];
   indicators?: Indicator[];
+  learning?: { daysObserved: number; minDays: number; learning: boolean; topDrivers: { key: string; label: string; weight: number; corr: number | null }[] };
   alerts: VeraAlert[];
   rawSignals: {
     salesToday: number; refSales: number; pacingRatio: number | null;
@@ -443,7 +444,13 @@ export function VeraPanel() {
 
       {/* Footer */}
       <div className="border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
-        <p className="text-[10px] text-gray-300">Vera · always watching your restaurant&apos;s live data</p>
+        <p className="text-[10px] text-gray-400">
+          {data.learning
+            ? data.learning.learning
+              ? `Vera is learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
+              : `Tuned to your data · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit most`
+            : "Vera · always watching your restaurant's live data"}
+        </p>
         <button
           onClick={() => load(true)}
           disabled={refreshing}

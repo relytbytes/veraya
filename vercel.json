@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/weekly-digest",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron/vera-snapshot",
+      "schedule": "55 6 * * *"
     }
   ]
 }

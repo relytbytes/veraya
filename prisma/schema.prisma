@@ -403,6 +403,19 @@ model RestaurantSettings {
   value String
 }
 
+// End-of-day snapshot: each dimension's score paired with the realized P&L.
+// Vera correlates these over time to learn which signals predict THIS room's profit.
+model VeraDaySnapshot {
+  id              String   @id @default(cuid())
+  date            String   @unique // YYYY-MM-DD
+  overallScore    Int
+  scores          String // JSON { profitability, demand, labor, cost, service }
+  actualRevenue   Float
+  actualNet       Float
+  actualMarginPct Float
+  createdAt       DateTime @default(now())
+}
+
 // Manager feedback on Vera's indicators — lets her learn what's worth surfacing.
 model VeraFeedback {
   id        String   @id @default(cuid())

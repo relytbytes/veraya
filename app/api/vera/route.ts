@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import OpenAI from "openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
+import { getLearnedWeights } from "@/lib/vera-weights";
 
 // Operating window (estimate until per-restaurant hours are wired in).
 const OPEN_HOUR = 11;
@@ -304,6 +305,9 @@ export async function GET(req: NextRequest) {
     feedback[r.key] = e;
   }
 
+  // Learned dimension weights — how much each signal predicts THIS room's profit.
+  const learned = await getLearnedWeights(now);
+
   // Planned labor for the whole day from scheduled shifts.
   const scheduledLaborFullDay = tonightShifts.reduce(
     (sum, s) => sum + shiftHours(s.startTime, s.endTime) * Number(s.user.hourlyRate ?? 0), 0,
@@ -345,6 +349,7 @@ export async function GET(req: NextRequest) {
     avgCheckToday, avgCheckMean: baselines.avgCheckMean, avgCheckStdev: baselines.avgCheckStdev,
     dowLabel,
     feedback,
+    weights: learned.weights,
   });
 
   const alerts = issuesToAlerts(diag.dimensions);
@@ -378,6 +383,7 @@ export async function GET(req: NextRequest) {
     projection: diag.projection,
     dimensions: diag.dimensions,
     indicators: diag.indicators,
+    learning: { daysObserved: learned.daysObserved, minDays: learned.minDays, learning: learned.learning, topDrivers: learned.topDrivers },
     alerts,
     rawSignals,
   }, cacheHeaders);

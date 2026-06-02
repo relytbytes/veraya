@@ -92,6 +92,7 @@ export interface HealthInput {
   avgCheckStdev?: number | null;
   dowLabel?: string;                  // e.g. "Friday"
   feedback?: Record<string, { dismissed: number; helpful: number }>; // learned per-indicator
+  weights?: Record<string, number>;  // learned dimension weights (else defaults)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -400,11 +401,12 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
   const p = project(input);
   const dims = [profitability(input, p), demand(input, p), labor(input, p), costInventory(input), service(input)];
 
-  // Confidence-weighted roll-up.
+  // Confidence-weighted roll-up, using learned weights when provided.
+  const W = input.weights ?? WEIGHTS;
   let wSum = 0, scoreSum = 0, confSum = 0;
   for (const d of dims) {
-    const w = (WEIGHTS[d.key] ?? 0) * (0.4 + 0.6 * d.confidence); // low-confidence dims pull less weight
-    wSum += w; scoreSum += d.score * w; confSum += d.confidence * (WEIGHTS[d.key] ?? 0);
+    const w = (W[d.key] ?? 0) * (0.4 + 0.6 * d.confidence); // low-confidence dims pull less weight
+    wSum += w; scoreSum += d.score * w; confSum += d.confidence * (W[d.key] ?? 0);
   }
   let score = wSum > 0 ? Math.round(scoreSum / wSum) : 70;
 

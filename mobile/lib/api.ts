@@ -440,6 +440,7 @@ export interface VeraData {
   projection?: VeraProjection;
   dimensions?: VeraDimension[];
   indicators?: VeraIndicator[];
+  learning?: { daysObserved: number; minDays: number; learning: boolean; topDrivers: { key: string; label: string; weight: number; corr: number | null }[] };
   alerts: VeraAlert[];
   rawSignals: {
     salesToday: number;

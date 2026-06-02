@@ -301,7 +301,13 @@ export function VeraCard() {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         paddingHorizontal: 18, paddingVertical: 10,
       }}>
-        <Text style={{ fontSize: 10, color: C.smoke }}>Vera · always watching your live data</Text>
+        <Text style={{ fontSize: 10, color: C.smoke, flex: 1 }} numberOfLines={1}>
+          {data.learning
+            ? data.learning.learning
+              ? `Learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
+              : `Tuned to you · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive profit`
+            : "Vera · always watching your live data"}
+        </Text>
         <TouchableOpacity
           onPress={() => refetch()}
           disabled={isRefetching}
