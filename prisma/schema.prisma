@@ -76,6 +76,7 @@ enum AuditAction {
   COMP
   DISCOUNT
   REFUND
+  REOPEN
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

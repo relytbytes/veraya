@@ -5,7 +5,7 @@ import {
   Plus, Minus, X, ShoppingCart, CreditCard, Loader2,
   LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
   Timer, Flame, AlertCircle, CheckCircle2, Users, Search,
-  Banknote, Landmark,
+  Banknote,
 } from "lucide-react";
 import { useRealtime } from "@/lib/use-realtime";
 import { Button } from "@/components/ui/button";
@@ -141,15 +141,16 @@ type TipPreset = "18" | "20" | "22" | "custom" | "none";
 // split, recall) so the screen reads the same each time. Debit carries a quiet
 // "lower fees" hint to nudge the cheaper-to-process choice.
 type PayMethod = "CASH" | "CREDIT" | "DEBIT";
+// One "Card" tender — we absorb the credit/debit fee difference, so staff don't
+// pick between them. Card maps to CREDIT on the backend.
 const PAY_METHODS: { m: PayMethod; label: string; hint?: string; Icon: typeof CreditCard }[] = [
   { m: "CASH", label: "Cash", Icon: Banknote },
-  { m: "CREDIT", label: "Credit", Icon: CreditCard },
-  { m: "DEBIT", label: "Debit", hint: "Lower fees", Icon: Landmark },
+  { m: "CREDIT", label: "Card", Icon: CreditCard },
 ];
 
 function PaymentMethodPicker({ value, onChange }: { value: PayMethod; onChange: (m: PayMethod) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {PAY_METHODS.map(({ m, label, hint, Icon }) => (
         <button
           key={m}
@@ -212,17 +213,21 @@ function TipSection({
               : "border-gray-200 text-gray-600 hover:bg-gray-50"
           )}
         >
-          Custom
+          Custom $
         </button>
       </div>
       {tipPreset === "custom" && (
-        <Input
-          type="number"
-          step="0.01"
-          placeholder="Tip amount ($)"
-          value={customTip}
-          onChange={(e) => setCustomTip(e.target.value)}
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="Tip amount in dollars"
+            className="pl-6"
+            value={customTip}
+            onChange={(e) => setCustomTip(e.target.value)}
+          />
+        </div>
       )}
       {tipAmount > 0 && (
         <p className="text-sm text-gray-500">
@@ -568,6 +573,35 @@ export default function POSPage() {
         } catch {
           return { ok: false, error: "Network error." };
         } finally { setCompingItemId(null); }
+      },
+    });
+  }
+
+  function reopenCheck() {
+    if (!recallOrder) return;
+    const orderId = recallOrder.id;
+    setManagerAuth({
+      title: "Reopen Check",
+      description: "Reverses the close so the check can be edited and re-charged. The recorded payment is removed. Requires manager authorization.",
+      reasons: ["Wrong total", "Forgot an item", "Wrong tender", "Guest returned", "Correction"],
+      confirmLabel: "Reopen Check",
+      onConfirm: async (reason, managerPin) => {
+        try {
+          const res = await fetch(`/api/orders/${orderId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reopen: { reason, managerPin } }),
+          });
+          if (res.ok) {
+            setRecallOrder(await res.json());
+            await Promise.all([loadTables(), loadOpenOrders()]);
+            return { ok: true };
+          }
+          const err = await res.json().catch(() => ({}));
+          return { ok: false, error: (err as { error?: string }).error ?? "Failed to reopen check." };
+        } catch {
+          return { ok: false, error: "Network error." };
+        }
       },
     });
   }
@@ -1831,9 +1865,14 @@ export default function POSPage() {
 
           <DialogFooter>
             {recallOrder?.status === "COMPLETED" ? (
-              <Button variant="destructive" onClick={voidOrder} disabled={voiding}>
-                {voiding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} Void Order
-              </Button>
+              <>
+                <Button variant="outline" onClick={reopenCheck}>
+                  <Pencil className="h-4 w-4" /> Reopen Check
+                </Button>
+                <Button variant="destructive" onClick={voidOrder} disabled={voiding}>
+                  {voiding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} Void Order
+                </Button>
+              </>
             ) : (
               <Button variant="outline" onClick={() => setRecallOpen(false)}>Cancel</Button>
             )}

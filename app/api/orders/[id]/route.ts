@@ -37,6 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     voidItem?: { itemId: string; reason?: string; managerPin?: string };
     compItem?: { itemId: string; reason?: string; managerPin?: string };
     compCheck?: { reason?: string; managerPin?: string };
+    reopen?: { reason?: string; managerPin?: string };
     addItems?: Array<{
       menuItemId: string;
       quantity: number;
@@ -46,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       held?: boolean;
     }>;
   };
-  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems } = body;
+  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems, reopen } = body;
 
   // Helper: recalculate order subtotal/tax/total after item changes
   async function recalcTotals(orderId: string) {
@@ -65,6 +66,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const order = await prisma.order.findUnique({ where: { id }, include: { table: true, payments: true } });
   if (!order) return Response.json({ error: "Not found" }, { status: 404 });
+
+  // Reopen a closed/paid check — reverses the close so it can be edited and
+  // re-charged. Manager-protected + reasoned (it un-does money), audited as REOPEN.
+  if (reopen) {
+    const reason = reopen.reason?.trim();
+    if (!reason) return Response.json({ error: "A reason is required." }, { status: 400 });
+    const mgr = await verifyManagerPin(reopen.managerPin ?? "");
+    if (!mgr) return Response.json({ error: "A valid manager PIN is required to reopen a check." }, { status: 403 });
+
+    const refunded = order.payments.reduce((s, p) => s + Number(p.amount) + Number(p.tip), 0);
+    await prisma.$transaction([
+      prisma.payment.deleteMany({ where: { orderId: id } }),
+      prisma.order.update({ where: { id }, data: { status: "IN_PROGRESS", closedAt: null } }),
+      prisma.auditLog.create({
+        data: {
+          action: "REOPEN", orderId: id, amount: refunded, reason,
+          notes: `Check reopened. Authorized by ${mgr.name}; by ${session.user?.name ?? "staff"}`,
+          userId: mgr.id,
+        },
+      }),
+    ]);
+    if (order.tableId) {
+      await prisma.table.update({ where: { id: order.tableId }, data: { status: "OCCUPIED" } }).catch(() => {});
+    }
+    emit({ type: "order.updated", orderId: id, status: "IN_PROGRESS" });
+    const reopened = await prisma.order.findUnique({
+      where: { id }, include: { table: true, items: { include: { menuItem: true } }, payments: true },
+    });
+    return Response.json(reopened);
+  }
 
   /** Re-read all order items (with categories) and auto-advance the table's serviceStage. */
   async function autoAdvanceTableStage() {
