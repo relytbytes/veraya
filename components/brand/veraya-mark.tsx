@@ -6,8 +6,8 @@
  */
 export function VerayaMark({
   className,
-  teal = "#00BFA6",
-  gold = "#FFB703",
+  teal = "#21A090",
+  gold = "#E0A82E",
 }: {
   className?: string;
   teal?: string;

@@ -29,7 +29,7 @@ export function VeraSetupGuide() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       {/* Header band */}
-      <div className="flex items-center gap-3 bg-gradient-to-br from-[#0B1320] via-[#101f33] to-[#15293f] px-5 py-4">
+      <div className="flex items-center gap-3 bg-gradient-to-br from-[#0C1A1E] via-[#101f33] to-[#15293f] px-5 py-4">
         <VeraAvatar className="h-11 w-11 shrink-0 drop-shadow-md" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

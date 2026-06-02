@@ -8,7 +8,7 @@ import { C, shadow } from "@/lib/theme";
 // Small Vera coin (navy circle + teal V + gold sparkle), matching VeraCard.
 function VeraCoin({ size = 36 }: { size?: number }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#152A40", borderWidth: 1.5, borderColor: "#2A4A66", alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#11302C", borderWidth: 1.5, borderColor: "#244A44", alignItems: "center", justifyContent: "center" }}>
       <Text style={{ fontSize: size * 0.5, fontWeight: "900", color: C.gold, lineHeight: size * 0.55 }}>V</Text>
       <Ionicons name="sparkles" size={size * 0.26} color={C.ember} style={{ position: "absolute", top: size * 0.12, right: size * 0.12 }} />
     </View>
@@ -83,7 +83,7 @@ export function VeraSetupCard() {
 
   return (
     <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden", ...shadow.sm }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0B1320", padding: 14 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0C1A1E", padding: 14 }}>
         <VeraCoin size={36} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: "#FFFFFF" }}>Let&apos;s set up Veraya</Text>

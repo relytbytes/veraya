@@ -132,11 +132,11 @@ export function VeraCard() {
       overflow: "hidden", ...shadow.sm,
     }}>
       {/* Vera header band */}
-      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: "#0B1320" }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: "#0C1A1E" }}>
         {/* Vera mark — navy coin, teal V, gold sparkle */}
         <View style={{
           width: 44, height: 44, borderRadius: 22,
-          backgroundColor: "#152A40", borderWidth: 1.5, borderColor: "#2A4A66",
+          backgroundColor: "#11302C", borderWidth: 1.5, borderColor: "#244A44",
           alignItems: "center", justifyContent: "center",
         }}>
           <Text style={{ fontSize: 22, fontWeight: "900", color: C.gold, lineHeight: 24 }}>V</Text>

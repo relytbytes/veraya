@@ -102,7 +102,7 @@ function elapsedLabel(createdAt: string) {
 // Deterministic accent per category so image-less items still read as distinct,
 // colorful tiles instead of plain text boxes.
 const TILE_ACCENTS = [
-  { bg: "#E0F7F3", fg: "#00897B" }, // teal
+  { bg: "#E7F4F1", fg: "#00897B" }, // teal
   { bg: "#E8F2FB", fg: "#2E6EB0" }, // sky
   { bg: "#E9F6EE", fg: "#1E7A45" }, // jade
   { bg: "#FFF4D6", fg: "#B5820A" }, // gold

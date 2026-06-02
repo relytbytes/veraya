@@ -327,11 +327,11 @@ export interface TableVisual {
 export const BRAND = {
   void: "#F2F4F7", surface: "#FFFFFF", surfaceHi: "#E9EDF2",
   rim: "#DCE2EA", rimBright: "#C3CCD8",
-  pearl: "#0B1320", mist: "#475569", smoke: "#8A97A6",
-  gold: "#00BFA6", goldBright: "#1DD3B8", goldMuted: "#E0F7F3",
-  jade: "#1E7A45", coral: "#D44030", sky: "#2E6EB0", ember: "#FFB703",
+  pearl: "#0C1A1E", mist: "#475569", smoke: "#8A97A6",
+  gold: "#21A090", goldBright: "#2BB39B", goldMuted: "#E7F4F1",
+  jade: "#1E7A45", coral: "#D44030", sky: "#2E6EB0", ember: "#E0A82E",
   // Navy-dark surfaces (host stand)
-  floorDark: "#0B1320", surfaceDark: "#131C2B", surfaceDark2: "#1B2433",
+  floorDark: "#0C1A1E", surfaceDark: "#131C2B", surfaceDark2: "#1B2433",
   rimDark: "#2C3A4D", textDim: "#94A1B2",
 } as const;
 
@@ -341,7 +341,7 @@ const STATE_STYLE: Record<TableState, { cls: string; style: { background: string
   OPEN:     { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.rimDark, color: BRAND.textDim }, label: "Open" },
   UPCOMING: { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.gold,    color: "#E9EDF2"     }, label: "Reserved" },
   SEATED:   { cls: "", style: { background: BRAND.jade,      borderColor: BRAND.jade,       color: "#FFFFFF"   }, label: "Seated" },
-  DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0B1320"   }, label: "Dining" },
+  DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0C1A1E"   }, label: "Dining" },
   CHECK:    { cls: "", style: { background: BRAND.sky,       borderColor: BRAND.sky,        color: "#FFFFFF"   }, label: "Check" },
   BUSSING:  { cls: "", style: { background: BRAND.coral,     borderColor: BRAND.coral,      color: "#FFFFFF"   }, label: "Bussing" },
 };

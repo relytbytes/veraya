@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 
@@ -6,7 +6,14 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
   title: "Veraya",
-  description: "The restaurant platform with a brain, powered by Vera, the intelligence that catches what you'd miss before it costs you.",
+  description: "Veraya — Restaurant Intelligence Platform",
+  manifest: "/manifest.webmanifest",
+  // app/icon.png and app/apple-icon.png are picked up automatically by Next.
+  appleWebApp: { capable: true, title: "Veraya", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0C1A1E",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

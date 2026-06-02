@@ -43,7 +43,7 @@ function timerColor(seatedAt: string, _tick: number, amberAt = 60, redAt = 90) {
 const FLOOR_STATUS_M: Record<string, { color: string; bg: string; label: string }> = {
   AVAILABLE: { color: C.jade,  bg: "rgba(30,122,69,0.07)",   label: "Open" },
   OCCUPIED:  { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Seated" },
-  RESERVED:  { color: C.ember, bg: "rgba(255,183,3,0.10)",   label: "Reserved" },
+  RESERVED:  { color: C.ember, bg: "rgba(224,168,46,0.10)",   label: "Reserved" },
   DIRTY:     { color: C.smoke, bg: "rgba(138,151,166,0.10)", label: "Cleaning" },
 };
 

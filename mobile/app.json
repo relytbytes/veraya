@@ -10,11 +10,11 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F7F3F0"
+      "backgroundColor": "#0C1A1E"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.restaurantops.app",
+      "bundleIdentifier": "com.restaurantops.tylshe",
       "infoPlist": {
         "NSCameraUsageDescription": "Used for barcode scanning when receiving inventory and looking up menu items.",
         "NSMicrophoneUsageDescription": "Used for voice inventory counting — speak ingredient quantities hands-free.",
@@ -24,7 +24,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F7F3F0"
+        "backgroundColor": "#0C1A1E"
       },
       "permissions": [
         "android.permission.CAMERA"

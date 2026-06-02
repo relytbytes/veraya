@@ -1344,7 +1344,7 @@ function SchedulingTab({ data, loading }: { data: SchedData | null; loading: boo
                 } />
                 <Legend />
                 <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#1E7A45" strokeWidth={2} dot={false} name="Revenue" />
-                <Line yAxisId="left" type="monotone" dataKey="actualLaborCost" stroke="#00BFA6" strokeWidth={2} dot={false} name="Labor Cost" />
+                <Line yAxisId="left" type="monotone" dataKey="actualLaborCost" stroke="#21A090" strokeWidth={2} dot={false} name="Labor Cost" />
                 <Line yAxisId="right" type="monotone" dataKey="laborPct" stroke="#2E6EB0" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="laborPct" />
               </LineChart>
             </ResponsiveContainer>

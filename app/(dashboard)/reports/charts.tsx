@@ -7,15 +7,15 @@ import {
 import { formatCurrency } from "@/lib/utils";
 
 // ── Palette (matches mobile theme.ts) ─────────────────────────────────────────
-const TERRACOTTA = "#00BFA6";     // brand teal (primary)
-const TERRACOTTA_DIM = "#009482"; // teal dim
+const TERRACOTTA = "#21A090";     // brand teal (primary)
+const TERRACOTTA_DIM = "#1A8174"; // teal dim
 const FILL_COLORS = [
-  "#00BFA6", // teal (primary)
+  "#21A090", // teal (primary)
   "#2E6EB0", // sky
   "#1E7A45", // jade
   "#8b5cf6", // violet
   "#D44030", // coral
-  "#FFB703", // warm gold
+  "#E0A82E", // warm gold
   "#475569", // slate
 ];
 

@@ -21,14 +21,14 @@
  *  smoke     #8A97A6  →  text-gray-400
  *  slate     #475569  →  text-gray-600
  *  slateDk   #1F2937  →  bg-gray-800
- *  navy      #0B1320  →  text-gray-900 / bg-gray-900 (sidebar) / bg-gray-950
+ *  navy      #0C1A1E  →  text-gray-900 / bg-gray-900 (sidebar) / bg-gray-950
  *
- *  teal      #00BFA6  →  amber-600  (primary action)
- *  tealBright #1DD3B8 →  amber-500  (hover / active)
- *  tealDim   #009482  →  amber-700
- *  tealMuted #E0F7F3  →  amber-50
+ *  teal      #21A090  →  amber-600  (primary action)
+ *  tealBright #2BB39B →  amber-500  (hover / active)
+ *  tealDim   #1A8174  →  amber-700
+ *  tealMuted #E7F4F1  →  amber-50
  *
- *  warm gold #FFB703  →  (brand accent — used in logo / orange utilities)
+ *  warm gold #E0A82E  →  (brand accent — used in logo / orange utilities)
  *  jade      #1E7A45  →  green (success — unchanged)
  *  coral     #D44030  →  red   (danger  — unchanged)
  *  sky       #2E6EB0  →  blue  (info    — unchanged)
@@ -36,7 +36,7 @@
 
 :root {
   --background: #F2F4F7;   /* brand: stone       */
-  --foreground: #0B1320;   /* brand: navy        */
+  --foreground: #0C1A1E;   /* brand: navy        */
 }
 
 @theme inline {
@@ -46,16 +46,16 @@
   --font-mono: var(--font-geist-mono);
 
   /* ── Amber → Brand Teal (primary accent) ─────────────────────────────────── */
-  --color-amber-50:  #E0F7F3;   /* tealMuted       */
-  --color-amber-100: #B8EDE4;
-  --color-amber-200: #8AE1D4;
-  --color-amber-300: #4FD3C0;
-  --color-amber-400: #22C7AF;
-  --color-amber-500: #1DD3B8;   /* tealBright (hover) */
-  --color-amber-600: #00BFA6;   /* teal (primary)  */
-  --color-amber-700: #009482;   /* tealDim         */
-  --color-amber-800: #007061;
-  --color-amber-900: #004D43;
+  --color-amber-50:  #E7F4F1;   /* tealMuted       */
+  --color-amber-100: #C6E8E1;
+  --color-amber-200: #97D6CA;
+  --color-amber-300: #5DBFAF;
+  --color-amber-400: #34A996;
+  --color-amber-500: #2BB39B;   /* tealBright (hover) */
+  --color-amber-600: #21A090;   /* teal (primary)  */
+  --color-amber-700: #1A8174;   /* tealDim         */
+  --color-amber-800: #155E54;
+  --color-amber-900: #0E443E;
 
   /* ── Gray → Cool Navy / Slate / Stone ────────────────────────────────────── */
   --color-gray-50:  #F2F4F7;   /* stone           */
@@ -68,7 +68,7 @@
   --color-gray-700: #2F3B4C;
   --color-gray-800: #1F2937;   /* slate dark      */
   --color-gray-900: #131C2B;   /* navy (sidebar)  */
-  --color-gray-950: #0B1320;   /* navy deepest    */
+  --color-gray-950: #0C1A1E;   /* navy deepest    */
 }
 
 body {
