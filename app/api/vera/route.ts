@@ -300,7 +300,7 @@ export async function GET(req: NextRequest) {
   // not-yet-migrated table (e.g. a stale process) can't blank the dashboard.
   let fbRows: { key: string; action: string; _count: number }[] = [];
   try {
-    fbRows = await prisma.veraFeedback.groupBy({ by: ["key", "action"], _count: true });
+    fbRows = await prisma.veraFeedback.groupBy({ by: ["key", "action"], _count: true }) as unknown as typeof fbRows;
   } catch {
     fbRows = [];
   }
