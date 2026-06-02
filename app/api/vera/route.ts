@@ -167,11 +167,18 @@ export async function GET(req: NextRequest) {
   // 86 items
   const active86 = eightySix;
 
-  // Voids & comps
+  // Voids & comps — counts from the audit log, but dollar totals from the
+  // actually-flagged order items (source of truth). The audit `amount` can be
+  // null on legacy rows and a comped check zeroes the order total, so summing
+  // the comped/voided items is the only reliable measure of what was given away.
   const voids = todayAuditLog.filter(l => l.action === "VOID");
   const comps  = todayAuditLog.filter(l => l.action === "COMP");
-  const voidTotal = voids.reduce((sum, l) => sum + Number(l.amount ?? 0), 0);
-  const compTotal  = comps.reduce((sum, l) => sum + Number(l.amount ?? 0), 0);
+  const flaggedItems = await prisma.orderItem.findMany({
+    where: { order: { createdAt: { gte: todayStart, lte: todayEnd } }, OR: [{ comped: true }, { voided: true }] },
+    select: { unitPrice: true, quantity: true, comped: true, voided: true },
+  });
+  const compTotal = flaggedItems.filter(i => i.comped).reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
+  const voidTotal = flaggedItems.filter(i => i.voided && !i.comped).reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
 
   // Labor so far today: count every clock entry that touched today (still open
   // OR clocked out today), measuring only the portion within today × rate.
