@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { ingredientId, category, bottleSizeMl, pourSizeMl, producer, vintage, abv } = body;
+  const { ingredientId, category, bottleSizeMl, pourSizeMl, producer, vintage, abv, binNumber, offerGlass, offerBottle } = body;
 
   if (!ingredientId || !category) {
     return Response.json({ error: "ingredientId and category are required" }, { status: 400 });
@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
       producer: producer ?? null,
       vintage: vintage ?? null,
       abv: abv ?? null,
+      binNumber: binNumber ?? null,
+      offerGlass: offerGlass ?? false,
+      offerBottle: offerBottle ?? true,
     },
     include: {
       ingredient: {

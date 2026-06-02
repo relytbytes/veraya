@@ -177,6 +177,10 @@ model BeverageProfile {
   producer     String?
   vintage      String?
   abv          Float?
+  // BIN / service program
+  binNumber    String? // location/list code, e.g. "G12" (glass) or "B045" (bottle); auto-assignable
+  offerGlass   Boolean @default(false) // by the glass (BTG)
+  offerBottle  Boolean @default(true)  // by the bottle (BTB)
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
 }

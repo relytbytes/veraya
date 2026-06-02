@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Plus, GlassWater, Pencil, Trash2, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { Plus, GlassWater, Pencil, Trash2, Loader2, RefreshCw, AlertTriangle, Hash } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +31,9 @@ interface BeverageProfile {
   producer: string | null;
   vintage: string | null;
   abv: number | null;
+  binNumber: string | null;
+  offerGlass: boolean;
+  offerBottle: boolean;
   ingredient: {
     id: string;
     name: string;
@@ -38,6 +41,7 @@ interface BeverageProfile {
     costPerUnit: number;
     inventoryItem: {
       quantity: number;
+      storageArea?: string | null;
     } | null;
   };
 }
@@ -122,6 +126,9 @@ const EMPTY_FORM = {
   pourSizeCustom: "",
   useCustomBottle: false,
   useCustomPour: false,
+  binNumber: "",
+  offerGlass: false,
+  offerBottle: true,
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -189,6 +196,9 @@ export default function BeveragePage() {
       pourSizeCustom: "",
       useCustomBottle: !BOTTLE_SIZES.find((b) => b.value === profile.bottleSizeMl),
       useCustomPour: !POUR_SIZES.find((p) => p.value === profile.pourSizeMl),
+      binNumber: profile.binNumber ?? "",
+      offerGlass: profile.offerGlass,
+      offerBottle: profile.offerBottle,
     });
     setFormError("");
     setEditProfile(profile);
@@ -205,6 +215,9 @@ export default function BeveragePage() {
       producer: form.producer || null,
       vintage: form.vintage || null,
       abv: form.abv ? Number(form.abv) : null,
+      binNumber: form.binNumber || null,
+      offerGlass: form.offerGlass,
+      offerBottle: form.offerBottle,
     };
 
     let res: Response;
@@ -239,6 +252,16 @@ export default function BeveragePage() {
     await fetch(`/api/beverage-profiles/${id}`, { method: "DELETE" });
     loadProfiles();
     loadReport(range.from, range.to);
+  }
+
+  const [assigningBins, setAssigningBins] = useState(false);
+  async function assignBins() {
+    if (!(await confirmDialog("Auto-assign BIN numbers to every beverage? Bottle-service items get a B-series bin, glass-only items a G-series bin, ordered by storage area then category. This renumbers existing bins."))) return;
+    setAssigningBins(true);
+    try {
+      const res = await fetch("/api/beverage-profiles/assign-bins", { method: "POST" });
+      if (res.ok) loadProfiles();
+    } finally { setAssigningBins(false); }
   }
 
   const filteredReport = categoryFilter === "ALL"
@@ -602,9 +625,14 @@ export default function BeveragePage() {
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">{profiles.length} beverage item{profiles.length !== 1 ? "s" : ""}</p>
-            <Button size="sm" onClick={openAdd}>
-              <Plus className="h-4 w-4" /> Add Beverage Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={assignBins} disabled={assigningBins || profiles.length === 0}>
+                {assigningBins ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hash className="h-4 w-4" />} Auto-assign BINs
+              </Button>
+              <Button size="sm" onClick={openAdd}>
+                <Plus className="h-4 w-4" /> Add Beverage Item
+              </Button>
+            </div>
           </div>
 
           {loadingProfiles ? (
@@ -622,7 +650,9 @@ export default function BeveragePage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">BIN</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Item</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">Service</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Category</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-600">Bottle Size</th>
                     <th className="text-right px-4 py-3 font-medium text-gray-600">Pour Size</th>
@@ -635,10 +665,21 @@ export default function BeveragePage() {
                   {profiles.map((p) => (
                     <tr key={p.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
+                        {p.binNumber
+                          ? <span className="font-mono font-semibold text-gray-900">{p.binNumber}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{p.ingredient.name}</p>
                         {p.producer && (
                           <p className="text-xs text-gray-400">{p.producer}{p.vintage ? ` · ${p.vintage}` : ""}</p>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          {p.offerGlass && <Badge variant="secondary" className="text-[10px]">BTG</Badge>}
+                          {p.offerBottle && <Badge variant="secondary" className="text-[10px]">BTB</Badge>}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant="secondary" className="text-xs">
@@ -855,6 +896,33 @@ export default function BeveragePage() {
                 placeholder="e.g. 13.5"
                 value={form.abv}
                 onChange={(e) => setForm({ ...form, abv: e.target.value })}
+              />
+            </div>
+
+            {/* Service program (BTG / BTB) */}
+            <div className="space-y-1.5">
+              <Label>Service</Label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setForm({ ...form, offerGlass: !form.offerGlass })}
+                  className={cn("flex-1 rounded-lg border py-2 text-sm font-medium transition-colors",
+                    form.offerGlass ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}>
+                  By the glass
+                </button>
+                <button type="button" onClick={() => setForm({ ...form, offerBottle: !form.offerBottle })}
+                  className={cn("flex-1 rounded-lg border py-2 text-sm font-medium transition-colors",
+                    form.offerBottle ? "border-amber-500 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600 hover:bg-gray-50")}>
+                  By the bottle
+                </button>
+              </div>
+            </div>
+
+            {/* BIN */}
+            <div className="space-y-1.5">
+              <Label>BIN # <span className="text-gray-400 text-xs">(optional — or use Auto-assign)</span></Label>
+              <Input
+                placeholder="e.g. B045"
+                value={form.binNumber}
+                onChange={(e) => setForm({ ...form, binNumber: e.target.value })}
               />
             </div>
 

@@ -11,7 +11,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { category, bottleSizeMl, pourSizeMl, producer, vintage, abv } = body;
+  const { category, bottleSizeMl, pourSizeMl, producer, vintage, abv, binNumber, offerGlass, offerBottle } = body;
 
   const profile = await prisma.beverageProfile.update({
     where: { id },
@@ -22,6 +22,9 @@ export async function PATCH(
       ...(producer !== undefined && { producer }),
       ...(vintage !== undefined && { vintage }),
       ...(abv !== undefined && { abv }),
+      ...(binNumber !== undefined && { binNumber }),
+      ...(offerGlass !== undefined && { offerGlass }),
+      ...(offerBottle !== undefined && { offerBottle }),
     },
     include: {
       ingredient: {
