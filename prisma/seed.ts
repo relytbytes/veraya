@@ -123,6 +123,14 @@ async function main() {
   }
   console.log("✓ Tables: 10");
 
+  // Founder guest card — permanent VIP note for the owner.
+  await prisma.customer.upsert({
+    where: { phone: "919.995.7820" },
+    update: { name: "Ty Shelton", notes: "Founder of Veraya", tags: "VIP" },
+    create: { name: "Ty Shelton", phone: "919.995.7820", notes: "Founder of Veraya", tags: "VIP" },
+  });
+  console.log("✓ Founder guest card: Ty Shelton");
+
   console.log("\nSeed complete! Login with: admin@restaurant.com / admin123");
 }
 
