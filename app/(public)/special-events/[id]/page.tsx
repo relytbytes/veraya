@@ -5,6 +5,9 @@ import Link from "next/link";
 import { CalendarDays, Clock, MapPin, Users, ArrowLeft } from "lucide-react";
 import { EventInquiryForm } from "./inquiry-form";
 
+// Reads live data — render per-request, never prerender at build time.
+export const dynamic = "force-dynamic";
+
 function formatDate(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const d = new Date(year, month - 1, day);
