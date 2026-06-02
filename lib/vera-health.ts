@@ -119,10 +119,13 @@ function project(i: HealthInput): Projection {
     projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
   }
 
-  // Labor: prefer the scheduled plan; else extrapolate the current burn.
+  // Labor: prefer the scheduled plan; else extrapolate the current burn once
+  // there's enough of it; else assume a target labor load (don't pretend $0).
   const projectedLabor = i.scheduledLaborFullDay && i.scheduledLaborFullDay > 0
     ? Math.max(i.scheduledLaborFullDay, i.laborSoFar)
-    : (serviceElapsed > 0.1 ? i.laborSoFar / serviceElapsed : i.laborSoFar);
+    : serviceElapsed > 0.25
+      ? i.laborSoFar / serviceElapsed
+      : Math.max(i.laborSoFar, projectedRevenue * (LABOR_TARGET_PCT / 100));
 
   const cogsRate = i.cogsTargetPct && i.cogsTargetPct > 0 ? i.cogsTargetPct : COGS_TARGET;
   const projectedCOGS = projectedRevenue * cogsRate;
@@ -172,6 +175,21 @@ function profitability(i: HealthInput, p: Projection): Dimension {
     };
   }
 
+  // Before service really starts, the projection is just "a normal day" — present
+  // it as a projection, not a graded result.
+  if (p.serviceElapsedPct < 8) {
+    return {
+      key: "profitability", label: "Profitability", score: 68, status: "fair",
+      confidence: 0.3,
+      summary: `Projecting ~${money(p.projectedNet)} net on a normal day — grades live as sales come in.`,
+      metrics: [
+        { label: "Break-even", value: money(p.breakEvenRevenue), status: "good" },
+        { label: "Expected net", value: money(p.projectedNet), status: "good" },
+      ],
+      wins: [], issues: [],
+    };
+  }
+
   // Score off projected margin: ~break-even = 50, target margin = ~80, loss → 0.
   const score = clamp(Math.round(50 + p.projectedMarginPct * 2.5), 0, 100);
 
@@ -218,6 +236,23 @@ function demand(i: HealthInput, p: Projection): Dimension {
   const issues: HealthIssue[] = [];
   const wins: string[] = [];
   const hasForecast = i.expectedRevenue !== null;
+
+  // Pre-service: the "pace" is circular (projection == expectation), so don't
+  // grade it — frame the expected day instead.
+  if (p.serviceElapsedPct < 8) {
+    return {
+      key: "demand", label: "Demand", score: 70, status: "fair",
+      confidence: 0.3,
+      summary: hasForecast ? `Service hasn't started — expecting a normal day (~${money(i.expectedRevenue!)}).` : "Service hasn't started yet.",
+      metrics: [
+        { label: "Expected today", value: hasForecast ? money(i.expectedRevenue!) : "—", status: "good" },
+        { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" : "fair" },
+      ],
+      wins: [],
+      issues: i.confirmedCovers === 0 ? [{ severity: "LOW", message: "No reservations on the books for today", action: "Walk-ins only so far", link: "/reservations" }] : [],
+    };
+  }
+
   const paceRatio = hasForecast && i.expectedRevenue! > 0 ? p.projectedRevenue / i.expectedRevenue! : null;
 
   let score: number;
@@ -363,6 +398,16 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
 
   const hasHighIssue = dims.some(d => d.issues.some(x => x.severity === "HIGH"));
   const noBaseline = input.expectedRevenue === null;
+  const preService = p.serviceElapsedPct < 8;
+
+  // How much of today we've actually observed. Early in service the projection is
+  // mostly assumption, so pull the score toward a neutral 70 — Vera is uncertain
+  // early and grows decisive as real covers come in. (Hard problems below still
+  // override this.)
+  const observed = clamp(p.serviceElapsedPct / 100, 0, 1);
+  let dataConf = clamp(0.25 + observed * 0.8, 0.25, 0.95);
+  if (noBaseline) dataConf *= 0.6;
+  score = Math.round(70 + (score - 70) * dataConf);
 
   // Hard overrides — economics and honesty trump the weighted average.
   // Loss override only fires when we have a baseline to trust the projection.
@@ -383,12 +428,17 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
   let headline: string;
   if (emptyOverride) headline = `Empty dining room during service — burning ${money(p.projectedLabor + p.fixedDaily)}/day in fixed cost with no covers.`;
   else if (lossOverride) headline = `On pace to lose ${money(p.projectedNet)} today. Break-even is ${money(p.breakEvenRevenue)}; trending ${money(p.projectedRevenue)}.`;
+  else if (preService) headline = noBaseline
+    ? `Service hasn't started yet — not enough history to project today.`
+    : `Service hasn't started — projecting a normal day (~${money(p.projectedRevenue)}, ~${money(p.projectedNet)} net). Vera grades the day live as covers build.`;
   else if (noBaseline) headline = `Limited sales history — pace and profit can't be graded yet. A few comparable days unlocks the full read; live issues still flagged below.`;
   else if (status === "excellent") headline = `Strong day — projected ${money(p.projectedNet)} net at ${pct(p.projectedMarginPct)} margin.`;
   else if (status === "good") headline = `Solid — on pace for ${money(p.projectedNet)} net. ${topIssue(dims) ?? "Nothing urgent."}`;
   else headline = topIssue(dims) ?? `Tracking toward ${money(p.projectedNet)} net.`;
 
-  const confidence = clamp(confSum, 0, 1);
+  // Confidence shown to the user reflects how much of the day Vera has actually
+  // observed (time) tempered by per-dimension data coverage.
+  const confidence = clamp(Math.min(dataConf, confSum + 0.25), 0.2, 0.97);
   return { healthScore: score, status, headline, confidence, projection: p, dimensions: dims };
 }
 
