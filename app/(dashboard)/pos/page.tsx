@@ -701,16 +701,19 @@ export default function POSPage() {
 
   async function selectTableFromFloorPlan(t: TableRow) {
     if (t.status === "OCCUPIED") {
-      // Try to find an open order in our already-loaded list first (instant)
+      // Tapping an occupied table opens it for EDITING (add items), not cashout.
+      // The server reaches the pay/close screen only via the explicit button.
       const cached = openOrders.find((o) => o.tableId === t.id);
-      if (cached) { openRecallDialog(cached); return; }
+      if (cached) { setAddingToOrder(cached); setTableId(t.id); setOrderType("DINE_IN"); setView("order"); return; }
       // Fallback: fetch from API (cross-day orders, stale state, etc.)
       try {
         const res = await fetch(`/api/orders?tableId=${t.id}`);
         if (res.ok) {
           const orders: OpenOrder[] = await res.json();
-          const open = orders.find((o) => ["OPEN", "IN_PROGRESS", "READY", "COMPLETED"].includes(o.status));
-          if (open) { openRecallDialog(open); return; }
+          const open = orders.find((o) => ["OPEN", "IN_PROGRESS", "READY"].includes(o.status));
+          if (open) { setAddingToOrder(open); setTableId(t.id); setOrderType("DINE_IN"); setView("order"); return; }
+          const completed = orders.find((o) => o.status === "COMPLETED");
+          if (completed) { openRecallDialog(completed); return; } // already paid → recall to reopen/void
         }
       } catch {
         showToast(`Could not load orders for Table ${t.number}. Check connection.`);
@@ -779,8 +782,8 @@ export default function POSPage() {
         setHoldMode(false);
         setAddingToOrder(null);
         await Promise.all([loadTables(), loadOpenOrders()]);
-        setCompletedOrder(null);
-        setSuccessOpen(true);
+        // No "sent to kitchen" popup — the fired items just update on the ticket.
+        setView("floorplan");
       } else {
         // Creating a new order
         const res = await fetch("/api/orders", {
@@ -809,8 +812,8 @@ export default function POSPage() {
         setHoldMode(false);
         setGuestCount(2);
         await Promise.all([loadTables(), loadOpenOrders()]);
-        setCompletedOrder(null);
-        setSuccessOpen(true);
+        // No "sent to kitchen" popup — return to the floor; the table stays open.
+        setView("floorplan");
       }
     } catch {
       showToast("Network error. Please check your connection and try again.");
@@ -1403,7 +1406,10 @@ export default function POSPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                            <p className={cn(
+                              "text-sm truncate",
+                              item.held ? "italic font-normal text-gray-400" : "font-bold text-gray-900",
+                            )}>{item.name}</p>
                             {item.held && (
                               <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-warning-200 text-warning-800 uppercase tracking-wide">
                                 <Timer className="h-2.5 w-2.5" /> Hold
@@ -1523,6 +1529,17 @@ export default function POSPage() {
               {cart.length > 0 && !holdMode && (
                 <Button variant="outline" size="sm" className="w-full" onClick={() => { setCart([]); setHoldMode(false); }}>
                   Clear Cart
+                </Button>
+              )}
+              {/* Editing an existing check: explicit path to the pay/close screen */}
+              {addingToOrder && !holdMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-amber-700 border-amber-300 hover:bg-amber-50"
+                  onClick={() => { const o = addingToOrder; setCart([]); setAddingToOrder(null); openRecallDialog(o); }}
+                >
+                  <CreditCard className="h-4 w-4" /> Pay / Close Check
                 </Button>
               )}
               {holdMode && (
