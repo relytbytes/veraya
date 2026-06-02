@@ -9,7 +9,7 @@ interface MenuMove { item: string; klass: Klass; marginPct: number; units: numbe
 
 const KLASS: Record<Klass, { label: string; cls: string }> = {
   star:      { label: "⭐ Star",      cls: "bg-green-100 text-green-800" },
-  plowhorse: { label: "🐎 Plowhorse", cls: "bg-amber-100 text-amber-800" },
+  plowhorse: { label: "🐎 Plowhorse", cls: "bg-warning-100 text-warning-800" },
   puzzle:    { label: "🧩 Puzzle",    cls: "bg-blue-100 text-blue-800" },
   dog:       { label: "🐕 Dog",       cls: "bg-gray-100 text-gray-600" },
 };

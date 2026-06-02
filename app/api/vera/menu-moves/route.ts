@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { costMenuItem, classifyMenuItem, type EngineeringKlass } from "@/lib/menu-costing";
 import OpenAI from "openai";
 
 // Vera's Menu Moves — turns the menu-engineering matrix (popularity x margin)
 // into prioritized, specific actions. Deterministic classification + rule-based
 // moves; AI phrases/prioritizes when available, with a deterministic fallback.
 
-type Klass = "star" | "plowhorse" | "puzzle" | "dog";
+type Klass = EngineeringKlass;
 
 export interface MenuMove {
   item: string;
@@ -60,28 +61,29 @@ export async function GET() {
 
     const enriched = items.map((m) => {
       const price = Number(m.price);
-      const cost = m.recipe.reduce((s, r) => s + Number(r.ingredient.costPerUnit) * Number(r.quantity), 0);
-      const marginPct = price > 0 ? ((price - cost) / price) * 100 : 0;
+      const recipeCost = m.recipe.reduce((s, r) => s + Number(r.ingredient.costPerUnit) * Number(r.quantity), 0);
+      const c = costMenuItem({ price, categoryName: m.category.name, recipeCost, hasRecipe: m.recipe.length > 0 });
       const units = unitsById.get(m.id) ?? 0;
-      return { name: m.name, category: m.category.name, price, cost, marginPct, units, hasRecipe: m.recipe.length > 0 };
+      return { name: m.name, category: m.category.name, price, cost: c.cost, marginPct: c.marginPct, estimated: c.estimated, units };
     });
 
-    // Classify against medians (only items with a costed recipe are actionable).
-    const costed = enriched.filter((e) => e.hasRecipe);
-    const sold = costed.filter((e) => e.units > 0);
+    // Every item now has an honest margin (real recipe or category-default
+    // estimate), so the whole menu participates in the matrix. Medians split
+    // popularity over items that actually sold and margin over the full menu.
+    const sold = enriched.filter((e) => e.units > 0);
     const medUnits = median(sold.map((e) => e.units));
-    const medMargin = median(costed.map((e) => e.marginPct));
+    const medMargin = median(enriched.map((e) => e.marginPct));
 
     function classify(e: typeof enriched[number]): Klass {
-      const popular = e.units >= medUnits;
-      const highMargin = e.marginPct >= medMargin;
-      return popular ? (highMargin ? "star" : "plowhorse") : (highMargin ? "puzzle" : "dog");
+      return classifyMenuItem({ units: e.units, marginPct: e.marginPct, medianUnits: medUnits, medianMargin: medMargin });
     }
 
+    // Surface moves for items with sales this week (actionable now); count every
+    // item for the matrix summary.
     // Prioritize the most actionable: plowhorses (volume x thin margin), then
     // dogs, then puzzles; stars are "hold".
     const PRIORITY: Record<Klass, number> = { plowhorse: 0, dog: 1, puzzle: 2, star: 3 };
-    const ranked = costed
+    const ranked = sold
       .map((e) => ({ e, klass: classify(e) }))
       .sort((a, b) => {
         const p = PRIORITY[a.klass] - PRIORITY[b.klass];
@@ -99,7 +101,7 @@ export async function GET() {
       action: RULE[klass],
     }));
 
-    const counts = costed.reduce((acc, e) => {
+    const counts = enriched.reduce((acc, e) => {
       const k = classify(e); acc[k] = (acc[k] ?? 0) + 1; return acc;
     }, {} as Record<Klass, number>);
 

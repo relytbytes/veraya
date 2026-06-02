@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { costMenuItem, classifyMenuItem, marginTier, type ItemCosting } from "@/lib/menu-costing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,10 +83,15 @@ function plateCost(recipe: RecipeIngredient[]): number {
   );
 }
 
-function marginPct(price: string, recipe: RecipeIngredient[]): number {
-  const cost = plateCost(recipe);
-  const p = Number(price);
-  return p > 0 ? ((p - cost) / p) * 100 : 0;
+// Costing for a menu item. Uses the real recipe when present; otherwise falls
+// back to a category-default food-cost % so margins stay honest (never ~100%).
+function itemCosting(item: MenuItem): ItemCosting {
+  return costMenuItem({
+    price: Number(item.price),
+    categoryName: item.category?.name ?? "",
+    recipeCost: plateCost(item.recipe),
+    hasRecipe: item.recipe.length > 0,
+  });
 }
 
 function median(values: number[]): number {
@@ -103,7 +109,7 @@ function EngineeringBadge({ cls }: { cls: EngineeringClass }) {
   if (!cls) return null;
   const map: Record<NonNullable<EngineeringClass>, { label: string; className: string }> = {
     star:      { label: "⭐ Star",      className: "bg-green-100 text-green-800 border-green-200" },
-    plowhorse: { label: "🐎 Plowhorse", className: "bg-amber-100 text-amber-800 border-amber-200" },
+    plowhorse: { label: "🐎 Plowhorse", className: "bg-warning-100 text-warning-800 border-warning-200" },
     puzzle:    { label: "🧩 Puzzle",    className: "bg-blue-100 text-blue-800 border-blue-200" },
     dog:       { label: "🐕 Dog",       className: "bg-gray-100 text-gray-600 border-gray-200" },
   };
@@ -115,14 +121,18 @@ function EngineeringBadge({ cls }: { cls: EngineeringClass }) {
   );
 }
 
-function MarginChip({ pct }: { pct: number }) {
+function MarginChip({ pct, estimated }: { pct: number; estimated?: boolean }) {
+  const tier = marginTier(pct);
   const color =
-    pct >= 70 ? "bg-green-100 text-green-800" :
-    pct >= 40 ? "bg-amber-100 text-amber-800" :
+    tier === "good" ? "bg-green-100 text-green-800" :
+    tier === "watch" ? "bg-warning-100 text-warning-800" :
     "bg-red-100 text-red-800";
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", color)}>
-      {pct.toFixed(0)}%
+    <span
+      className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", color)}
+      title={estimated ? "Estimated from category default (no costed recipe yet)" : undefined}
+    >
+      {pct.toFixed(0)}%{estimated ? "*" : ""}
     </span>
   );
 }
@@ -211,21 +221,17 @@ export default function RecipesPage() {
     if (allWithSales.length === 0) return null;
 
     const unitValues = allWithSales.map((i) => salesMap.get(i.id) ?? 0);
-    const marginValues = allWithSales.map((i) => marginPct(i.price, i.recipe));
+    const marginValues = allWithSales.map((i) => itemCosting(i).marginPct);
 
     const medUnits = median(unitValues);
     const medMargin = median(marginValues);
 
-    const units = salesMap.get(item.id) ?? 0;
-    const margin = marginPct(item.price, item.recipe);
-
-    const highPop = units > medUnits;
-    const highMargin = margin > medMargin;
-
-    if (highPop && highMargin) return "star";
-    if (highPop && !highMargin) return "plowhorse";
-    if (!highPop && highMargin) return "puzzle";
-    return "dog";
+    return classifyMenuItem({
+      units: salesMap.get(item.id) ?? 0,
+      marginPct: itemCosting(item).marginPct,
+      medianUnits: medUnits,
+      medianMargin: medMargin,
+    });
   }
 
   // ── Filtered list ─────────────────────────────────────────────────────────
@@ -708,8 +714,8 @@ export default function RecipesPage() {
                       {[
                         { label: "Plate Cost", value: formatCurrency(cost) },
                         { label: "Menu Price", value: formatCurrency(itemPrice) },
-                        { label: "Food Cost %", value: `${fp.toFixed(1)}%`, color: fp < 30 ? "text-emerald-600" : fp < 38 ? "text-amber-600" : "text-red-600" },
-                        { label: "Gross Margin", value: `${gmPct.toFixed(1)}%`, color: gmPct >= 65 ? "text-emerald-600" : gmPct >= 40 ? "text-amber-600" : "text-red-600" },
+                        { label: "Food Cost %", value: `${fp.toFixed(1)}%`, color: fp < 30 ? "text-emerald-600" : fp < 38 ? "text-warning-600" : "text-red-600" },
+                        { label: "Gross Margin", value: `${gmPct.toFixed(1)}%`, color: gmPct >= 65 ? "text-emerald-600" : gmPct >= 55 ? "text-warning-600" : "text-red-600" },
                       ].map(({ label, value, color }) => (
                         <Card key={label}>
                           <CardContent className="p-3">
@@ -855,8 +861,9 @@ export default function RecipesPage() {
                 <div className="py-12 text-center text-sm text-gray-400">No items found</div>
               ) : (
                 filtered.map((item) => {
-                  const cost = plateCost(item.recipe);
-                  const mp = marginPct(item.price, item.recipe);
+                  const c = itemCosting(item);
+                  const cost = c.cost;
+                  const mp = c.marginPct;
                   const cls = classify(item);
                   const isSelected = item.id === selectedId;
                   return (
@@ -876,9 +883,9 @@ export default function RecipesPage() {
                         <div className="flex flex-col items-end gap-1 shrink-0">
                           <div className="flex items-center gap-1">
                             <span className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
-                              {formatCurrency(cost)}
+                              {formatCurrency(cost)}{c.estimated ? "*" : ""}
                             </span>
-                            <MarginChip pct={mp} />
+                            <MarginChip pct={mp} estimated={c.estimated} />
                           </div>
                           {cls && <EngineeringBadge cls={cls} />}
                         </div>
@@ -888,6 +895,9 @@ export default function RecipesPage() {
                 })
               )}
             </div>
+            <p className="shrink-0 border-t border-gray-100 px-4 py-2 text-[11px] leading-snug text-gray-400">
+              <span className="font-medium">*</span> cost estimated from category average until a recipe is added. Star / Plowhorse / Puzzle / Dog rank each item against your menu median for sales and margin.
+            </p>
           </div>
 
           {/* ── Right panel ── */}
@@ -965,10 +975,10 @@ export default function RecipesPage() {
                       label: "Margin %",
                       value: `${margin.toFixed(1)}%`,
                       color:
-                        margin >= 70
+                        margin >= 65
                           ? "text-green-600"
-                          : margin >= 40
-                          ? "text-amber-600"
+                          : margin >= 55
+                          ? "text-warning-600"
                           : "text-red-600",
                     },
                   ].map(({ label, value, color }) => (
