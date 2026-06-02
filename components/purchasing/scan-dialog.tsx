@@ -371,8 +371,8 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
 
           {/* No API key warning */}
           {noApiKey && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-              <strong>OpenAI API key not configured.</strong> Add your key to <code className="text-xs bg-amber-100 px-1 rounded">.env</code> as <code className="text-xs bg-amber-100 px-1 rounded">OPENAI_API_KEY=sk-...</code> to enable Photo AI.
+            <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800">
+              <strong>OpenAI API key not configured.</strong> Add your key to <code className="text-xs bg-yellow-100 px-1 rounded">.env</code> as <code className="text-xs bg-yellow-100 px-1 rounded">OPENAI_API_KEY=sk-...</code> to enable Photo AI.
             </div>
           )}
 

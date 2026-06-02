@@ -1116,7 +1116,7 @@ function PricesTab({
 
   function trendColor(trend: PriceRow["trend"], changePct: number) {
     if (trend === "up" && Math.abs(changePct) > 10) return "text-red-600";
-    if (trend === "up") return "text-amber-600";
+    if (trend === "up") return "text-yellow-600";
     if (trend === "down") return "text-green-600";
     return "text-gray-500";
   }
@@ -1129,7 +1129,7 @@ function PricesTab({
           { label: "Tracked Ingredients", value: String(summary.totalIngredients), sub: `last ${lookback} days`, icon: <BarChart2 className="h-4 w-4 text-blue-500" />, bg: "bg-blue-50" },
           { label: "Rising Prices", value: String(summary.risingCount), sub: "trending up", icon: <TrendingUp className="h-4 w-4 text-red-500" />, bg: "bg-red-50" },
           { label: "Falling Prices", value: String(summary.fallingCount), sub: "trending down", icon: <TrendingDown className="h-4 w-4 text-green-600" />, bg: "bg-green-50" },
-          { label: "Price Alerts", value: String(summary.alertCount), sub: ">10% change", icon: <AlertTriangle className="h-4 w-4 text-amber-500" />, bg: "bg-amber-50" },
+          { label: "Price Alerts", value: String(summary.alertCount), sub: ">10% change", icon: <AlertTriangle className="h-4 w-4 text-yellow-500" />, bg: "bg-yellow-50" },
         ].map((kpi) => (
           <Card key={kpi.label}>
             <CardContent className="p-4">
@@ -1406,7 +1406,7 @@ function ReorderTab({
 
   function urgencyBadge(u: SuggestionItem["urgency"]) {
     if (u === "critical") return <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-100 text-red-700">Critical</span>;
-    if (u === "high") return <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">High</span>;
+    if (u === "high") return <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">High</span>;
     return <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Medium</span>;
   }
 
@@ -1417,7 +1417,7 @@ function ReorderTab({
         {[
           { label: "Items to Reorder", value: String(summary.totalSuggestions), color: "text-gray-900" },
           { label: "Critical", value: String(summary.criticalCount), color: summary.criticalCount > 0 ? "text-red-600" : "text-gray-900" },
-          { label: "High Priority", value: String(summary.highCount), color: summary.highCount > 0 ? "text-amber-600" : "text-gray-900" },
+          { label: "High Priority", value: String(summary.highCount), color: summary.highCount > 0 ? "text-orange-600" : "text-gray-900" },
           { label: "Estimated Cost", value: formatCurrency(summary.totalEstimatedCost), color: "text-gray-900" },
         ].map(kpi => (
           <Card key={kpi.label}>
@@ -1502,7 +1502,7 @@ function ReorderTab({
                     <p className="text-xs text-gray-400 mt-0.5">
                       {item.currentQty.toFixed(1)} {item.unit} on hand · min {item.minThreshold} {item.unit}
                       {item.hasVelocityData && item.daysUntilMin !== null && (
-                        <span className={item.daysUntilMin <= 1 ? " text-red-500 font-medium" : item.daysUntilMin <= 3 ? " text-amber-500" : ""}>
+                        <span className={item.daysUntilMin <= 1 ? " text-red-500 font-medium" : item.daysUntilMin <= 3 ? " text-yellow-500" : ""}>
                           {" "}· {item.daysUntilMin.toFixed(1)} days supply left
                         </span>
                       )}
@@ -1548,7 +1548,7 @@ function ReorderTab({
       {unassigned.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-100">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <AlertTriangle className="h-4 w-4 text-yellow-400" />
             <span className="font-semibold text-gray-700 text-sm">No Supplier Assigned</span>
             <span className="text-xs text-gray-400">{unassigned.length} item{unassigned.length !== 1 ? "s" : ""} — assign a supplier to include in POs</span>
           </div>

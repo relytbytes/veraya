@@ -62,7 +62,7 @@ function elapsed(dateStr: string) {
 function urgencyColor(createdAt: string) {
   const secs = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);
   if (secs < 180) return "border-green-400 bg-green-50";
-  if (secs < 360) return "border-amber-400 bg-amber-50";
+  if (secs < 360) return "border-yellow-400 bg-yellow-50";
   return "border-red-500 bg-red-50";
 }
 

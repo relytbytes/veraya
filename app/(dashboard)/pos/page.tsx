@@ -1182,7 +1182,7 @@ export default function POSPage() {
                         {trackedCount && (
                           <span className={cn(
                             "absolute bottom-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded",
-                            lowCount ? "bg-amber-500 text-white" : "bg-white/85 text-gray-600"
+                            lowCount ? "bg-yellow-500 text-white" : "bg-white/85 text-gray-600"
                           )}>
                             {item.countRemaining} left
                           </span>
@@ -1288,8 +1288,8 @@ export default function POSPage() {
                       key={`${item.menuItemId}-${idx}`}
                       className={cn(
                         "px-4 py-2.5 transition-colors",
-                        item.held && "bg-amber-50",
-                        holdMode && "cursor-pointer hover:bg-amber-100 select-none",
+                        item.held && "bg-yellow-50",
+                        holdMode && "cursor-pointer hover:bg-yellow-100 select-none",
                       )}
                       onClick={holdMode ? () => toggleHeld(idx) : undefined}
                     >
@@ -1298,7 +1298,7 @@ export default function POSPage() {
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
                             {item.held && (
-                              <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 text-amber-800 uppercase tracking-wide">
+                              <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-yellow-200 text-yellow-800 uppercase tracking-wide">
                                 <Timer className="h-2.5 w-2.5" /> Hold
                               </span>
                             )}
@@ -1434,7 +1434,7 @@ export default function POSPage() {
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl shadow-xl text-sm font-medium max-w-sm w-full",
           toastMsg.type === "error" ? "bg-red-600 text-white" :
           toastMsg.type === "success" ? "bg-green-600 text-white" :
-          "bg-amber-600 text-white"
+          "bg-yellow-500 text-gray-900"
         )}>
           {toastMsg.type === "error"   ? <AlertCircle className="h-4 w-4 shrink-0" /> :
            toastMsg.type === "success" ? <CheckCircle2 className="h-4 w-4 shrink-0" /> :
@@ -1553,18 +1553,18 @@ export default function POSPage() {
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 text-sm",
                       item.voided && "bg-gray-50 opacity-60",
-                      item.heldForFire && !item.voided && "bg-amber-50",
+                      item.heldForFire && !item.voided && "bg-yellow-50",
                       item.comped && !item.voided && "bg-green-50",
                     )}
                   >
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      {item.heldForFire && !item.voided && <Timer className="h-3 w-3 text-amber-500 shrink-0" />}
+                      {item.heldForFire && !item.voided && <Timer className="h-3 w-3 text-yellow-600 shrink-0" />}
                       <span className={cn("text-gray-700 truncate", item.voided && "line-through text-gray-400")}>
                         {item.quantity}× {item.menuItem.name}
                       </span>
                       {item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-gray-200 text-gray-600 px-1 py-0.5 rounded shrink-0">VOID</span>}
                       {item.comped && !item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-green-200 text-green-700 px-1 py-0.5 rounded shrink-0">COMP</span>}
-                      {item.heldForFire && !item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-200 text-amber-800 px-1 py-0.5 rounded shrink-0">HELD</span>}
+                      {item.heldForFire && !item.voided && <span className="text-[9px] font-bold uppercase tracking-wide bg-yellow-200 text-yellow-800 px-1 py-0.5 rounded shrink-0">HELD</span>}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className={cn("font-medium w-14 text-right", (item.voided || item.comped) ? "text-gray-400 line-through" : "text-gray-600")}>
@@ -2410,7 +2410,7 @@ function FloorPlanView({
                     "inline-flex text-xs font-medium px-2.5 py-1 rounded-full",
                     t.status === "AVAILABLE" ? "bg-green-100 text-green-800" :
                     t.status === "OCCUPIED"  ? "bg-red-100 text-red-800" :
-                    t.status === "RESERVED"  ? "bg-amber-100 text-amber-800" :
+                    t.status === "RESERVED"  ? "bg-yellow-100 text-yellow-800" :
                     "bg-gray-100 text-gray-600"
                   )}>
                     {t.status}
@@ -2421,14 +2421,14 @@ function FloorPlanView({
                     <div className="space-y-2">
                       <div className="rounded-lg border border-gray-100 divide-y divide-gray-50">
                         {order.items.map((item) => (
-                          <div key={item.id} className={cn("flex items-center justify-between px-3 py-2 text-sm gap-2", item.heldForFire && "bg-amber-50")}>
+                          <div key={item.id} className={cn("flex items-center justify-between px-3 py-2 text-sm gap-2", item.heldForFire && "bg-yellow-50")}>
                             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              {item.heldForFire && <Timer className="h-3 w-3 text-amber-500 shrink-0" />}
-                              <span className={cn("text-gray-700", item.heldForFire && "text-amber-700")}>
+                              {item.heldForFire && <Timer className="h-3 w-3 text-yellow-600 shrink-0" />}
+                              <span className={cn("text-gray-700", item.heldForFire && "text-yellow-700")}>
                                 {item.quantity}× {item.menuItem.name}
                               </span>
                               {item.heldForFire && (
-                                <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-200 text-amber-800 px-1 py-0.5 rounded shrink-0">HELD</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wide bg-yellow-200 text-yellow-800 px-1 py-0.5 rounded shrink-0">HELD</span>
                               )}
                             </div>
                             <span className="font-medium text-gray-500 shrink-0">{formatCurrency(Number(item.unitPrice) * item.quantity)}</span>

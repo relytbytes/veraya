@@ -411,7 +411,7 @@ export default function InventoryPage() {
                         <TableCell><p className="font-medium text-gray-900">{item.ingredient.name}</p></TableCell>
                         <TableCell><span className="text-sm text-gray-500">{item.ingredient.supplier?.name ?? "—"}</span></TableCell>
                         <TableCell className="text-right">
-                          <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-amber-600" : "text-gray-900"}`}>
+                          <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-yellow-600" : "text-gray-900"}`}>
                             {qty} {item.ingredient.unit}
                           </span>
                         </TableCell>

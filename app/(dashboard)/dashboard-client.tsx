@@ -330,7 +330,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
                         <div className="text-right">
                           <p className={cn(
                             "text-sm font-semibold",
-                            Number(item.quantity) === 0 ? "text-red-600" : "text-amber-600"
+                            Number(item.quantity) === 0 ? "text-red-600" : "text-yellow-600"
                           )}>
                             {Number(item.quantity)} {item.ingredient.unit}
                           </p>

@@ -74,7 +74,7 @@ function elapsedSeconds(dateStr: string) {
 function urgencyColor(createdAt: string) {
   const secs = elapsedSeconds(createdAt);
   if (secs < 300) return "border-green-400 bg-green-50";
-  if (secs < 600) return "border-amber-400 bg-amber-50";
+  if (secs < 600) return "border-yellow-400 bg-yellow-50";
   return "border-red-500 bg-red-50";
 }
 
@@ -365,7 +365,7 @@ export default function KitchenPage() {
                   ? "bg-red-900/60 border-red-600/60 text-red-300"
                   : isCrit
                   ? "bg-orange-900/50 border-orange-600/50 text-orange-300"
-                  : "bg-amber-900/40 border-amber-600/40 text-amber-300";
+                  : "bg-yellow-900/40 border-yellow-600/40 text-yellow-300";
                 const timeStr = isOut
                   ? "OUT NOW"
                   : p.hoursUntilMin !== null
@@ -524,7 +524,7 @@ function TicketCard({
                     item.completedAt
                       ? "bg-green-900/40 opacity-60"
                       : item.sentAt
-                      ? "bg-amber-900/40"
+                      ? "bg-yellow-900/40"
                       : "bg-gray-800/60 hover:bg-gray-700/60"
                   )}
                 >
@@ -553,7 +553,7 @@ function TicketCard({
                       </p>
                     )}
                     {item.notes && (
-                      <p className="text-xs text-amber-300 mt-0.5">⚠ {item.notes}</p>
+                      <p className="text-xs text-yellow-300 mt-0.5">⚠ {item.notes}</p>
                     )}
                     {item.menuItem.prepTime && !item.completedAt && (
                       <p className="text-xs text-gray-500 mt-0.5">{item.menuItem.prepTime}m</p>
