@@ -14,18 +14,21 @@ const KLASS: Record<Klass, { label: string; cls: string }> = {
   dog:       { label: "🐕 Dog",       cls: "bg-gray-100 text-gray-600" },
 };
 
-export function VeraMenuMoves() {
+export function VeraMenuMoves({ from, to, periodLabel }: { from?: string; to?: string; periodLabel?: string }) {
   const [moves, setMoves] = useState<MenuMove[] | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/vera/menu-moves")
+    setMoves(null);
+    setFailed(false);
+    const qs = from && to ? `?from=${from}&to=${to}` : "";
+    fetch(`/api/vera/menu-moves${qs}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { moves?: MenuMove[] }) => { if (alive) setMoves(d.moves ?? []); })
       .catch(() => { if (alive) setFailed(true); });
     return () => { alive = false; };
-  }, []);
+  }, [from, to]);
 
   if (failed) return null;
 
@@ -45,7 +48,7 @@ export function VeraMenuMoves() {
         <VeraAvatar className="h-9 w-9 shrink-0" />
         <div>
           <p className="text-sm font-bold text-gray-900">Vera&apos;s Menu Moves</p>
-          <p className="text-xs text-gray-400">Prioritized this week, by margin impact</p>
+          <p className="text-xs text-gray-400">By margin impact{periodLabel ? ` · ${periodLabel}` : ""}</p>
         </div>
       </div>
       <div className="divide-y divide-gray-50">

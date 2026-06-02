@@ -686,7 +686,7 @@ export default function ReportsPage() {
         {activeTab === "sales" && <>
 
         {/* Vera's menu-engineering moves */}
-        <VeraMenuMoves />
+        <VeraMenuMoves from={range.from} to={range.to} periodLabel={preset === "Custom" ? rangeLabel : preset} />
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

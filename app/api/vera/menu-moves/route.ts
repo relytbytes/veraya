@@ -31,7 +31,7 @@ const RULE: Record<Klass, string> = {
   dog:       "Low volume and low margin. Rework it or cut it to simplify the line.",
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const role = (session.user as { role?: string })?.role ?? "";
@@ -40,7 +40,17 @@ export async function GET() {
   }
 
   try {
-    const since = new Date(Date.now() - 30 * 86400_000);
+    // Sales window from the reports period selector. Same convention as
+    // /api/reports (YYYY-MM-DD, inclusive). Defaults to the last 30 days.
+    const { searchParams } = new URL(req.url);
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    const now = new Date();
+    const from = fromParam ? new Date(fromParam + "T00:00:00") : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    from.setHours(0, 0, 0, 0);
+    const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
+    to.setHours(23, 59, 59, 999);
+
     const [items, sales] = await Promise.all([
       prisma.menuItem.findMany({
         where: { isActive: true },
@@ -52,7 +62,7 @@ export async function GET() {
       }),
       prisma.orderItem.groupBy({
         by: ["menuItemId"],
-        where: { voided: false, order: { status: "COMPLETED", createdAt: { gte: since } } },
+        where: { voided: false, order: { status: "COMPLETED", createdAt: { gte: from, lte: to } } },
         _sum: { quantity: true },
       }),
     ]);
@@ -112,7 +122,7 @@ export async function GET() {
     if (apiKey && moves.length > 0) {
       try {
         const context = ranked.map(({ e, klass }) =>
-          `${e.name} (${e.category}): ${klass}, margin ${e.marginPct.toFixed(0)}%, ${e.units} sold in 30d, price $${e.price.toFixed(2)}, cost $${e.cost.toFixed(2)}`,
+          `${e.name} (${e.category}): ${klass}, margin ${e.marginPct.toFixed(0)}%, ${e.units} sold in the selected period, price $${e.price.toFixed(2)}, cost $${e.cost.toFixed(2)}`,
         ).join("\n");
         const client = new OpenAI({ apiKey });
         const completion = await client.chat.completions.create({
