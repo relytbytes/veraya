@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import OpenAI from "openai";
+import { veraComplete, aiEnabled } from "@/lib/openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 import { getLearnedWeights } from "@/lib/vera-weights";
@@ -363,24 +363,14 @@ export async function GET(req: NextRequest) {
 
   const alerts = issuesToAlerts(diag.dimensions);
 
-  // Optional AI: phrase the deterministic diagnosis into a natural two-sentence read.
-  let narrative = diag.headline;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    try {
-      const client = new OpenAI({ apiKey });
-      const completion = await client.chat.completions.create({
-        model: "gpt-4o-mini", max_tokens: 160, temperature: 0.3,
-        messages: [
-          { role: "system", content: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings." },
-          { role: "user", content: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}` },
-        ],
-      });
-      narrative = completion.choices[0]?.message?.content?.trim() || diag.headline;
-    } catch (err) {
-      console.error("[/api/vera] narrative AI failed:", (err as Error)?.message ?? err);
-    }
-  }
+  // Optional AI: phrase the deterministic diagnosis into a natural two-sentence
+  // read. Falls back to the deterministic headline when no key is configured.
+  const aiNarrative = await veraComplete({
+    system: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings, no em-dashes, no Oxford commas.",
+    user: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}`,
+    maxTokens: 160,
+  });
+  const narrative = aiNarrative || diag.headline;
 
   const cacheHeaders = { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=60" } };
   return Response.json({
@@ -389,6 +379,7 @@ export async function GET(req: NextRequest) {
     confidence: diag.confidence,
     headline: diag.headline,
     narrative,
+    aiPowered: aiEnabled(),
     projection: diag.projection,
     dimensions: diag.dimensions,
     indicators: diag.indicators,
