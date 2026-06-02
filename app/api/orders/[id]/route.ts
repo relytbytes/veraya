@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
 import { depleteForFiredItems } from "@/lib/inventory";
+import { verifyManagerPin } from "@/lib/manager-auth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -33,9 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     payment?: { amount: number; tip?: number; method: string; reference?: string };
     reason?: string;
     fireItemIds?: string[];
-    voidItem?: { itemId: string; reason?: string };
-    compItem?: { itemId: string };
-    compCheck?: { reason?: string };
+    voidItem?: { itemId: string; reason?: string; managerPin?: string };
+    compItem?: { itemId: string; reason?: string; managerPin?: string };
+    compCheck?: { reason?: string; managerPin?: string };
     addItems?: Array<{
       menuItemId: string;
       quantity: number;
@@ -190,11 +191,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await autoAdvanceTableStage();
   }
 
+  // Comps and voids are manager-protected and require a reason. Verify once,
+  // up front, for whichever sensitive action this request carries.
+  const sensitive = voidItem ?? compItem ?? compCheck;
+  let authorizingManager: { id: string; name: string } | null = null;
+  if (sensitive) {
+    const reason = sensitive.reason?.trim();
+    if (!reason) {
+      return Response.json({ error: "A reason is required." }, { status: 400 });
+    }
+    authorizingManager = await verifyManagerPin(sensitive.managerPin ?? "");
+    if (!authorizingManager) {
+      return Response.json({ error: "A valid manager PIN is required to authorize this." }, { status: 403 });
+    }
+  }
+
   // Void a specific item (e.g. double ring)
   if (voidItem) {
     const oi = await prisma.orderItem.update({
       where: { id: voidItem.itemId, orderId: id },
-      data: { voided: true, voidReason: voidItem.reason ?? null },
+      data: { voided: true, voidReason: voidItem.reason?.trim() ?? null },
     });
     // Restore countRemaining for tracked items
     try {
@@ -209,8 +225,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           action: "VOID",
           orderId: id,
-          reason: `Item voided: ${voidItem.reason ?? "staff void"}`,
-          userId: session.user?.id ?? "unknown",
+          reason: voidItem.reason!.trim(),
+          notes: `Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
+          userId: authorizingManager!.id,
         },
       });
     } catch { /* non-fatal */ }
@@ -228,6 +245,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data: { comped: true },
     });
     await recalcTotals(id);
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: "COMP",
+          orderId: id,
+          reason: compItem.reason!.trim(),
+          notes: `Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
+          userId: authorizingManager!.id,
+        },
+      });
+    } catch { /* non-fatal */ }
     const compedItemOrder = await prisma.order.findUnique({
       where: { id },
       include: { table: true, items: { include: { menuItem: true } }, payments: true },
@@ -251,7 +279,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         amount: 0,
         tip: 0,
         method: "CASH" as never,
-        reference: compCheck.reason ? `COMP: ${compCheck.reason}` : "Staff comp",
+        reference: `COMP: ${compCheck.reason!.trim()}`,
       },
     });
     if (order.tableId) {
@@ -261,10 +289,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     try {
       await prisma.auditLog.create({
         data: {
-          action: "VOID",
+          action: "COMP",
           orderId: id,
-          reason: `Check comped: ${compCheck.reason ?? "Staff comp"}`,
-          userId: session.user?.id ?? "unknown",
+          reason: compCheck.reason!.trim(),
+          notes: `Entire check comped. Authorized by ${authorizingManager!.name}; rung by ${session.user?.name ?? "staff"}`,
+          userId: authorizingManager!.id,
         },
       });
     } catch { /* non-fatal */ }

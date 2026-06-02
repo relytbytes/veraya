@@ -192,7 +192,7 @@ export default function StaffPage() {
 
   // Edit staff
   const [editMember, setEditMember] = useState<StaffMember | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", role: "SERVER", hourlyRate: "", isActive: true, employmentType: "HOURLY", annualSalary: "" });
+  const [editForm, setEditForm] = useState({ name: "", role: "SERVER", hourlyRate: "", isActive: true, employmentType: "HOURLY", annualSalary: "", managerPin: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -285,6 +285,7 @@ export default function StaffPage() {
       isActive: member.isActive,
       employmentType: member.employmentType ?? "HOURLY",
       annualSalary: member.annualSalary != null ? String(member.annualSalary) : "",
+      managerPin: "",
     });
     setEditError("");
   }
@@ -303,6 +304,8 @@ export default function StaffPage() {
         hourlyRate: editForm.hourlyRate ? Number(editForm.hourlyRate) : null,
         employmentType: editForm.employmentType,
         annualSalary: editForm.annualSalary ? Number(editForm.annualSalary) : null,
+        // Only send when a new PIN was typed; blank leaves it unchanged.
+        ...(editForm.managerPin.trim() ? { managerPin: editForm.managerPin.trim() } : {}),
       }),
     });
     if (!res.ok) {
@@ -1072,6 +1075,20 @@ export default function StaffPage() {
               />
               <Label htmlFor="edit-isActive">Active</Label>
             </div>
+            {(editForm.role === "ADMIN" || editForm.role === "MANAGER") && (
+              <div className="space-y-1.5">
+                <Label>Manager Override PIN</Label>
+                <Input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="Leave blank to keep current"
+                  value={editForm.managerPin}
+                  onChange={(e) => setEditForm({ ...editForm, managerPin: e.target.value })}
+                />
+                <p className="text-xs text-gray-400">4 to 6 digits. Used to authorize comps and voids at the POS.</p>
+              </div>
+            )}
             {editError && <p className="text-sm text-red-500 bg-red-50 rounded px-3 py-2">{editError}</p>}
           </div>
           <DialogFooter>

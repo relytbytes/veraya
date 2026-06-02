@@ -9,6 +9,7 @@ import {
 import { useRealtime } from "@/lib/use-realtime";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ManagerAuthDialog, type ManagerAuthRequest } from "@/components/manager-auth-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -283,6 +284,7 @@ export default function POSPage() {
   const [voidingItemId, setVoidingItemId] = useState<string | null>(null);
   const [compingItemId, setCompingItemId] = useState<string | null>(null);
   const [compingCheck, setCompingCheck] = useState(false);
+  const [managerAuth, setManagerAuth] = useState<ManagerAuthRequest | null>(null);
 
   // Modifier selection dialog
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -479,58 +481,78 @@ export default function POSPage() {
     }
   }
 
-  async function voidOrderItem(itemId: string) {
+  function voidOrderItem(itemId: string) {
     if (!recallOrder) return;
-    setVoidingItemId(itemId);
-    try {
-      const res = await fetch(`/api/orders/${recallOrder.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voidItem: { itemId } }),
-      });
-      if (res.ok) {
-        setRecallOrder(await res.json());
-        await loadOpenOrders();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast((err as { error?: string }).error ?? "Failed to void item.");
-      }
-    } catch { showToast("Network error."); }
-    finally { setVoidingItemId(null); }
+    setManagerAuth({
+      title: "Void Item",
+      description: "Voiding removes an item that should not have been rung (e.g. a double ring). Requires manager authorization.",
+      reasons: ["Double ring", "Wrong item", "Server error", "Guest changed mind", "86'd item"],
+      confirmLabel: "Void Item",
+      onConfirm: async (reason, managerPin) => {
+        setVoidingItemId(itemId);
+        try {
+          const res = await fetch(`/api/orders/${recallOrder.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ voidItem: { itemId, reason, managerPin } }),
+          });
+          if (res.ok) {
+            setRecallOrder(await res.json());
+            await loadOpenOrders();
+            return { ok: true };
+          }
+          const err = await res.json().catch(() => ({}));
+          return { ok: false, error: (err as { error?: string }).error ?? "Failed to void item." };
+        } catch {
+          return { ok: false, error: "Network error." };
+        } finally { setVoidingItemId(null); }
+      },
+    });
   }
 
-  async function compOrderItem(itemId: string) {
+  function compOrderItem(itemId: string) {
     if (!recallOrder) return;
-    setCompingItemId(itemId);
-    try {
-      const res = await fetch(`/api/orders/${recallOrder.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ compItem: { itemId } }),
-      });
-      if (res.ok) {
-        setRecallOrder(await res.json());
-        await loadOpenOrders();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast((err as { error?: string }).error ?? "Failed to comp item.");
-      }
-    } catch { showToast("Network error."); }
-    finally { setCompingItemId(null); }
+    setManagerAuth({
+      title: "Comp Item",
+      description: "Comping keeps the item made but does not charge for it (goodwill). Requires manager authorization.",
+      reasons: ["Kitchen mistake", "Long wait", "Quality issue", "Manager goodwill", "Regular/VIP"],
+      confirmLabel: "Comp Item",
+      onConfirm: async (reason, managerPin) => {
+        setCompingItemId(itemId);
+        try {
+          const res = await fetch(`/api/orders/${recallOrder.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ compItem: { itemId, reason, managerPin } }),
+          });
+          if (res.ok) {
+            setRecallOrder(await res.json());
+            await loadOpenOrders();
+            return { ok: true };
+          }
+          const err = await res.json().catch(() => ({}));
+          return { ok: false, error: (err as { error?: string }).error ?? "Failed to comp item." };
+        } catch {
+          return { ok: false, error: "Network error." };
+        } finally { setCompingItemId(null); }
+      },
+    });
   }
 
-  async function compEntireCheck() {
+  function compEntireCheck() {
     if (!recallOrder) return;
-    showConfirm(
-      "Comp Entire Check",
-      "Comp this entire check? The order will be closed at $0.",
-      async () => {
+    setManagerAuth({
+      title: "Comp Entire Check",
+      description: "This closes the whole check at $0. Requires manager authorization.",
+      reasons: ["Kitchen mistake", "Long wait", "Quality issue", "Manager goodwill", "Service recovery"],
+      confirmLabel: "Comp Check",
+      onConfirm: async (reason, managerPin) => {
         setCompingCheck(true);
         try {
           const res = await fetch(`/api/orders/${recallOrder!.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ compCheck: {} }),
+            body: JSON.stringify({ compCheck: { reason, managerPin } }),
           });
           if (res.ok) {
             setRecallOpen(false);
@@ -546,14 +568,15 @@ export default function POSPage() {
             setRecallOrder(null);
             setSuccessOpen(true);
             await Promise.all([loadTables(), loadOpenOrders()]);
-          } else {
-            const err = await res.json().catch(() => ({}));
-            showToast((err as { error?: string }).error ?? "Failed to comp check.");
+            return { ok: true };
           }
-        } catch { showToast("Network error."); }
-        finally { setCompingCheck(false); }
-      }
-    );
+          const err = await res.json().catch(() => ({}));
+          return { ok: false, error: (err as { error?: string }).error ?? "Failed to comp check." };
+        } catch {
+          return { ok: false, error: "Network error." };
+        } finally { setCompingCheck(false); }
+      },
+    });
   }
 
   const subtotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
@@ -1444,6 +1467,9 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* ── Manager auth (comps / voids) ──────────────────────────────────── */}
+      <ManagerAuthDialog request={managerAuth} onClose={() => setManagerAuth(null)} />
 
       {/* ── Toast Notification ────────────────────────────────────────────── */}
       {toastMsg && (

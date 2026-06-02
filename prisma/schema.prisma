@@ -87,6 +87,7 @@ model User {
   password   String
   role           UserRole @default(SERVER)
   isActive       Boolean  @default(true)
+  managerPin     String?  // bcrypt hash of a manager override PIN (MANAGER/ADMIN only)
   hourlyRate     Decimal?
   employmentType String   @default("HOURLY") // HOURLY | SALARY
   annualSalary   Decimal?

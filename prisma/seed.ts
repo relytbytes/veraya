@@ -11,17 +11,19 @@ async function main() {
 
   // Admin user
   const adminPassword = await bcrypt.hash("admin123", 12);
+  const adminPin = await bcrypt.hash("1234", 10); // manager override PIN
   const admin = await prisma.user.upsert({
     where: { email: "admin@restaurant.com" },
-    update: {},
+    update: { managerPin: adminPin },
     create: {
       name: "Admin User",
       email: "admin@restaurant.com",
       password: adminPassword,
       role: "ADMIN",
+      managerPin: adminPin,
     },
   });
-  console.log("✓ Admin user:", admin.email);
+  console.log("✓ Admin user:", admin.email, "(manager PIN: 1234)");
 
   // Categories
   const categories = await Promise.all([
