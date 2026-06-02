@@ -251,22 +251,22 @@ export function VeraPanel() {
   return (
     <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
       {/* Vera header band */}
-      <div className="flex items-start gap-4 p-5 pb-4 bg-gradient-to-br from-[#0C1A1E] via-[#101f33] to-[#15293f]">
+      <div className="flex items-start gap-4 p-5 pb-4 bg-white">
         {/* Vera mark */}
-        <VeraAvatar className="h-14 w-14 shrink-0 drop-shadow-md" />
+        <VeraAvatar className="h-14 w-14 shrink-0 drop-shadow-sm" />
 
         {/* Identity + narrative */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
-            <VeraWordmark className="text-base font-bold tracking-tight text-white" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-teal-300/80">always working</span>
+            <VeraWordmark className="text-base font-bold tracking-tight text-gray-900" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-teal-600">always working</span>
             {lastUpdated && (
-              <span className="ml-auto text-[10px] text-white/40">
+              <span className="ml-auto text-[10px] text-gray-400">
                 updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
           </div>
-          <p className="text-sm leading-relaxed text-slate-200">{data.narrative}</p>
+          <p className="text-sm leading-relaxed text-gray-600">{data.narrative}</p>
         </div>
 
         {/* Health score */}
@@ -278,7 +278,7 @@ export function VeraPanel() {
             <span className={cn("text-xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
             <span className="text-[8px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">/ 100</span>
           </div>
-          <span className="text-[10px] font-semibold text-center leading-tight max-w-[56px] text-white/90">
+          <span className="text-[10px] font-semibold text-center leading-tight max-w-[56px] text-gray-600">
             {health!.label}
           </span>
         </div>
