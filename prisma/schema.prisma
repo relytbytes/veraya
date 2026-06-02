@@ -403,6 +403,18 @@ model RestaurantSettings {
   value String
 }
 
+// Manager feedback on Vera's indicators — lets her learn what's worth surfacing.
+model VeraFeedback {
+  id        String   @id @default(cuid())
+  key       String // stable indicator type (e.g. "avgcheck_low", "pace_behind")
+  action    String // "dismissed" | "helpful"
+  text      String? // the rendered text at the time, for audit
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([key])
+}
+
 // ─── Menu Modifiers ───────────────────────────────────────────────────────────
 
 model Modifier {

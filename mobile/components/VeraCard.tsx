@@ -1,10 +1,11 @@
 import {
   View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Image,
 } from "react-native";
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { getVeraData, VeraAlert, getPredictedRunouts, getVeraAnomalies } from "@/lib/api";
+import { getVeraData, VeraAlert, VeraIndicator, getPredictedRunouts, getVeraAnomalies, sendVeraFeedback } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -72,6 +73,12 @@ export function VeraCard() {
   const { data: anomData } = useQuery({ queryKey: ["vera-anomalies"], queryFn: getVeraAnomalies, staleTime: 10 * 60_000 });
   const predictions = (predData?.predictions ?? []).filter((p) => p.severity !== "ok").slice(0, 3);
   const anomalies = anomData?.anomalies ?? [];
+  const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
+
+  function indicatorFeedback(ind: VeraIndicator, action: "dismissed" | "helpful") {
+    if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
+    sendVeraFeedback(ind.key, action, ind.text).catch(() => { /* fire-and-forget */ });
+  }
 
   function runsOut(p: { severity: string; estimatedRunsOut: string | null; hoursUntilMin: number | null }): string {
     if (p.severity === "out") return "out now";
@@ -186,11 +193,11 @@ export function VeraCard() {
         </View>
       )}
 
-      {/* What stands out — vs the learned normal */}
-      {data.indicators && data.indicators.length > 0 && (
-        <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 6 }}>
+      {/* What stands out — vs the learned normal (tap icons to teach Vera) */}
+      {data.indicators && data.indicators.some((ind) => !hiddenInd.has(ind.text)) && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 8 }}>
           <Text style={{ fontSize: 10, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>What stands out</Text>
-          {data.indicators.map((ind, i) => (
+          {data.indicators.filter((ind) => !hiddenInd.has(ind.text)).map((ind, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
               <Ionicons
                 name={ind.tone === "positive" ? "trending-up" : ind.tone === "concern" ? "warning-outline" : "information-circle-outline"}
@@ -199,6 +206,12 @@ export function VeraCard() {
                 style={{ marginTop: 1 }}
               />
               <Text style={{ flex: 1, fontSize: 12, color: C.mist, lineHeight: 17 }}>{ind.text}</Text>
+              <TouchableOpacity onPress={() => indicatorFeedback(ind, "helpful")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 2 }}>
+                <Ionicons name="thumbs-up-outline" size={13} color={C.smoke} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => indicatorFeedback(ind, "dismissed")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ paddingHorizontal: 2 }}>
+                <Ionicons name="close" size={14} color={C.smoke} />
+              </TouchableOpacity>
             </View>
           ))}
         </View>

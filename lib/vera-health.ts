@@ -52,7 +52,7 @@ export interface Projection {
   serviceElapsedPct: number;
   inService: boolean;
 }
-export interface Indicator { tone: "positive" | "concern" | "neutral"; text: string }
+export interface Indicator { tone: "positive" | "concern" | "neutral"; text: string; key: string }
 
 export interface Diagnosis {
   healthScore: number;
@@ -91,6 +91,7 @@ export interface HealthInput {
   avgCheckMean?: number | null;       // learned average-check mean
   avgCheckStdev?: number | null;
   dowLabel?: string;                  // e.g. "Friday"
+  feedback?: Record<string, { dismissed: number; helpful: number }>; // learned per-indicator
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -456,6 +457,10 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
 
 // The digestible "what stands out" — the few things a manager should actually
 // notice, framed against THIS restaurant's learned normal.
+// Indicators that should never be silenced by feedback — they're economic facts,
+// not opinions a manager can wave away.
+const PROTECTED_KEYS = new Set(["below_breakeven"]);
+
 function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preService: boolean): Indicator[] {
   const out: Indicator[] = [];
   const day = i.dowLabel ?? "day";
@@ -463,37 +468,52 @@ function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preSe
   // Pace vs the learned normal for this day-of-week.
   if (!preService && i.expectedRevenue && i.expectedRevenue > 0) {
     const pace = p.projectedRevenue / i.expectedRevenue;
-    if (pace >= 1.08) out.push({ tone: "positive", text: `Running ${pct((pace - 1) * 100)} ahead of a normal ${day} — on pace for ${money(p.projectedRevenue)}.` });
-    else if (pace <= 0.85) out.push({ tone: "concern", text: `Pacing ${pct(pace * 100)} of a normal ${day} (${money(p.projectedRevenue - i.expectedRevenue)} vs typical).` });
+    if (pace >= 1.08) out.push({ key: "pace_ahead", tone: "positive", text: `Running ${pct((pace - 1) * 100)} ahead of a normal ${day} — on pace for ${money(p.projectedRevenue)}.` });
+    else if (pace <= 0.85) out.push({ key: "pace_behind", tone: "concern", text: `Pacing ${pct(pace * 100)} of a normal ${day} (${money(p.projectedRevenue - i.expectedRevenue)} vs typical).` });
   }
 
   // Average check vs the learned distribution (z-score).
   if (i.avgCheckToday != null && i.avgCheckMean != null && i.avgCheckStdev && i.avgCheckStdev > 1e-6) {
     const z = (i.avgCheckToday - i.avgCheckMean) / i.avgCheckStdev;
     const diff = i.avgCheckToday - i.avgCheckMean;
-    if (z >= 1) out.push({ tone: "positive", text: `Avg check ${money(i.avgCheckToday)} — ${money(diff)} above your normal. Upsells are landing.` });
-    else if (z <= -1) out.push({ tone: "concern", text: `Avg check ${money(i.avgCheckToday)} — ${money(Math.abs(diff))} below your normal. Check attach/upsell.` });
+    if (z >= 1) out.push({ key: "avgcheck_high", tone: "positive", text: `Avg check ${money(i.avgCheckToday)} — ${money(diff)} above your normal. Upsells are landing.` });
+    else if (z <= -1) out.push({ key: "avgcheck_low", tone: "concern", text: `Avg check ${money(i.avgCheckToday)} — ${money(Math.abs(diff))} below your normal. Check attach/upsell.` });
   }
 
   // Profitability.
-  if (p.projectedNet < 0) out.push({ tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
-  else if (!preService && p.projectedMarginPct >= 12) out.push({ tone: "positive", text: `Healthy margin — projected ${pct(p.projectedMarginPct)} net (${money(p.projectedNet)}).` });
+  if (p.projectedNet < 0) out.push({ key: "below_breakeven", tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
+  else if (!preService && p.projectedMarginPct >= 12) out.push({ key: "margin_healthy", tone: "positive", text: `Healthy margin — projected ${pct(p.projectedMarginPct)} net (${money(p.projectedNet)}).` });
 
   // Pull in any HIGH issues the manager must see.
   for (const d of dims) {
     for (const iss of d.issues) {
-      if (iss.severity === "HIGH" && out.length < 6) out.push({ tone: "concern", text: iss.action ? `${iss.message} — ${iss.action}` : iss.message });
+      if (iss.severity === "HIGH" && out.length < 8) out.push({ key: `issue_${d.key}`, tone: "concern", text: iss.action ? `${iss.message} — ${iss.action}` : iss.message });
     }
   }
 
   // Make sure at least one positive shows when something's genuinely going well.
   if (!out.some((x) => x.tone === "positive")) {
-    const win = dims.find((d) => d.wins.length > 0)?.wins[0];
-    if (win) out.push({ tone: "positive", text: win });
+    const wd = dims.find((d) => d.wins.length > 0);
+    if (wd) out.push({ key: `win_${wd.key}`, tone: "positive", text: wd.wins[0] });
   }
 
+  // ── Learn from feedback ──────────────────────────────────────────────────────
+  // Drop indicator types the manager has repeatedly dismissed (unless protected),
+  // and float consistently-helpful ones to the top.
+  const fb = i.feedback ?? {};
+  const score = (k: string) => { const f = fb[k]; return f ? f.helpful - f.dismissed : 0; };
+  const suppressed = (k: string) => {
+    if (PROTECTED_KEYS.has(k)) return false;
+    const f = fb[k];
+    return !!f && f.dismissed >= 4 && f.dismissed >= f.helpful + 3;
+  };
+
   const seen = new Set<string>();
-  return out.filter((x) => (seen.has(x.text) ? false : (seen.add(x.text), true))).slice(0, 6);
+  return out
+    .filter((x) => !suppressed(x.key))
+    .filter((x) => (seen.has(x.text) ? false : (seen.add(x.text), true)))
+    .sort((a, b) => score(b.key) - score(a.key)) // helpful-rated first
+    .slice(0, 6);
 }
 
 function topIssue(dims: Dimension[]): string | null {

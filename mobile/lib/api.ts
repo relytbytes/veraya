@@ -426,7 +426,10 @@ export interface VeraProjection {
   serviceElapsedPct: number; inService: boolean;
 }
 
-export interface VeraIndicator { tone: "positive" | "concern" | "neutral"; text: string }
+export interface VeraIndicator { tone: "positive" | "concern" | "neutral"; text: string; key: string }
+
+export const sendVeraFeedback = (key: string, action: "dismissed" | "helpful", text?: string) =>
+  request("/api/vera/feedback", { method: "POST", body: JSON.stringify({ key, action, text }) });
 
 export interface VeraData {
   healthScore: number;

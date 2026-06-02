@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, type ReactNode } from "react"
 import Link from "next/link";
 import {
   RefreshCw, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle2, AlertCircle, Info, ChevronDown,
+  AlertTriangle, CheckCircle2, AlertCircle, Info, ChevronDown, X, ThumbsUp,
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,7 @@ interface Projection {
   serviceElapsedPct: number; inService: boolean;
 }
 
-interface Indicator { tone: "positive" | "concern" | "neutral"; text: string }
+interface Indicator { tone: "positive" | "concern" | "neutral"; text: string; key: string }
 
 interface VeraData {
   healthScore: number;
@@ -140,6 +140,17 @@ export function VeraPanel() {
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [expandedDim, setExpandedDim] = useState<string | null>(null);
+  const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
+
+  function indicatorFeedback(ind: Indicator, action: "dismissed" | "helpful") {
+    if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
+    else toast.success("Noted — Vera will keep surfacing these.");
+    fetch("/api/vera/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: ind.key, action, text: ind.text }),
+    }).catch(() => { /* fire-and-forget */ });
+  }
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -327,19 +338,27 @@ export function VeraPanel() {
         <PLCell label="Break-even" value={dol(data.projection.breakEvenRevenue)} sub={data.projection.breakEvenProgressPct != null ? `${pctTxt(data.projection.breakEvenProgressPct)} there` : "—"} />
       </div>
 
-      {/* What stands out — Vera's read vs your learned normal */}
-      {data.indicators && data.indicators.length > 0 && (
+      {/* What stands out — Vera's read vs your learned normal (with feedback) */}
+      {data.indicators && data.indicators.some((ind) => !hiddenInd.has(ind.text)) && (
         <div className="px-4 pt-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">What stands out</p>
-          <div className="space-y-1.5">
-            {data.indicators.map((ind, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs">
+          <div className="space-y-0.5">
+            {data.indicators.filter((ind) => !hiddenInd.has(ind.text)).map((ind, i) => (
+              <div key={i} className="group flex items-start gap-2 text-xs rounded-md px-1 py-1 -mx-1 hover:bg-gray-50">
                 {ind.tone === "positive"
                   ? <TrendingUp className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
                   : ind.tone === "concern"
                   ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
                   : <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-gray-400" />}
-                <span className="leading-snug text-gray-700">{ind.text}</span>
+                <span className="leading-snug text-gray-700 flex-1">{ind.text}</span>
+                <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button title="Helpful — keep showing these" onClick={() => indicatorFeedback(ind, "helpful")} className="text-gray-300 hover:text-emerald-500">
+                    <ThumbsUp className="h-3 w-3" />
+                  </button>
+                  <button title="Dismiss — show this kind less" onClick={() => indicatorFeedback(ind, "dismissed")} className="text-gray-300 hover:text-gray-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
