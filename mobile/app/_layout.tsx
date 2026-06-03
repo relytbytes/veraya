@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import NetInfo from "@react-native-community/netinfo";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuthStore } from "@/store/auth";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { C } from "@/lib/theme";
 import "../global.css";
 
@@ -35,6 +38,13 @@ focusManager.setEventListener((handleFocus) => {
   return () => sub.remove();
 });
 
+// Wire React Query's online tracking to real device connectivity, so queries
+// pause when offline and auto-refetch the moment the network returns instead of
+// failing and showing errors on spotty wifi.
+onlineManager.setEventListener((setOnline) =>
+  NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)),
+);
+
 function AuthGuard() {
   const { user, hydrated } = useAuthStore();
   const router = useRouter();
@@ -58,10 +68,13 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: C.void }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthGuard />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.void } }} />
-      </QueryClientProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthGuard />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.void } }} />
+          <OfflineBanner />
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
