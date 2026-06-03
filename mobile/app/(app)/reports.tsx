@@ -36,7 +36,11 @@ function fmt$(n: number) {
   const v = "$" + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   return n < 0 ? `(${v})` : v;
 }
-function fmtK(n: number) { return n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : fmt$(n); }
+function fmtK(n: number) {
+  if (Math.abs(n) < 1000) return fmt$(n);
+  const v = "$" + (Math.abs(n) / 1000).toFixed(1) + "k";
+  return n < 0 ? `(${v})` : v;
+}
 function fmtPct(n: number) { return n.toFixed(1) + "%"; }
 function hourLabel(h: number) { if (h === 0) return "12a"; if (h < 12) return `${h}a`; if (h === 12) return "12p"; return `${h - 12}p`; }
 

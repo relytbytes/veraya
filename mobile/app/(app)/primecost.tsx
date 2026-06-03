@@ -84,9 +84,12 @@ function fmtPct(n: number) {
 }
 
 function fmtDollars(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  // Accounting format: negatives in parentheses.
+  const a = Math.abs(n);
+  const v = a >= 1_000_000 ? `$${(a / 1_000_000).toFixed(1)}M`
+    : a >= 1_000 ? `$${(a / 1_000).toFixed(1)}K`
+    : `$${a.toFixed(0)}`;
+  return n < 0 ? `(${v})` : v;
 }
 
 function deltaBadge(curr: number, prev: number, lower_is_better = false) {
