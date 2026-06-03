@@ -59,11 +59,12 @@ export function VeraForecast() {
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-4 pb-3">
         <VeraAvatar src="/vera-forecast-notext.png" fit="contain" className="h-11 w-11 shrink-0" />
-        <div className="flex items-center gap-2">
+        <div className="min-w-0">
           <span className="text-sm font-bold text-gray-900 inline-flex items-center gap-1">
             Vera Forecast <VeraSpark className="h-3 w-3" />
+            <span className="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600">Looking ahead</span>
           </span>
-          <span className="text-[10px] uppercase tracking-wider text-gray-400">tonight</span>
+          <p className="text-[11px] text-gray-400 leading-tight">What to expect tonight &amp; how to prep for it</p>
         </div>
         <span className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${CONF[data.confidence]}`}>
           {data.confidence} confidence
@@ -74,7 +75,7 @@ export function VeraForecast() {
       <div className="grid grid-cols-2 gap-px bg-gray-100 mx-5 rounded-xl overflow-hidden border border-gray-100">
         <div className="bg-white px-4 py-3">
           <div className="flex items-center gap-1.5 text-xs text-gray-500"><TrendingUp className="h-3.5 w-3.5" /> Projected sales</div>
-          <div className="mt-1 text-xl font-bold text-amber-600">${data.projectedSales.toLocaleString("en-US")}</div>
+          <div className="mt-1 text-xl font-bold text-indigo-600">${data.projectedSales.toLocaleString("en-US")}</div>
         </div>
         <div className="bg-white px-4 py-3">
           <div className="flex items-center gap-1.5 text-xs text-gray-500"><Users className="h-3.5 w-3.5" /> Projected covers</div>

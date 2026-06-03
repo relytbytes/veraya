@@ -319,7 +319,8 @@ export function VeraPanel() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <VeraWordmark className="text-base font-bold tracking-tight text-gray-900" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-teal-600">always working</span>
+            <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-teal-600">Right now</span>
+            <span className="hidden sm:inline text-[11px] text-gray-400">live read on today&apos;s shift</span>
             {lastUpdated && (
               <span className="ml-auto text-[10px] text-gray-400">
                 updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
