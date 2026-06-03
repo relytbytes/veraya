@@ -6,7 +6,7 @@ import {
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getInventory, getStorageAreas, barcodeSearch, patchInventoryItem } from "@/lib/api";
+import { getInventory, getStorageAreas, barcodeSearch, patchInventoryItem, adjustInventory, patchIngredient, getSuppliers } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { InventoryItem } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
@@ -31,6 +31,11 @@ export default function InventoryScreen() {
   const [editPar, setEditPar] = useState("");
   const [editMax, setEditMax] = useState("");
   const [saving, setSaving] = useState(false);
+  const [adjType, setAdjType] = useState<"RECEIVED" | "WASTED" | "RETURNED" | "ADJUSTED">("RECEIVED");
+  const [adjQty, setAdjQty] = useState("");
+  const [adjNote, setAdjNote] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: getSuppliers });
 
   const { data: inventory = [], isLoading, refetch } = useQuery({
     queryKey: ["inventory"],
@@ -94,6 +99,35 @@ export default function InventoryScreen() {
     setEditItem(item);
     setEditPar(String(Number(item.minThreshold)));
     setEditMax(item.maxThreshold != null ? String(Number(item.maxThreshold)) : "");
+    setAdjType("RECEIVED"); setAdjQty(""); setAdjNote("");
+  }
+
+  async function applyAdjust() {
+    if (!editItem) return;
+    const qty = parseFloat(adjQty);
+    if (isNaN(qty) || qty === 0) { Alert.alert("Invalid", "Enter a non-zero quantity."); return; }
+    setAdjusting(true);
+    try {
+      const res = await adjustInventory({ ingredientId: editItem.ingredient.id, quantity: qty, type: adjType, notes: adjNote.trim() || undefined });
+      await qc.invalidateQueries({ queryKey: ["inventory"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditItem((prev) => prev ? { ...prev, quantity: Number(res.updatedItem.quantity) } : prev);
+      setAdjQty(""); setAdjNote("");
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to adjust");
+    } finally { setAdjusting(false); }
+  }
+
+  async function setSupplier(supplierId: string | null) {
+    if (!editItem) return;
+    try {
+      await patchIngredient(editItem.ingredient.id, { supplierId });
+      const sup = supplierId ? suppliers.find((s) => s.id === supplierId) ?? null : null;
+      setEditItem((prev) => prev ? { ...prev, ingredient: { ...prev.ingredient, supplierId, supplier: sup } } : prev);
+      await qc.invalidateQueries({ queryKey: ["inventory"] });
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to set supplier");
+    }
   }
 
   async function savePar() {
@@ -264,6 +298,50 @@ export default function InventoryScreen() {
                   >
                     <Ionicons name="close" size={16} color={C.mist} />
                   </TouchableOpacity>
+                </View>
+
+                {/* Stock adjustment */}
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Adjust Stock</Text>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    {([["RECEIVED", "Received"], ["WASTED", "Wasted"], ["RETURNED", "Returned"], ["ADJUSTED", "Correct"]] as const).map(([t, lbl]) => {
+                      const sel = adjType === t;
+                      const col = t === "WASTED" ? C.coral : t === "ADJUSTED" ? C.sky : C.jade;
+                      return (
+                        <TouchableOpacity key={t} onPress={() => setAdjType(t)} style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center", backgroundColor: sel ? `${col}1A` : C.surfaceHi, borderWidth: 1, borderColor: sel ? col : C.rim }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: sel ? col : C.mist }}>{lbl}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12 }}>
+                      <TextInput value={adjQty} onChangeText={setAdjQty} placeholder={adjType === "ADJUSTED" ? "± qty" : "qty"} placeholderTextColor={C.smoke} keyboardType="numbers-and-punctuation" style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: C.pearl }} />
+                      <Text style={{ fontSize: 12, color: C.mist }}>{editItem.ingredient.unit}</Text>
+                    </View>
+                    <TouchableOpacity onPress={applyAdjust} disabled={adjusting} style={{ paddingHorizontal: 18, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: C.gold, opacity: adjusting ? 0.6 : 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: C.void }}>{adjusting ? "…" : "Apply"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput value={adjNote} onChangeText={setAdjNote} placeholder="Note (optional)" placeholderTextColor={C.smoke} style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, color: C.pearl }} />
+                </View>
+
+                {/* Supplier */}
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Supplier</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    <TouchableOpacity onPress={() => setSupplier(null)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: !editItem.ingredient.supplierId ? `${C.gold}1A` : C.surfaceHi, borderWidth: 1, borderColor: !editItem.ingredient.supplierId ? C.gold : C.rim }}>
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: !editItem.ingredient.supplierId ? C.gold : C.mist }}>None</Text>
+                    </TouchableOpacity>
+                    {suppliers.map((s) => {
+                      const sel = editItem.ingredient.supplierId === s.id;
+                      return (
+                        <TouchableOpacity key={s.id} onPress={() => setSupplier(s.id)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: sel ? `${C.gold}1A` : C.surfaceHi, borderWidth: 1, borderColor: sel ? C.gold : C.rim }}>
+                          <Text style={{ fontSize: 12, fontWeight: "600", color: sel ? C.gold : C.mist }}>{s.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
 
                 <View className="flex-row gap-3">

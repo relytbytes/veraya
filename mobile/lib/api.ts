@@ -146,6 +146,11 @@ export const deletePurchaseOrder = (id: string) =>
 
 // Suppliers & Ingredients
 export const getSuppliers = () => request<Supplier[]>("/api/suppliers");
+// Stock movement: RECEIVED/RETURNED add, WASTED/USED subtract, ADJUSTED signed.
+export const adjustInventory = (body: { ingredientId: string; quantity: number; type: "RECEIVED" | "WASTED" | "RETURNED" | "ADJUSTED" | "USED"; notes?: string }) =>
+  request<{ updatedItem: InventoryItem }>("/api/inventory", { method: "POST", body: JSON.stringify(body) });
+export const patchIngredient = (id: string, body: { supplierId?: string | null; costPerUnit?: number; name?: string; unit?: string }) =>
+  request<{ ok: boolean }>(`/api/ingredients/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const getIngredients = () => request<IngredientFull[]>("/api/ingredients");
 export const createIngredient = (body: {
   name: string; unit: string; costPerUnit: number;
@@ -352,7 +357,7 @@ export interface VisionResult {
 export interface InventoryItem {
   id: string; quantity: number; minThreshold: number; maxThreshold: number | null;
   storageArea: string | null; shelfOrder: number | null;
-  ingredient: { id: string; name: string; unit: string };
+  ingredient: { id: string; name: string; unit: string; costPerUnit?: string; supplierId?: string | null; supplier?: { id: string; name: string } | null };
 }
 
 export interface StorageArea {
