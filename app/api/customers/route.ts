@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
+  const digits = q.replace(/\D/g, "");
 
   const customers = await prisma.customer.findMany({
     where: q
@@ -15,6 +16,8 @@ export async function GET(req: NextRequest) {
             { name: { contains: q } },
             { phone: { contains: q } },
             { email: { contains: q } },
+            // Match phones on digits only so "602-569" finds "6025696208".
+            ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
           ],
         }
       : undefined,

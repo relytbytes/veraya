@@ -17,6 +17,12 @@ export async function GET(req: NextRequest) {
 
   // Search mode: find reservations by guest name / phone / email across dates.
   if (q) {
+    // Phone numbers are stored unformatted, so "602-569" must match on digits
+    // only — otherwise punctuation makes phone search silently return nothing.
+    const digits = q.replace(/\D/g, "");
+    const phoneOr = digits.length >= 3
+      ? [{ phone: { contains: digits } }, { customer: { is: { phone: { contains: digits } } } }]
+      : [];
     const reservations = await prisma.reservation.findMany({
       where: {
         OR: [
@@ -24,6 +30,7 @@ export async function GET(req: NextRequest) {
           { phone: { contains: q } },
           { email: { contains: q } },
           { customer: { is: { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }] } } },
+          ...phoneOr,
         ],
       },
       orderBy: [{ date: "desc" }, { time: "desc" }],

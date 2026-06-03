@@ -204,6 +204,10 @@ function NewReservationDialog({
       setError("Name, date, time, and party size are required.");
       return;
     }
+    if (!form.phone.trim() || form.phone.replace(/\D/g, "").length < 7) {
+      setError("A phone number is required — it's how we confirm, remind, and recognize the guest.");
+      return;
+    }
     setSaving(true);
     const res = await fetch("/api/reservations", {
       method: "POST",
@@ -311,12 +315,13 @@ function NewReservationDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-phone">Phone</Label>
+              <Label htmlFor="res-phone">Phone *</Label>
               <Input
                 id="res-phone"
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="555-0100"
+                inputMode="tel"
               />
             </div>
             <div className="space-y-1.5">
