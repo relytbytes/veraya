@@ -35,8 +35,10 @@ type SeatMode =
 const LEGEND: { label: string; state: Parameters<typeof stateStyle>[0] }[] = [
   { label: "Open", state: "OPEN" },
   { label: "Reserved", state: "UPCOMING" },
-  { label: "Seated / Apps", state: "SEATED" },
-  { label: "Entrees / Dessert", state: "DINING" },
+  { label: "Seated", state: "SEATED" },
+  { label: "Apps", state: "APPS" },
+  { label: "Entrees", state: "ENTREES" },
+  { label: "Dessert", state: "DESSERT" },
   { label: "Check", state: "CHECK" },
   { label: "Bussing", state: "BUSSING" },
 ];

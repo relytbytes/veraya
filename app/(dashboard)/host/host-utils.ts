@@ -320,7 +320,7 @@ export function nextReservationForTable(tableId: string, reservations: Reservati
 
 // ── Table state derivation (the floor color/parity core) ────────────────────
 
-export type TableState = "OPEN" | "UPCOMING" | "SEATED" | "DINING" | "CHECK" | "BUSSING" | "BLOCKED";
+export type TableState = "OPEN" | "UPCOMING" | "SEATED" | "APPS" | "ENTREES" | "DESSERT" | "DINING" | "CHECK" | "BUSSING" | "BLOCKED";
 
 export interface TableVisual {
   state: TableState;
@@ -351,6 +351,9 @@ const STATE_STYLE: Record<TableState, { cls: string; style: { background: string
   OPEN:     { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.rimDark, color: BRAND.textDim }, label: "Open" },
   UPCOMING: { cls: "", style: { background: BRAND.surfaceDark2, borderColor: BRAND.gold,    color: "#E9EDF2"     }, label: "Reserved" },
   SEATED:   { cls: "", style: { background: BRAND.jade,      borderColor: BRAND.jade,       color: "#FFFFFF"   }, label: "Seated" },
+  APPS:     { cls: "", style: { background: "#2BB39B",       borderColor: "#2BB39B",        color: "#0C1A1E"   }, label: "Apps" },
+  ENTREES:  { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0C1A1E"   }, label: "Entrees" },
+  DESSERT:  { cls: "", style: { background: "#7C5CBF",       borderColor: "#7C5CBF",        color: "#FFFFFF"   }, label: "Dessert" },
   DINING:   { cls: "", style: { background: BRAND.ember,     borderColor: BRAND.ember,      color: "#0C1A1E"   }, label: "Dining" },
   CHECK:    { cls: "", style: { background: BRAND.sky,       borderColor: BRAND.sky,        color: "#FFFFFF"   }, label: "Check" },
   BUSSING:  { cls: "", style: { background: BRAND.coral,     borderColor: BRAND.coral,      color: "#FFFFFF"   }, label: "Bussing" },
@@ -370,8 +373,12 @@ export function deriveTableState(table: TableRow): TableVisual {
   let stageLabel: string | undefined;
   if (table.status === "OCCUPIED") {
     const stage = table.serviceStage ?? "SEATED";
-    if (stage === "SEATED" || stage === "APPS") state = "SEATED";
-    else if (stage === "ENTREES" || stage === "DESSERT") state = "DINING";
+    // Each course gets its own color so the floor shows exactly where every
+    // table is in the meal (seated → apps → entrees → dessert → check).
+    if (stage === "SEATED") state = "SEATED";
+    else if (stage === "APPS") state = "APPS";
+    else if (stage === "ENTREES") state = "ENTREES";
+    else if (stage === "DESSERT") state = "DESSERT";
     else if (stage === "CHECK_DROPPED" || stage === "CHECK_PAID") state = "CHECK";
     else state = "BUSSING";
     stageLabel = STAGE_SHORT[stage];

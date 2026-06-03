@@ -69,16 +69,16 @@ interface CompletedOrder {
 }
 
 // Floor-plan table visuals. These mirror the host stand's table-state colors
-// (see host-utils deriveTableState) so a table reads the same everywhere:
-// jade=seated/apps, gold=entrees/dessert, blue=check, red=bussing/dirty,
-// teal=reserved, neutral=open. Dynamic brand hues are applied via inline style
-// (Tailwind's JIT can't see interpolated arbitrary classes), matching the host.
+// (see host-utils deriveTableState) so a table reads the same everywhere — each
+// course has its own hue: jade=seated, teal=apps, gold=entrees, violet=dessert,
+// blue=check, red=bussing/dirty, teal=reserved, neutral=open. Dynamic brand hues
+// are applied via inline style (Tailwind JIT can't see interpolated classes).
 function floorVisual(status: string, serviceStage: string | null): { hue: string; label: string; open: boolean } {
   if (status === "OCCUPIED") {
     const s = serviceStage ?? "SEATED";
-    if (s === "APPS")          return { hue: "#1E7A45", label: "Apps",    open: false };
+    if (s === "APPS")          return { hue: "#2BB39B", label: "Apps",    open: false };
     if (s === "ENTREES")       return { hue: "#E0A82E", label: "Entrees", open: false };
-    if (s === "DESSERT")       return { hue: "#E0A82E", label: "Dessert", open: false };
+    if (s === "DESSERT")       return { hue: "#7C5CBF", label: "Dessert", open: false };
     if (s === "CHECK_DROPPED") return { hue: "#2E6EB0", label: "Check",   open: false };
     if (s === "CHECK_PAID")    return { hue: "#2E6EB0", label: "Paid",    open: false };
     if (s === "BUSSING")       return { hue: "#D44030", label: "Bussing", open: false };
