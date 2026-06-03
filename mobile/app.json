@@ -43,6 +43,9 @@
       "expo-speech-recognition"
     ],
     "scheme": "restaurantops",
+    "extra": {
+      "apiUrl": "https://veraya.vercel.app"
+    },
     "experiments": {
       "typedRoutes": true
     }
