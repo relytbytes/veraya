@@ -81,7 +81,10 @@ export default function StationScreen() {
   }
 
   const goSwitch = () => router.replace("/(app)/station");
-  const goExit = () => router.replace("/(app)");
+  // navigate() (not replace) — replacing to the "(app)" group from inside its own
+  // tabs navigator doesn't resolve to a leaf, so the screen never changes. Every
+  // other "home" button in the app uses navigate("/(app)"), which works.
+  const goExit = () => router.navigate("/(app)");
 
   // ── Active station ───────────────────────────────────────────────────────────
   if (mode === "kds" || mode === "bds") {
