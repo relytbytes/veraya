@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import type { TrainingAssignment, TrainingTemplate } from "@/lib/api";
 import { C, shadow, roleColor, roleBg } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function initials(name: string) {
@@ -431,7 +432,7 @@ export default function TrainingScreen() {
   const [selected, setSelected] = useState<TrainingAssignment | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
 
-  const { data: assignments = [], isLoading, refetch } = useQuery({
+  const { data: assignments = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["trainingAssignments"],
     queryFn: getTrainingAssignments,
   });
@@ -505,7 +506,10 @@ export default function TrainingScreen() {
           </View>
         )}
 
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && isError && assignments.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load training" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+        {!isLoading && !isError && filtered.length === 0 && (
           <View style={{ alignItems: "center", paddingVertical: 60, gap: 12 }}>
             <View style={{ height: 72, width: 72, borderRadius: 24, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="school-outline" size={32} color={C.smoke} />

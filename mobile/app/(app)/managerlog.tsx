@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getManagerLog, createManagerLogEntry } from "@/lib/api";
 import type { ManagerLogEntry } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export default function ManagerLogScreen() {
   const [filter, setFilter] = useState<"" | LogType>("");
   const [addOpen, setAddOpen] = useState(false);
 
-  const { data: entries = [], isLoading, refetch } = useQuery({
+  const { data: entries = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["managerLog", filter],
     queryFn: () => getManagerLog(filter || undefined),
   });
@@ -451,7 +452,10 @@ export default function ManagerLogScreen() {
             <ActivityIndicator color={C.gold} />
           </View>
         )}
-        {!isLoading && entries.length === 0 && (
+        {!isLoading && isError && entries.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load the log" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+        {!isLoading && !isError && entries.length === 0 && (
           <View style={{ alignItems: "center", paddingVertical: 64, gap: 12 }}>
             <View style={{ height: 72, width: 72, borderRadius: 24, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="document-text-outline" size={32} color={C.smoke} />

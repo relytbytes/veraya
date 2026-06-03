@@ -34,6 +34,7 @@ import {
   type DuplicateGroup,
 } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -798,7 +799,7 @@ export default function CustomersScreen() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
 
-  const { data: customers = [], isLoading, isFetching, refetch } = useQuery({
+  const { data: customers = [], isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["customers", debouncedQ],
     queryFn: () => searchCustomers(debouncedQ),
   });
@@ -909,6 +910,8 @@ export default function CustomersScreen() {
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator size="large" color={C.gold} />
         </View>
+      ) : isError && customers.length === 0 ? (
+        <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load customers" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
       ) : displayList.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32 }}>
           <View style={{ height: 64, width: 64, backgroundColor: C.surfaceHi, borderRadius: 20, alignItems: "center", justifyContent: "center" }}>

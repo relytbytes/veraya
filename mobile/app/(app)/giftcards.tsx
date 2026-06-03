@@ -8,6 +8,7 @@ import { getGiftCards, createGiftCard, lookupGiftCard, giftCardAction } from "@/
 import type { GiftCard } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 function formatCode(code: string) { return code.replace(/(.{4})/g, "$1-").slice(0, -1); }
@@ -42,7 +43,7 @@ export default function GiftCardsScreen() {
   const [actionType, setActionType] = useState<"LOAD" | "REDEEM">("LOAD");
   const [actioning, setActioning] = useState(false);
 
-  const { data: cards = [], isLoading, refetch } = useQuery({
+  const { data: cards = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["giftCards"],
     queryFn: getGiftCards,
     refetchInterval: 120_000,
@@ -398,7 +399,10 @@ export default function GiftCardsScreen() {
       >
         {isLoading && <View style={{ alignItems: "center", paddingVertical: 48 }}><ActivityIndicator color={C.gold} /></View>}
 
-        {!isLoading && cards.length === 0 && (
+        {!isLoading && isError && cards.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load gift cards" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+        {!isLoading && !isError && cards.length === 0 && (
           <View style={{ alignItems: "center", paddingVertical: 56, gap: 16 }}>
             <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: C.surface, borderWidth: 1, borderColor: C.rim, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="card-outline" size={28} color={C.smoke} />

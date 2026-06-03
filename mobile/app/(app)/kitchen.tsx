@@ -9,6 +9,7 @@ import { fireRounds } from "@/lib/fire-rounds";
 import type { Order } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 
 function elapsed(dateStr: string) {
   const secs = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -34,7 +35,7 @@ export default function KitchenScreen() {
   const cols = width >= 1100 ? 3 : width >= 700 ? 2 : 1;
   const cellW = (width - GUTTER * (cols + 1)) / cols;
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: orders = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["kitchen"],
     queryFn: () => getKitchenOrders(),
     refetchInterval: 120_000, // fallback; live updates arrive via SSE (RealtimeProvider)
@@ -71,6 +72,8 @@ export default function KitchenScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={C.gold} size="large" />
         </View>
+      ) : isError && orders.length === 0 ? (
+        <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load tickets" subtitle="The kitchen feed is unreachable. Retry." actionLabel="Retry" onAction={() => refetch()} />
       ) : orders.length === 0 ? (
         <Animated.ScrollView
           contentContainerClassName="flex-1 items-center justify-center gap-3"

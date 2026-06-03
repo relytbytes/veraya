@@ -13,6 +13,7 @@ import {
   type BeverageProfile,
 } from "@/lib/api";
 import { C, T } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { PhotoCapture } from "@/components/PhotoCapture";
 
@@ -180,7 +181,7 @@ export default function BeveragesScreen() {
   const [sheet, setSheet] = useState<{ edit: BeverageProfile | null } | null>(null);
   const [assigning, setAssigning] = useState(false);
 
-  const { data: profiles = [], isLoading, refetch } = useQuery({ queryKey: ["beverageProfiles"], queryFn: getBeverageProfiles });
+  const { data: profiles = [], isLoading, isError, refetch } = useQuery({ queryKey: ["beverageProfiles"], queryFn: getBeverageProfiles });
 
   function confirmDelete(p: BeverageProfile) {
     Alert.alert("Delete beverage", `Remove "${p.ingredient.name}" from the beverage program?`, [
@@ -219,6 +220,8 @@ export default function BeveragesScreen() {
 
         {isLoading ? (
           <View style={{ alignItems: "center", paddingVertical: 48 }}><ActivityIndicator color={C.gold} /></View>
+        ) : isError && profiles.length === 0 ? (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load beverages" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
         ) : profiles.length === 0 ? (
           <View style={{ alignItems: "center", paddingVertical: 48, gap: 8 }}>
             <Ionicons name="wine-outline" size={34} color={C.smoke} />

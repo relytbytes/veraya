@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getEightySix, addEightySix, removeEightySix, getMenuItems } from "@/lib/api";
 import type { EightySixItem } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 export default function EightySixScreen() {
@@ -20,7 +21,7 @@ export default function EightySixScreen() {
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const [addOpen, setAddOpen] = useState(false);
 
-  const { data: items = [], isLoading, refetch } = useQuery({
+  const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["eightysix"],
     queryFn: getEightySix,
     refetchInterval: 120_000,
@@ -89,7 +90,10 @@ export default function EightySixScreen() {
           </View>
         )}
 
-        {!isLoading && items.length === 0 && (
+        {!isLoading && isError && items.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load the 86 list" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+        {!isLoading && !isError && items.length === 0 && (
           <View style={{ alignItems: "center", paddingVertical: 64, gap: 14 }}>
             <View style={{ height: 72, width: 72, borderRadius: 24, backgroundColor: C.jade + "18", borderWidth: 1, borderColor: C.jade + "44", alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="checkmark-circle-outline" size={36} color={C.jade} />

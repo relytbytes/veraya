@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import type { Shift, StaffMember, SchedulingAnalysis } from "@/lib/api";
 import { C, T, shadow, roleColor, roleBg } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ export default function ScheduleScreen() {
   const fromStr = toDateStr(weekStart);
   const toStr = toDateStr(weekEnd);
 
-  const { data: shifts = [], isLoading, refetch } = useQuery({
+  const { data: shifts = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["schedule", fromStr],
     queryFn: () => getSchedule(fromStr, toStr),
   });
@@ -394,7 +395,9 @@ export default function ScheduleScreen() {
           </View>
 
           {/* Staff rows */}
-          {activeStaff.length === 0 ? (
+          {isError && shifts.length === 0 ? (
+            <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load the schedule" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+          ) : activeStaff.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 56, gap: 12 }}>
               <Ionicons name="people-outline" size={40} color={C.smoke} />
               <Text style={{ color: C.mist, fontSize: 14 }}>No active staff found</Text>
