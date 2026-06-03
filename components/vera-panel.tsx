@@ -146,6 +146,7 @@ export function VeraPanel() {
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [expandedDims, setExpandedDims] = useState<Set<string>>(new Set());
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showTuning, setShowTuning] = useState(false);
   const toggleDim = (key: string) => setExpandedDims((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -492,15 +493,47 @@ export function VeraPanel() {
       )}
 
 
+      {/* What drives your profit — expanded learned-weights detail */}
+      {showTuning && data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 && (
+        <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">What drives your profit</p>
+          <div className="space-y-1.5">
+            {[...data.learning.topDrivers].sort((a, b) => b.weight - a.weight).map((t) => (
+              <div key={t.key} className="flex items-center gap-2">
+                <span className="w-24 shrink-0 text-[11px] text-gray-600 truncate">{t.label}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+                  <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.round(t.weight * 100)}%` }} />
+                </div>
+                <span className="w-8 shrink-0 text-right text-[11px] font-semibold tabular-nums text-gray-700">{Math.round(t.weight * 100)}%</span>
+                <span className="w-14 shrink-0 text-right text-[10px] text-gray-400 tabular-nums">
+                  {t.corr != null ? `r ${t.corr >= 0 ? "+" : ""}${t.corr.toFixed(2)}` : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2 leading-snug">
+            Weight = how much Vera leans on each dimension when scoring your day, learned from {data.learning.daysObserved} days. <span className="font-medium">r</span> = how tightly it tracked your actual margin.
+          </p>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
-        <p className="text-[10px] text-gray-400">
-          {data.learning
-            ? data.learning.learning
+        {data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 ? (
+          <button
+            onClick={() => setShowTuning((v) => !v)}
+            className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            Tuned to your data · {data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit most
+            <ChevronDown className={cn("h-3 w-3 transition-transform", showTuning && "rotate-180")} />
+          </button>
+        ) : (
+          <p className="text-[10px] text-gray-400">
+            {data.learning
               ? `Vera is learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
-              : `Tuned to your data · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit most`
-            : "Vera · always watching your restaurant's live data"}
-        </p>
+              : "Vera · always watching your restaurant's live data"}
+          </p>
+        )}
         <button
           onClick={() => load(true)}
           disabled={refreshing}
@@ -558,6 +591,14 @@ function DimensionCard({ d, expanded, onToggle }: { d: Dimension; expanded: bool
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-900">{d.label}</span>
             {d.issues.some(x => x.severity === "HIGH") && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+            {d.confidence < 0.5 && (
+              <span
+                title="Vera doesn't have enough of the day yet — this score will firm up as the shift fills in."
+                className="text-[9px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1 py-px"
+              >
+                early read
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-gray-500 truncate">{d.summary}</p>
         </div>

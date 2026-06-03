@@ -80,6 +80,7 @@ export function VeraCard() {
   const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
   const [openDim, setOpenDim] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showTuning, setShowTuning] = useState(false);
 
   function indicatorFeedback(ind: VeraIndicator, action: "dismissed" | "helpful") {
     if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
@@ -290,6 +291,11 @@ export function VeraCard() {
                   <Text style={{ fontSize: 10, color: C.mist, marginTop: 3 }} numberOfLines={2}>
                     {topIssue ? (topIssue.action ?? topIssue.message) : (d.wins[0] ?? d.summary)}
                   </Text>
+                  {d.confidence < 0.5 && (
+                    <Text style={{ fontSize: 8.5, color: C.smoke, fontWeight: "700", marginTop: 3, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      Early read · firms up as the shift fills in
+                    </Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -400,19 +406,48 @@ export function VeraCard() {
         )}
       </View>
 
+      {/* What drives your profit — learned-weights detail */}
+      {showTuning && data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 && (
+        <View style={{ borderTopWidth: 1, borderColor: C.rim, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: C.surfaceHi }}>
+          <Text style={{ fontSize: 10, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>What drives your profit</Text>
+          {[...data.learning.topDrivers].sort((a, b) => b.weight - a.weight).map((t) => (
+            <View key={t.key} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <Text style={{ width: 78, fontSize: 11, color: C.mist }} numberOfLines={1}>{t.label}</Text>
+              <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: C.rim, overflow: "hidden" }}>
+                <View style={{ height: "100%", borderRadius: 3, backgroundColor: C.gold, width: `${Math.round(t.weight * 100)}%` }} />
+              </View>
+              <Text style={{ width: 30, textAlign: "right", fontSize: 11, fontWeight: "700", color: C.pearl }}>{Math.round(t.weight * 100)}%</Text>
+              <Text style={{ width: 44, textAlign: "right", fontSize: 10, color: C.smoke }}>
+                {t.corr != null ? `r ${t.corr >= 0 ? "+" : ""}${t.corr.toFixed(2)}` : "—"}
+              </Text>
+            </View>
+          ))}
+          <Text style={{ fontSize: 10, color: C.smoke, marginTop: 4, lineHeight: 14 }}>
+            Weight = how much Vera leans on each dimension, learned from {data.learning.daysObserved} days. r = how tightly it tracked your margin.
+          </Text>
+        </View>
+      )}
+
       {/* Footer */}
       <View style={{
         borderTopWidth: 1, borderColor: C.rim,
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         paddingHorizontal: 18, paddingVertical: 10,
       }}>
-        <Text style={{ fontSize: 10, color: C.smoke, flex: 1 }} numberOfLines={1}>
-          {data.learning
-            ? data.learning.learning
+        {data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 ? (
+          <TouchableOpacity onPress={() => setShowTuning((v) => !v)} style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Text style={{ fontSize: 10, color: C.smoke, flex: 1 }} numberOfLines={1}>
+              Tuned to your data · {data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit
+            </Text>
+            <Ionicons name={showTuning ? "chevron-up" : "chevron-down"} size={11} color={C.smoke} />
+          </TouchableOpacity>
+        ) : (
+          <Text style={{ fontSize: 10, color: C.smoke, flex: 1 }} numberOfLines={1}>
+            {data.learning
               ? `Vera is learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
-              : `Tuned to your data · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit most`
-            : "Vera · always watching your restaurant's live data"}
-        </Text>
+              : "Vera · always watching your restaurant's live data"}
+          </Text>
+        )}
         <TouchableOpacity
           onPress={() => refetch()}
           disabled={isRefetching}
