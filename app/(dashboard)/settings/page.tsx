@@ -156,10 +156,15 @@ export default function SettingsPage() {
 
   async function saveSettings() {
     setSettingsSaving(true);
+    // Strip the JSON blobs that have their own dedicated savers — otherwise this
+    // would re-write a stale copy carried in settings state and clobber them.
+    const { managerBonus: _mb, reservationCardPolicy: _cp, ...economics } =
+      settings as typeof settings & { managerBonus?: string; reservationCardPolicy?: string };
+    void _mb; void _cp;
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(economics),
     });
     setSettingsSaving(false);
     setSettingsSaved(true);

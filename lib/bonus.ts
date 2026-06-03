@@ -161,7 +161,9 @@ export function computeBonus(input: {
   }
 
   const adjusted = rawBonus * modifier;
-  const cap = config.capPctOfSalary > 0
+  // Cap is a % of management salary. If no salary is known (0), don't let the cap
+  // silently zero the bonus — treat it as uncapped instead.
+  const cap = config.capPctOfSalary > 0 && monthlySalaryTotal > 0
     ? monthlySalaryTotal * (config.capPctOfSalary / 100) * periodFrac
     : Infinity;
   const bonus = Math.min(adjusted, cap);
