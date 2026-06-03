@@ -182,10 +182,10 @@ export default function SettingsScreen() {
         >
           <SectionHeader label="Restaurant Info" />
           <CardWrap>
-            <TextRow label="Name"      value={get("restaurant.name")}    onChange={(v) => set("restaurant.name", v)}    placeholder="The Gilded Fork" />
+            <TextRow label="Name"      value={get("restaurantName")}    onChange={(v) => set("restaurantName", v)}    placeholder="The Gilded Fork" />
             <TextRow label="Address"   value={get("restaurant.address")} onChange={(v) => set("restaurant.address", v)} placeholder="123 Main St" />
             <TextRow label="Phone"     value={get("restaurant.phone")}   onChange={(v) => set("restaurant.phone", v)}   placeholder="+1 555-000-0000" keyboardType="phone-pad" />
-            <TextRow label="Tax Rate %" value={get("pos.taxRate")}       onChange={(v) => set("pos.taxRate", v)}         placeholder="8.5" keyboardType="decimal-pad" last />
+            <TextRow label="Tax Rate %" value={get("taxRate")}       onChange={(v) => set("taxRate", v)}         placeholder="8.5" keyboardType="decimal-pad" last />
           </CardWrap>
 
           <SectionHeader label="POS Defaults" />
@@ -205,7 +205,7 @@ export default function SettingsScreen() {
               />
             </RowBase>
             <TextRow label="Gratuity %"    value={get("pos.gratuityPct")}    onChange={(v) => set("pos.gratuityPct", v)}    placeholder="18" keyboardType="decimal-pad" />
-            <TextRow label="Receipt Footer" value={get("pos.receiptFooter")} onChange={(v) => set("pos.receiptFooter", v)} placeholder="Thank you for dining with us!" last />
+            <TextRow label="Receipt Footer" value={get("receiptFooter")} onChange={(v) => set("receiptFooter", v)} placeholder="Thank you for dining with us!" last />
           </CardWrap>
 
           <SectionHeader label="Reservations" />
