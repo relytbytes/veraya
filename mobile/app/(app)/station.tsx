@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { C, T, shadow } from "@/lib/theme";
 import KitchenScreen from "./kitchen";
 import BarScreen from "./bar";
+import { StationHost } from "@/components/StationHost";
 
 export const STATION_KEY = "station_default";
 export type StationMode = "host" | "kds" | "bds";
@@ -81,19 +82,11 @@ export default function StationScreen() {
     );
   }
   if (mode === "host") {
-    // Dedicated standalone Host Stand lands next; route to the live floor for now.
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.void, alignItems: "center", justifyContent: "center", padding: 32, gap: 14 }}>
-        <Ionicons name="grid-outline" size={44} color={C.gold} />
-        <Text style={{ fontSize: 18, fontWeight: "800", color: C.pearl }}>Host Stand</Text>
-        <Text style={{ fontSize: 13, color: C.mist, textAlign: "center", lineHeight: 19 }}>
-          The dedicated full-screen host stand is being wired up. For now, open the live floor to seat guests and manage the waitlist.
-        </Text>
-        <TouchableOpacity onPress={() => router.replace("/(app)/pos")} style={{ marginTop: 4, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 14, backgroundColor: C.gold }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: C.void }}>Open the floor</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={goSwitch}><Text style={{ fontSize: 13, color: C.smoke, marginTop: 8 }}>Pick another station</Text></TouchableOpacity>
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: C.void }}>
+        <StationHost onExit={goExit} />
+        <StationControl label="Host" onSwitch={goSwitch} onExit={goExit} />
+      </View>
     );
   }
 
