@@ -45,7 +45,7 @@ export default function GiftCardsScreen() {
   const { data: cards = [], isLoading, refetch } = useQuery({
     queryKey: ["giftCards"],
     queryFn: getGiftCards,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 
   const visibleCards = cards.filter((c) =>

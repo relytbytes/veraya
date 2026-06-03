@@ -34,6 +34,21 @@ export function RealtimeProvider() {
     }, DEBOUNCE_MS);
   }, [qc]);
 
-  useRealtime(!!user, onChange);
+  // On (re)connect, refresh every scope's caches once — this catches up any
+  // events missed while the socket was down, which is the job blind polling
+  // used to do. With this in place the background poll is just a slow safety net.
+  const onConnect = useCallback(() => {
+    const seen = new Set<string>();
+    for (const keys of Object.values(SCOPE_KEYS)) {
+      for (const queryKey of keys) {
+        const k = queryKey.join("/");
+        if (seen.has(k)) continue;
+        seen.add(k);
+        qc.invalidateQueries({ queryKey });
+      }
+    }
+  }, [qc]);
+
+  useRealtime(!!user, onChange, onConnect);
   return null;
 }

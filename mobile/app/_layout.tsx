@@ -1,6 +1,7 @@
 import { useEffect } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuthStore } from "@/store/auth";
@@ -12,6 +13,17 @@ import "../global.css";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
+
+// Bridge React Query's focus tracking to React Native AppState so queries
+// refetch the moment the app returns to the foreground — this (plus the SSE
+// reconnect catch-up) is what lets us run a slow background poll instead of a
+// fast one. Without it, RN never fires "focus" refetches.
+focusManager.setEventListener((handleFocus) => {
+  const sub = AppState.addEventListener("change", (status: AppStateStatus) => {
+    handleFocus(status === "active");
+  });
+  return () => sub.remove();
+});
 
 function AuthGuard() {
   const { user, hydrated } = useAuthStore();

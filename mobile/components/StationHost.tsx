@@ -30,13 +30,21 @@ export function StationHost({ onExit }: { onExit: () => void }) {
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 30_000); return () => clearInterval(t); }, []);
 
-  const tablesQ = useQuery({ queryKey: ["tables"], queryFn: getTables, refetchInterval: 30_000 });
-  const ordersQ = useQuery({ queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 30_000 });
-  const resQ = useQuery({ queryKey: ["reservations", today], queryFn: () => getReservations(today), refetchInterval: 60_000 });
-  const waitQ = useQuery({ queryKey: ["waitlist"], queryFn: getWaitlist, refetchInterval: 30_000 });
+  const tablesQ = useQuery({ queryKey: ["tables"], queryFn: getTables, refetchInterval: 120_000 });
+  const ordersQ = useQuery({ queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 120_000 });
+  const resQ = useQuery({ queryKey: ["reservations", today], queryFn: () => getReservations(today), refetchInterval: 120_000 });
+  const waitQ = useQuery({ queryKey: ["waitlist"], queryFn: getWaitlist, refetchInterval: 120_000 });
 
   const tables = tablesQ.data ?? [];
   const refetchAll = () => { tablesQ.refetch(); ordersQ.refetch(); resQ.refetch(); waitQ.refetch(); };
+  // Pull-to-refresh spinner is driven by THIS flag, not query.isFetching — a
+  // background poll/SSE refresh must not flash the spinner.
+  const [refreshing, setRefreshing] = useState(false);
+  const onManualRefresh = async () => {
+    setRefreshing(true);
+    try { await Promise.all([tablesQ.refetch(), ordersQ.refetch(), resQ.refetch(), waitQ.refetch()]); }
+    finally { setRefreshing(false); }
+  };
 
   const [pickFor, setPickFor] = useState<PickTarget>(null);
   const [walkIn, setWalkIn] = useState<{ table: Table | null } | null>(null);
@@ -105,8 +113,8 @@ export function StationHost({ onExit }: { onExit: () => void }) {
           else if (t.status === "OCCUPIED") { Alert.alert(`Table ${t.number}`, `${t.guestName ?? "Seated"} · party of ${t.partySize ?? "?"}`); }
         }}
         onLayoutSaved={refetchAll}
-        onRefresh={refetchAll}
-        isRefreshing={tablesQ.isFetching}
+        onRefresh={onManualRefresh}
+        isRefreshing={refreshing}
         todayReservations={resQ.data ?? []}
         waitingList={waitQ.data ?? []}
         onAddWalkIn={() => { setWName(""); setWParty("2"); setWalkIn({ table: null }); }}

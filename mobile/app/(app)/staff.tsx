@@ -55,7 +55,7 @@ export default function StaffScreen() {
   const { data: activeClockIns = [] } = useQuery({
     queryKey: ["activeClockIns"],
     queryFn: getActiveClockIns,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   const clockedInIds = new Set(activeClockIns.map((e) => e.userId));

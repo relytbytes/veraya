@@ -23,7 +23,7 @@ export default function EightySixScreen() {
   const { data: items = [], isLoading, refetch } = useQuery({
     queryKey: ["eightysix"],
     queryFn: getEightySix,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   async function handleRemove(item: EightySixItem) {

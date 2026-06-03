@@ -104,7 +104,7 @@ export default function ReservationsScreen() {
   const { data: reservations = [], isLoading, refetch } = useQuery({
     queryKey: ["reservations", selectedDate],
     queryFn: () => getReservations(selectedDate),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 
   // Cross-date guest search (name / phone / email).

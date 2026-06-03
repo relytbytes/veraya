@@ -26,10 +26,16 @@ const MAX_BACKOFF_MS = 30_000;
  *    token shouldn't hammer the server; React Query polling carries until the
  *    next login.
  */
-export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => void) {
-  // Keep the latest callback without forcing a reconnect when its identity changes.
+export function useRealtime(
+  enabled: boolean,
+  onChange: (e: RealtimeEvent) => void,
+  onConnect?: () => void,
+) {
+  // Keep the latest callbacks without forcing a reconnect when identity changes.
   const cb = useRef(onChange);
   useEffect(() => { cb.current = onChange; }, [onChange]);
+  const connectCb = useRef(onConnect);
+  useEffect(() => { connectCb.current = onConnect; }, [onConnect]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -38,9 +44,13 @@ export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => vo
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
     let openedAt = 0;
+    let lastCatchUp = 0;
     let appActive = AppState.currentState === "active";
     let disposed = false;
     let stoppedFor401 = false;
+    // Throttle the on-(re)connect catch-up so a flapping socket can't storm the
+    // cache with invalidations.
+    const CATCHUP_THROTTLE_MS = 10_000;
     // A connection must stay open this long to count as "healthy" and reset the
     // backoff. On serverless (Vercel) the stream is short-lived, so without this
     // the socket flaps open→close and reconnects every ~1s.
@@ -83,7 +93,15 @@ export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => vo
         pollingInterval: 0,
       });
 
-      es.addEventListener("open", () => { openedAt = Date.now(); });
+      es.addEventListener("open", () => {
+        openedAt = Date.now();
+        // Any events that fired while the socket was down were missed; refresh
+        // once on (re)connect to catch up. This is what replaces fast polling.
+        if (openedAt - lastCatchUp >= CATCHUP_THROTTLE_MS) {
+          lastCatchUp = openedAt;
+          connectCb.current?.();
+        }
+      });
 
       es.addEventListener("change", (event) => {
         if (!event.data) return;

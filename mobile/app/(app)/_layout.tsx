@@ -48,7 +48,7 @@ export default function AppLayout() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardStats,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
   const openOrders = stats?.openOrders ?? 0;
   const lowStockCount = stats?.lowStockCount ?? 0;

@@ -169,11 +169,11 @@ export default function POSScreen() {
   });
 
   const { data: tables = [], refetch: refetchTables } = useQuery({
-    queryKey: ["tables"], queryFn: getTables, refetchInterval: 30_000, // fallback; SSE drives live updates
+    queryKey: ["tables"], queryFn: getTables, refetchInterval: 120_000, // fallback; SSE drives live updates
   });
   const { refreshing, run } = useManualRefresh();
   const { data: openOrders = [] } = useQuery({
-    queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 30_000, // fallback; SSE drives live updates
+    queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 120_000, // fallback; SSE drives live updates
   });
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"], queryFn: getCategories,
@@ -185,10 +185,10 @@ export default function POSScreen() {
   const _d = new Date();
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, "0")}-${String(_d.getDate()).padStart(2, "0")}`;
   const { data: waitlist = [] } = useQuery({
-    queryKey: ["waitlist"], queryFn: getWaitlist, refetchInterval: 30_000,
+    queryKey: ["waitlist"], queryFn: getWaitlist, refetchInterval: 120_000,
   });
   const { data: todayReservations = [] } = useQuery({
-    queryKey: ["reservations", today], queryFn: () => getReservations(today), refetchInterval: 60_000,
+    queryKey: ["reservations", today], queryFn: () => getReservations(today), refetchInterval: 120_000,
   });
   const { data: staff = [] } = useQuery({
     queryKey: ["staff"], queryFn: getStaff,

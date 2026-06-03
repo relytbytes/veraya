@@ -37,7 +37,7 @@ export default function KitchenScreen() {
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["kitchen"],
     queryFn: () => getKitchenOrders(),
-    refetchInterval: 30_000, // fallback; live updates arrive via SSE (RealtimeProvider)
+    refetchInterval: 120_000, // fallback; live updates arrive via SSE (RealtimeProvider)
   });
   const { refreshing, run } = useManualRefresh();
 

@@ -46,7 +46,7 @@ export default function InventoryScreen() {
   const { data: inventory = [], isLoading, refetch } = useQuery({
     queryKey: ["inventory"],
     queryFn: getInventory,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
   const { refreshing, run } = useManualRefresh();
 

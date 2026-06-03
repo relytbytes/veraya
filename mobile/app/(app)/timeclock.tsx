@@ -56,7 +56,7 @@ export default function TimeClockScreen() {
   const { data: activeClockIns = [], isLoading: loadingActive, refetch: refetchActive } = useQuery({
     queryKey: ["activeClockIns"],
     queryFn: getActiveClockIns,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   const { data: staff = [], isLoading: loadingStaff } = useQuery({
@@ -67,7 +67,7 @@ export default function TimeClockScreen() {
   const { data: history = [], refetch: refetchHistory } = useQuery({
     queryKey: ["clockHistory", today],
     queryFn: () => getClockHistory("", today, today),
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 
   const [clockingId, setClockingId] = useState<string | null>(null);

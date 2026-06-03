@@ -36,7 +36,7 @@ export default function BarScreen() {
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["bar"],
     queryFn: getBarOrders,
-    refetchInterval: 30_000, // fallback; live updates arrive via SSE (RealtimeProvider)
+    refetchInterval: 120_000, // fallback; live updates arrive via SSE (RealtimeProvider)
   });
   const { refreshing, run } = useManualRefresh();
 

@@ -90,7 +90,7 @@ export default function HomeScreen() {
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboardStats,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 
   const firstName = user?.name?.split(" ")[0] ?? "there";

@@ -60,7 +60,7 @@ export default function EventsScreen() {
   const { data: events = [], isLoading, refetch } = useQuery({
     queryKey: ["events"],
     queryFn: getEvents,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 
   const today = todayStr();
