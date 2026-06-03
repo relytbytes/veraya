@@ -88,6 +88,26 @@ export async function PATCH(
   // When seating a guest, occupy the table AND stamp the seat fields the host
   // stand reads for the dining timer + floor display.
   if (status === "SEATED" && updated.tableId) {
+    // Auto-assign the least-loaded server (by covers) if the table has none yet,
+    // so the floor badge shows a server the moment a reservation is seated — the
+    // same cover-balancing the walk-in flow uses, but authoritative on the server.
+    const targetTable = await prisma.table.findUnique({
+      where: { id: updated.tableId }, select: { serverId: true },
+    });
+    let serverId = targetTable?.serverId ?? null;
+    if (!serverId) {
+      const [servers, occupied] = await Promise.all([
+        prisma.user.findMany({ where: { role: "SERVER", isActive: true }, select: { id: true } }),
+        prisma.table.findMany({ where: { status: "OCCUPIED" }, select: { serverId: true, partySize: true } }),
+      ]);
+      if (servers.length) {
+        const load = new Map<string, number>(servers.map((s) => [s.id, 0]));
+        for (const t of occupied) {
+          if (t.serverId && load.has(t.serverId)) load.set(t.serverId, load.get(t.serverId)! + (t.partySize ?? 0));
+        }
+        serverId = [...load.entries()].sort((a, b) => a[1] - b[1])[0][0];
+      }
+    }
     await prisma.table.update({
       where: { id: updated.tableId },
       data: {
@@ -98,6 +118,7 @@ export async function PATCH(
         serviceStage: "SEATED",
         stageUpdatedAt: new Date(),
         customerId: updated.customerId ?? null,
+        ...(serverId ? { serverId } : {}),
       },
     });
   }

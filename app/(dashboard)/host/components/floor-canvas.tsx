@@ -81,12 +81,17 @@ export function FloorCanvas({
     return vis;
   }
 
-  function serverBadge(t: TableRow) {
+  function serverBadge(t: TableRow, round = false) {
     if (!t.serverId) return null;
     const name = staff.find((s) => s.id === t.serverId)?.name ?? "?";
     return (
       <span
-        className="absolute top-1 right-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[7px] font-bold text-white ring-1 ring-white/60"
+        // Round tables: inset further so the badge sits inside the circle, not
+        // on the clipped bounding-box corner.
+        className={cn(
+          "absolute z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[7px] font-bold text-white ring-1 ring-white/60",
+          round ? "top-2.5 right-2.5" : "top-1 right-1",
+        )}
         style={{ background: serverColor(t.serverId) }}
         title={`Server: ${name}`}
       >
@@ -107,7 +112,7 @@ export function FloorCanvas({
       return (
         <>
           <span className="text-[11px] font-bold text-center truncate px-1.5 w-full leading-tight">
-            {name ? name.split(" ")[0] : `T${t.number}`}
+            {name ? (name.trim().split(/\s+/).pop() || name) : `T${t.number}`}
           </span>
           <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 leading-none mt-0.5">
             <span className="font-semibold">T{t.number}</span>
@@ -188,7 +193,7 @@ export function FloorCanvas({
           return (
             <button key={t.id} onClick={() => onTableClick(t)} style={visualFor(t).style} {...dragProps(t)}
               className={cn(tableClasses(t), isRect ? "rounded-xl" : "rounded-full", "h-20 relative")}>
-              {serverBadge(t)}{renderTableInner(t)}
+              {serverBadge(t, !isRect)}{renderTableInner(t)}
             </button>
           );
         })}
@@ -236,7 +241,7 @@ export function FloorCanvas({
               }}
               className={cn(tableClasses(t), isRect ? "rounded-xl" : "rounded-full")}
             >
-              {serverBadge(t)}{renderTableInner(t)}
+              {serverBadge(t, !isRect)}{renderTableInner(t)}
             </button>
           );
         })}
