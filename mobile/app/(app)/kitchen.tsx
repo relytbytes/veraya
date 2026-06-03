@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Animated } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Animated, useWindowDimensions } from "react-native";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +28,11 @@ export default function KitchenScreen() {
   const qc = useQueryClient();
   const [bumping, setBumping] = useState<string | null>(null);
   const { scrollY, scrollHandler } = useCollapsingHeader();
+  // Responsive ticket wall: 1 column on phone, 2–3 on a landscape iPad.
+  const { width } = useWindowDimensions();
+  const GUTTER = 14;
+  const cols = width >= 1100 ? 3 : width >= 700 ? 2 : 1;
+  const cellW = (width - GUTTER * (cols + 1)) / cols;
 
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["kitchen"],
@@ -93,7 +98,7 @@ export default function KitchenScreen() {
         </Animated.ScrollView>
       ) : (
         <Animated.ScrollView
-          contentContainerClassName="p-4 gap-4"
+          contentContainerStyle={{ flexDirection: "row", flexWrap: "wrap", gap: GUTTER, paddingHorizontal: GUTTER, paddingTop: GUTTER, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
           scrollEventThrottle={16}
           onScroll={scrollHandler}
@@ -105,6 +110,7 @@ export default function KitchenScreen() {
               <View
                 key={order.id}
                 style={{
+                  width: cellW,
                   backgroundColor: C.surface,
                   borderRadius: 18,
                   borderWidth: 1,
