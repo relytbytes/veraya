@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { VeraMenuMoves } from "@/components/vera-menu-moves";
 import { VeraLaborPlan } from "@/components/vera-labor-plan";
 import { PnlStatement } from "./pnl/pnl-statement";
+import { findFiscalPeriod } from "@/lib/fiscal";
+import Link from "next/link";
 import {
   RevenueChart, OrdersChart, CategoryPieChart, TopItemsChart, HourlyChart, DowChart,
 } from "./charts";
@@ -223,6 +225,7 @@ const PRESETS = [
   { label: "This Week",   getRange: () => { const d = new Date(); const dow = d.getDay(); const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); return { from: toISO(mon), to: toISO(new Date()) }; } },
   { label: "Last Week",   getRange: () => { const d = new Date(); const dow = d.getDay(); const mon = new Date(d); mon.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1) - 7); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { from: toISO(mon), to: toISO(sun) }; } },
   { label: "This Month",  getRange: () => { const d = new Date(); return { from: toISO(new Date(d.getFullYear(), d.getMonth(), 1)), to: toISO(d) }; } },
+  { label: "This Period",  getRange: () => { const today = toISO(new Date()); const p = findFiscalPeriod(new Date()); if (!p) return { from: today, to: today }; return { from: p.from, to: p.to < today ? p.to : today }; } },
   { label: "Last 30d",    getRange: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate() - 29); return { from: toISO(s), to: toISO(d) }; } },
   { label: "Last 90d",    getRange: () => { const d = new Date(); const s = new Date(d); s.setDate(d.getDate() - 89); return { from: toISO(s), to: toISO(d) }; } },
 ] as const;
@@ -674,6 +677,11 @@ export default function ReportsPage() {
         {activeTab === "pl" && (
           <div className="space-y-6">
             <PLTab data={cogsData} loading={cogsLoading} />
+            <div className="flex justify-end -mb-2">
+              <Link href="/reports/pnl" className="text-xs font-medium text-teal-700 hover:underline">
+                Open full period-close statement (by fiscal period) →
+              </Link>
+            </div>
             {/* Full line-item operating statement, below the charts */}
             <PnlStatement from={range.from} to={range.to} />
           </div>
