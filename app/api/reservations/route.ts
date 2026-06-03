@@ -13,6 +13,25 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const customerId = searchParams.get("customerId");
+  const q = searchParams.get("q")?.trim();
+
+  // Search mode: find reservations by guest name / phone / email across dates.
+  if (q) {
+    const reservations = await prisma.reservation.findMany({
+      where: {
+        OR: [
+          { name: { contains: q } },
+          { phone: { contains: q } },
+          { email: { contains: q } },
+          { customer: { is: { OR: [{ name: { contains: q } }, { phone: { contains: q } }, { email: { contains: q } }] } } },
+        ],
+      },
+      orderBy: [{ date: "desc" }, { time: "desc" }],
+      take: 50,
+      include: { table: true, customer: { select: { id: true, name: true, phone: true, email: true, birthday: true, notes: true, tags: true, visitCount: true, lastVisitAt: true, loyaltyPoints: true } } },
+    });
+    return Response.json(reservations);
+  }
 
   // Customer history mode: return all reservations for a specific customer
   if (customerId) {

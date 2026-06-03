@@ -8,6 +8,8 @@ import {
   Plus,
   Loader2,
   Users,
+  Search,
+  X,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -122,6 +124,11 @@ function StatusBadge({ status }: { status: ReservationStatus }) {
   );
 }
 
+interface GuestMatch {
+  id: string; name: string; phone: string | null; email: string | null;
+  tags: string | null; notes: string | null; visitCount: number;
+}
+
 // ─── New Reservation Dialog ───────────────────────────────────────────────────
 
 interface NewReservationDialogProps {
@@ -148,9 +155,38 @@ function NewReservationDialog({
     partySize: "2",
     tableId: "",
     notes: "",
+    customerId: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Guest recognition
+  const [matches, setMatches] = useState<GuestMatch[]>([]);
+  const [showMatches, setShowMatches] = useState(false);
+  const [linked, setLinked] = useState<GuestMatch | null>(null);
+
+  // Search existing guests by name / phone / email as the host types the name.
+  useEffect(() => {
+    const q = form.name.trim();
+    if (linked || q.length < 2) { setMatches([]); setShowMatches(false); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/customers?q=${encodeURIComponent(q)}`);
+        if (r.ok && alive) { setMatches(await r.json()); setShowMatches(true); }
+      } catch { /* ignore */ }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [form.name, linked]);
+
+  function pickGuest(g: GuestMatch) {
+    setLinked(g);
+    setForm((f) => ({ ...f, name: g.name, phone: g.phone ?? f.phone, email: g.email ?? f.email, customerId: g.id }));
+    setShowMatches(false);
+  }
+  function clearGuest() {
+    setLinked(null);
+    setForm((f) => ({ ...f, customerId: "" }));
+  }
 
   // Sync default date when dialog opens
   useEffect(() => {
@@ -181,6 +217,7 @@ function NewReservationDialog({
         partySize: parseInt(form.partySize, 10),
         tableId: form.tableId || undefined,
         notes: form.notes || undefined,
+        customerId: form.customerId || undefined,
       }),
     });
     setSaving(false);
@@ -198,7 +235,9 @@ function NewReservationDialog({
       partySize: "2",
       tableId: "",
       notes: "",
+      customerId: "",
     });
+    setLinked(null);
     onCreated();
     onClose();
   }
@@ -218,14 +257,56 @@ function NewReservationDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="res-name">
-              Guest Name <span className="text-red-500">*</span>
+              Guest <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="res-name"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="John Smith"
-            />
+            {linked ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-gray-900 truncate">{linked.name}</span>
+                      {(linked.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+                        <span key={t} className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">{t}</span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">
+                      {linked.visitCount} visit{linked.visitCount === 1 ? "" : "s"}
+                      {linked.phone ? ` · ${linked.phone}` : ""}
+                    </p>
+                    {linked.notes && <p className="text-xs italic text-gray-500 mt-0.5 truncate">{linked.notes}</p>}
+                  </div>
+                  <button type="button" onClick={clearGuest} className="shrink-0 text-gray-400 hover:text-gray-700" title="Use a different guest">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  id="res-name"
+                  className="pl-8"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="Search a guest by name/phone/email, or type a new name"
+                  autoComplete="off"
+                />
+                {showMatches && matches.length > 0 && (
+                  <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {matches.map((g) => (
+                      <button key={g.id} type="button" onClick={() => pickGuest(g)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50">
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 truncate block">{g.name}</span>
+                          <span className="text-xs text-gray-400 truncate block">{[g.phone, g.email].filter(Boolean).join(" · ") || "No contact on file"}</span>
+                        </div>
+                        <span className="shrink-0 text-[11px] text-gray-400">{g.visitCount} visit{g.visitCount === 1 ? "" : "s"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -409,9 +490,10 @@ interface ReservationRowProps {
   reservation: Reservation;
   tables: Table[];
   onRefresh: () => void;
+  showDate?: boolean;
 }
 
-function ReservationRow({ reservation, tables, onRefresh }: ReservationRowProps) {
+function ReservationRow({ reservation, tables, onRefresh, showDate }: ReservationRowProps) {
   const [seatOpen, setSeatOpen] = useState(false);
   const [acting, setActing] = useState(false);
 
@@ -441,9 +523,14 @@ function ReservationRow({ reservation, tables, onRefresh }: ReservationRowProps)
   return (
     <>
       <div className="flex items-center gap-4 px-4 py-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-        {/* Time */}
+        {/* Time (+ date in search results) */}
         <div className="w-20 shrink-0 text-sm font-semibold text-gray-900 tabular-nums">
           {formatTime(reservation.time)}
+          {showDate && (
+            <div className="text-[11px] font-normal text-gray-400">
+              {new Date(reservation.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </div>
+          )}
         </div>
 
         {/* Guest info */}
@@ -549,8 +636,26 @@ export default function ReservationsPage() {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Reservation[] | null>(null);
+  const [searching, setSearching] = useState(false);
 
   const dateStr = toDateStr(selectedDate);
+
+  // Search across all dates by guest name / phone / email.
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) { setResults(null); return; }
+    let alive = true;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/reservations?q=${encodeURIComponent(term)}`);
+        if (r.ok && alive) setResults(await r.json());
+      } finally { if (alive) setSearching(false); }
+    }, 250);
+    return () => { alive = false; clearTimeout(t); };
+  }, [query]);
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
@@ -558,6 +663,13 @@ export default function ReservationsPage() {
     if (res.ok) setReservations(await res.json());
     setLoading(false);
   }, [dateStr]);
+
+  const refreshResults = useCallback(async () => {
+    const term = query.trim();
+    if (term.length < 2) return;
+    const r = await fetch(`/api/reservations?q=${encodeURIComponent(term)}`);
+    if (r.ok) setResults(await r.json());
+  }, [query]);
 
   useEffect(() => {
     loadReservations();
@@ -620,7 +732,40 @@ export default function ReservationsPage() {
       />
 
       <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
+        {/* Guest search (name / phone / email, across all dates) */}
+        <div className="max-w-3xl mx-auto mb-4 relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            className="pl-9 pr-9"
+            placeholder="Search reservations by guest name or phone…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700" aria-label="Clear search">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {results !== null ? (
+          // ── Search results (across dates) ──
+          searching && results.length === 0 ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-gray-400" /></div>
+          ) : results.length === 0 ? (
+            <div className="max-w-3xl mx-auto py-16 text-center text-gray-400">
+              <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No reservations match &ldquo;{query}&rdquo;</p>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto space-y-2">
+              <p className="text-xs text-gray-500 px-1">{results.length} match{results.length !== 1 ? "es" : ""} across all dates</p>
+              {results.map((r) => (
+                <ReservationRow key={r.id} reservation={r} tables={tables} onRefresh={refreshResults} showDate />
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-7 w-7 animate-spin text-gray-400" />
           </div>
