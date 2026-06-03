@@ -290,6 +290,9 @@ export const combineTables = (primaryTableId: string, tableIds: string[]) =>
   request<{ ok: boolean }>("/api/host/combine", { method: "POST", body: JSON.stringify({ primaryTableId, tableIds }) });
 export const splitTables = (primaryTableId: string) =>
   request<{ ok: boolean }>(`/api/host/combine?primaryTableId=${primaryTableId}`, { method: "DELETE" });
+// Move a seated party (seat fields + reservation + open orders) to another table.
+export const moveTable = (fromTableId: string, toTableId: string) =>
+  request<{ from: Table; to: Table }>("/api/host/move", { method: "POST", body: JSON.stringify({ fromTableId, toTableId }) });
 
 export interface Customer {
   id: string; name: string; phone: string | null; email: string | null;

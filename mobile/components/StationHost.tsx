@@ -7,9 +7,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getTables, getOpenOrders, getReservations, getWaitlist,
   patchTable, patchReservation, patchWaitlistEntry, createWaitlistEntry,
+  moveTable, splitTables,
   type Table, type Reservation, type WaitlistEntry,
 } from "@/lib/api";
 import { HostStandMode } from "@/components/HostStandMode";
+import { TableActionSheet } from "@/components/TableActionSheet";
 import { C, T } from "@/lib/theme";
 
 function toYMD(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
@@ -52,6 +54,8 @@ export function StationHost({ onExit }: { onExit: () => void }) {
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [wlName, setWlName] = useState(""); const [wlParty, setWlParty] = useState("2"); const [wlPhone, setWlPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actionTable, setActionTable] = useState<Table | null>(null);
+  const [moveFrom, setMoveFrom] = useState<Table | null>(null);
 
   const partyNeeded = pickFor?.kind === "reservation" ? pickFor.res.partySize : pickFor?.kind === "waitlist" ? pickFor.entry.partySize : 2;
 
@@ -90,6 +94,45 @@ export function StationHost({ onExit }: { onExit: () => void }) {
     finally { setBusy(false); }
   }
 
+  // ── Occupied-table actions (mirror web host panel) ─────────────────────────
+  async function setStage(stage: string) {
+    if (!actionTable) return;
+    setBusy(true);
+    try { await patchTable(actionTable.id, { serviceStage: stage }); setActionTable({ ...actionTable, serviceStage: stage }); refetchAll(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function markBussing() {
+    if (!actionTable) return;
+    setBusy(true);
+    try { await patchTable(actionTable.id, { status: "DIRTY" }); setActionTable(null); refetchAll(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function finishTable() {
+    if (!actionTable) return;
+    setBusy(true);
+    try {
+      await patchTable(actionTable.id, { status: "AVAILABLE", seatedAt: null, guestName: null, partySize: null, serviceStage: null, serverId: null });
+      setActionTable(null); refetchAll();
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function splitTable() {
+    if (!actionTable) return;
+    setBusy(true);
+    try { await splitTables(actionTable.id); setActionTable(null); refetchAll(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function doMove(to: Table) {
+    if (!moveFrom) return;
+    setBusy(true);
+    try { await moveTable(moveFrom.id, to.id); setMoveFrom(null); setActionTable(null); refetchAll(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed to move"); }
+    finally { setBusy(false); }
+  }
+
   const available = tables.filter((t) => t.status === "AVAILABLE" && !t.primaryTableId).sort((a, b) => a.number - b.number);
 
   return (
@@ -99,6 +142,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
         onClose={onExit}
         topInset={insets.top}
         bottomInset={insets.bottom}
+        onSwitchStation={() => router.replace("/(app)/station")}
         tables={tables}
         openOrders={(ordersQ.data ?? []).map((o) => ({ id: o.id, tableId: (o as { tableId?: string | null }).tableId ?? null, total: o.total }))}
         tableSize={64}
@@ -110,7 +154,13 @@ export function StationHost({ onExit }: { onExit: () => void }) {
         tick={tick}
         onTablePress={(t) => {
           if (t.status === "AVAILABLE") { setWName(""); setWParty("2"); setWalkIn({ table: t }); }
-          else if (t.status === "OCCUPIED") { Alert.alert(`Table ${t.number}`, `${t.guestName ?? "Seated"} · party of ${t.partySize ?? "?"}`); }
+          else if (t.status === "OCCUPIED") { setActionTable(t); }
+          else if (t.status === "DIRTY") {
+            Alert.alert(`Table ${t.number}`, "Mark this table clean and ready to seat?", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Mark clean", onPress: async () => { try { await patchTable(t.id, { status: "AVAILABLE" }); refetchAll(); } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); } } },
+            ]);
+          }
         }}
         onLayoutSaved={refetchAll}
         onRefresh={onManualRefresh}
@@ -211,6 +261,47 @@ export function StationHost({ onExit }: { onExit: () => void }) {
               <TouchableOpacity onPress={addWaitlist} disabled={busy || !wlName.trim()} style={{ paddingVertical: 14, borderRadius: 14, alignItems: "center", backgroundColor: wlName.trim() ? C.gold : C.surfaceHi }}>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: wlName.trim() ? C.void : C.smoke }}>{busy ? "Adding…" : "Add to waitlist"}</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Occupied-table actions (stage / move / bussing / finish) */}
+      {actionTable && !moveFrom && (
+        <TableActionSheet
+          table={actionTable}
+          busy={busy}
+          onClose={() => setActionTable(null)}
+          onSetStage={setStage}
+          onStartMove={() => setMoveFrom(actionTable)}
+          onBussing={markBussing}
+          onFinish={finishTable}
+          onSplit={actionTable.primaryTableId ? splitTable : undefined}
+        />
+      )}
+
+      {/* Move party — pick the destination table */}
+      {moveFrom && (
+        <Modal transparent animationType="slide" onRequestClose={() => setMoveFrom(null)}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+            <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "70%", paddingBottom: 28 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: C.pearl }}>
+                  Move {moveFrom.guestName ?? `Table ${moveFrom.number}`} to…
+                </Text>
+                <TouchableOpacity onPress={() => setMoveFrom(null)}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 16 }}>
+                {available.length === 0 ? <Text style={{ color: C.smoke, fontSize: 13 }}>No open tables to move to.</Text> : available.map((t) => {
+                  const fits = t.capacity >= (moveFrom.partySize ?? 1);
+                  return (
+                    <TouchableOpacity key={t.id} onPress={() => doMove(t)} disabled={busy} style={{ width: "30%", flexGrow: 1, borderWidth: 1, borderColor: fits ? C.jade : C.rim, borderRadius: 12, paddingVertical: 14, alignItems: "center", backgroundColor: fits ? `${C.jade}0F` : C.surfaceHi }}>
+                      <Text style={{ fontSize: 16, fontWeight: "800", color: C.pearl }}>{t.number}</Text>
+                      <Text style={{ fontSize: 10, color: fits ? C.jade : C.smoke }}>{t.capacity} seats</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </Modal>

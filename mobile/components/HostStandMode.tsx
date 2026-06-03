@@ -40,6 +40,10 @@ interface HostStandModeProps {
   // can read them correctly) passes them in for manual padding.
   topInset?: number;
   bottomInset?: number;
+  // When set, shows a "switch station" button in the header. The floating
+  // StationControl pill is covered by this fullscreen modal, so on the host
+  // screen this is the only way to switch stations without exiting to the app.
+  onSwitchStation?: () => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -134,7 +138,7 @@ export function HostStandMode({
   onAddWalkIn, onAddWaitlist, onAddReservation,
   onSeatWaitlistEntry, onSeatReservation,
   onMarkLeft, onMarkNoShow,
-  topInset = 0, bottomInset = 0,
+  topInset = 0, bottomInset = 0, onSwitchStation,
 }: HostStandModeProps) {
 
   const { width, height } = useWindowDimensions();
@@ -514,6 +518,15 @@ export function HostStandMode({
           >
             <Ionicons name="close" size={18} color={C.mist} />
           </TouchableOpacity>
+
+          {onSwitchStation && (
+            <TouchableOpacity
+              onPress={onSwitchStation}
+              style={{ height: 36, width: 36, borderRadius: 12, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, alignItems: "center", justifyContent: "center" }}
+            >
+              <Ionicons name="swap-horizontal" size={18} color={C.gold} />
+            </TouchableOpacity>
+          )}
 
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 17, fontWeight: "800", color: C.pearl, letterSpacing: -0.3 }}>Host Stand</Text>
