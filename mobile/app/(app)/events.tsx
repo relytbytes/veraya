@@ -2,12 +2,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "expo-router";
 import {
   View, Text, ScrollView, TouchableOpacity, Modal,
-  RefreshControl, Alert, ActivityIndicator, TextInput, Animated,
+  RefreshControl, Alert, ActivityIndicator, TextInput, Animated, Share,
 } from "react-native";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getEvents, createEvent, patchEvent, deleteEvent } from "@/lib/api";
+import { getEvents, createEvent, patchEvent, deleteEvent, BASE_URL } from "@/lib/api";
 import type { CalEvent } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
@@ -308,6 +308,18 @@ export default function EventsScreen() {
                   <InfoRow icon="person-circle-outline" label="Customer" value={selectedEvent.customer.name} />
                 )}
               </View>
+
+              {/* Share public booking link */}
+              <TouchableOpacity
+                onPress={() => {
+                  const url = `${BASE_URL}/special-events/${selectedEvent.id}`;
+                  Share.share({ message: `${selectedEvent.name} — book here: ${url}`, url });
+                }}
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13, borderRadius: 14, borderWidth: 1, borderColor: C.gold, backgroundColor: T.gold }}
+              >
+                <Ionicons name="share-outline" size={16} color={C.gold} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: C.gold }}>Share booking link</Text>
+              </TouchableOpacity>
 
               {selectedEvent.notes && (
                 <View style={{ backgroundColor: T.gold, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.rim }}>

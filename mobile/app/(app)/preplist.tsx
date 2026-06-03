@@ -35,6 +35,8 @@ export default function PrepListScreen() {
 
   const [targetDate, setTargetDate] = useState(() => toYMD(addDays(new Date(), 1)));
   const [view, setView] = useState<"prep" | "forecast">("prep");
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const toggleCheck = (id: string) => setChecked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["prepList", targetDate],
@@ -188,22 +190,24 @@ export default function PrepListScreen() {
                         {prepNeeded.map((row, i) => {
                           const shortfall = row.currentOnHand / Math.max(row.forecastQty + row.minThreshold, 1);
                           const urgent = shortfall < 0.25;
+                          const done = checked.has(row.ingredientId);
                           return (
-                            <View key={row.ingredientId} style={{
+                            <TouchableOpacity key={row.ingredientId} activeOpacity={0.7} onPress={() => toggleCheck(row.ingredientId)} style={{
                               paddingHorizontal: 16, paddingVertical: 12,
                               borderBottomWidth: i < prepNeeded.length - 1 ? 1 : 0, borderBottomColor: C.rim,
                               flexDirection: "row", alignItems: "center", gap: 12,
-                              backgroundColor: urgent ? C.coral + "08" : "transparent",
+                              backgroundColor: done ? `${C.jade}0A` : urgent ? C.coral + "08" : "transparent",
+                              opacity: done ? 0.55 : 1,
                             }}>
                               <View style={{
                                 height: 36, width: 36, borderRadius: 10,
-                                backgroundColor: urgent ? C.coral + "22" : C.surfaceHi,
+                                backgroundColor: done ? `${C.jade}22` : urgent ? C.coral + "22" : C.surfaceHi,
                                 alignItems: "center", justifyContent: "center",
                               }}>
-                                <Ionicons name={urgent ? "warning-outline" : "cut-outline"} size={16} color={urgent ? C.coral : C.smoke} />
+                                <Ionicons name={done ? "checkmark-circle" : urgent ? "warning-outline" : "cut-outline"} size={done ? 20 : 16} color={done ? C.jade : urgent ? C.coral : C.smoke} />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl }}>{row.name}</Text>
+                                <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl, textDecorationLine: done ? "line-through" : "none" }}>{row.name}</Text>
                                 <Text style={{ fontSize: 11, color: C.smoke }}>
                                   Have {row.currentOnHand.toFixed(1)} · Need {(row.forecastQty + row.minThreshold).toFixed(1)} {row.unit}
                                 </Text>
@@ -219,7 +223,7 @@ export default function PrepListScreen() {
                                 </Text>
                                 <Text style={{ fontSize: 10, color: C.smoke }}>{row.unit}</Text>
                               </View>
-                            </View>
+                            </TouchableOpacity>
                           );
                         })}
                       </View>
