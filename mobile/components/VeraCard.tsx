@@ -12,12 +12,14 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 
 // ── Colours ───────────────────────────────────────────────────────────────────
 
+// Bands mirror the web Vera panel: green → teal → amber → orange → red, so a
+// "Fair" score reads as caution (amber), not a healthy teal.
 function healthColor(score: number) {
-  if (score >= 90) return { ring: C.jade,  text: C.jade,  label: "Excellent" };
-  if (score >= 75) return { ring: C.jade,  text: C.jade,  label: "Good" };
-  if (score >= 60) return { ring: C.gold,  text: C.gold,  label: "Fair" };
-  if (score >= 45) return { ring: C.ember, text: C.ember, label: "Strained" };
-  return                   { ring: C.coral, text: C.coral, label: "Critical" };
+  if (score >= 90) return { ring: C.jade,    text: C.jade,    label: "Excellent" };
+  if (score >= 75) return { ring: C.gold,    text: C.gold,    label: "Good" };      // teal
+  if (score >= 60) return { ring: C.ember,   text: C.ember,   label: "Fair" };      // amber
+  if (score >= 45) return { ring: "#E8722C", text: "#E8722C", label: "Strained" };  // orange
+  return                   { ring: C.coral,  text: C.coral,   label: "Critical" };  // red
 }
 
 function severityColor(severity: VeraAlert["severity"]) {
