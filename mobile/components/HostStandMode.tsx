@@ -3,7 +3,7 @@ import {
   View, Text, Modal, TouchableOpacity, ScrollView,
   useWindowDimensions, RefreshControl, ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { TableCanvas } from "./TableCanvas";
 import { C, T, shadow } from "@/lib/theme";
@@ -153,8 +153,10 @@ export function HostStandMode({
     ? Math.round(occupiedTables.reduce((s, t) => s + (t.seatedAt ? elapsedMins(t.seatedAt) : 0), 0) / occupiedTables.length)
     : 0;
 
+  // Leave room for the header (~56) + the color legend (~80) + top/bottom safe
+  // insets so the legend isn't pushed off the bottom of a landscape iPad.
   const canvasH = isTablet
-    ? height - 110
+    ? height - 220
     : Math.max(240, Math.min(380, Math.round(height * 0.38)));
 
   // ── Derived lists ─────────────────────────────────────────────────────────
@@ -492,6 +494,7 @@ export function HostStandMode({
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent presentationStyle="fullScreen">
+      <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: C.void }} edges={["top", "left", "right", "bottom"]}>
 
         {/* Header */}
@@ -609,6 +612,7 @@ export function HostStandMode({
         )}
 
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

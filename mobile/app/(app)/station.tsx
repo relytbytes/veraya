@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { C, T, shadow } from "@/lib/theme";
@@ -22,11 +22,12 @@ const STATIONS: { mode: StationMode; label: string; desc: string; icon: keyof ty
 // ── Floating station control (switch / exit), shown over an active station ──────
 function StationControl({ onSwitch, onExit, label }: { onSwitch: () => void; onExit: () => void; label: string }) {
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   return (
     <>
       <TouchableOpacity
         onPress={() => setOpen(true)}
-        style={[{ position: "absolute", top: 8, right: 12, zIndex: 50, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: C.pearl }, shadow.sm]}
+        style={[{ position: "absolute", top: insets.top + 6, right: insets.right + 14, zIndex: 50, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: C.pearl }, shadow.sm]}
       >
         <Ionicons name="apps" size={14} color={C.gold} />
         <Text style={{ fontSize: 12, fontWeight: "700", color: "#fff" }}>{label}</Text>
