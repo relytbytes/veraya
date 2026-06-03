@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getReservations,
+  searchReservations,
   createReservation,
   patchReservation,
   deleteReservation,
@@ -93,6 +94,8 @@ export default function ReservationsScreen() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [detailRes, setDetailRes] = useState<Reservation | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
 
   const qc = useQueryClient();
 
@@ -100,6 +103,14 @@ export default function ReservationsScreen() {
     queryKey: ["reservations", selectedDate],
     queryFn: () => getReservations(selectedDate),
     refetchInterval: 60_000,
+  });
+
+  // Cross-date guest search (name / phone / email).
+  const searchTerm = searchQ.trim();
+  const { data: searchResults = [], isFetching: searching } = useQuery({
+    queryKey: ["res-search", searchTerm],
+    queryFn: () => searchReservations(searchTerm),
+    enabled: searchOpen && searchTerm.length >= 2,
   });
 
   // Build 14-day strip starting 3 days before today
@@ -147,13 +158,22 @@ export default function ReservationsScreen() {
         scrollY={scrollY}
         left={<TouchableOpacity onPress={() => router.navigate("/(app)/more")} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="chevron-back" size={20} color={C.gold} /></TouchableOpacity>}
         right={
-          <TouchableOpacity
-            onPress={() => setShowNew(true)}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.gold, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, ...shadow.gold }}
-          >
-            <Ionicons name="add" size={16} color={C.void} />
-            <Text style={{ color: C.void, fontWeight: "700", fontSize: 13 }}>New</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setSearchOpen(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ height: 36, width: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: C.rimBright }}
+            >
+              <Ionicons name="search" size={18} color={C.gold} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowNew(true)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: C.gold, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, ...shadow.gold }}
+            >
+              <Ionicons name="add" size={16} color={C.void} />
+              <Text style={{ color: C.void, fontWeight: "700", fontSize: 13 }}>New</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -272,6 +292,45 @@ export default function ReservationsScreen() {
           </View>
         ))}
       </Animated.ScrollView>
+
+      {/* Guest search across all dates */}
+      <Modal visible={searchOpen} animationType="slide" onRequestClose={() => setSearchOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.void }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.rim, backgroundColor: C.surface }}>
+            <Ionicons name="search" size={18} color={C.mist} />
+            <TextInput
+              autoFocus
+              value={searchQ}
+              onChangeText={setSearchQ}
+              placeholder="Search by guest name or phone…"
+              placeholderTextColor={C.smoke}
+              style={{ flex: 1, fontSize: 16, color: C.pearl }}
+            />
+            <TouchableOpacity onPress={() => { setSearchOpen(false); setSearchQ(""); }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Text style={{ color: C.gold, fontWeight: "700", fontSize: 15 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }} keyboardShouldPersistTaps="handled">
+            {searchTerm.length < 2 ? (
+              <Text style={{ textAlign: "center", color: C.smoke, marginTop: 32 }}>Type a name or phone number to search across all dates.</Text>
+            ) : searching ? (
+              <ActivityIndicator color={C.gold} style={{ marginTop: 32 }} />
+            ) : searchResults.length === 0 ? (
+              <Text style={{ textAlign: "center", color: C.smoke, marginTop: 32 }}>No reservations match &ldquo;{searchTerm}&rdquo;.</Text>
+            ) : (
+              <>
+                <Text style={{ fontSize: 12, color: C.mist, fontWeight: "600" }}>{searchResults.length} match{searchResults.length !== 1 ? "es" : ""} across all dates</Text>
+                {searchResults.map((r) => (
+                  <View key={r.id}>
+                    <Text style={{ fontSize: 11, color: C.smoke, marginBottom: 2, marginLeft: 2 }}>{formatDisplay(r.date)}</Text>
+                    <ReservationCard reservation={r} onPress={() => { setSearchOpen(false); setDetailRes(r); }} />
+                  </View>
+                ))}
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       {/* Detail / Edit sheet */}
       {detailRes && (

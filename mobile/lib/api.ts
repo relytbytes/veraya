@@ -64,6 +64,9 @@ export const getReservations = (date: string) =>
   request<Reservation[]>(`/api/reservations?date=${date}`);
 export const getReservationsRange = (from: string, to: string) =>
   request<Reservation[]>(`/api/reservations?from=${from}&to=${to}`);
+// Search reservations across all dates by guest name / phone / email.
+export const searchReservations = (q: string) =>
+  request<Reservation[]>(`/api/reservations?q=${encodeURIComponent(q)}`);
 export const createReservation = (body: { date: string; time: string; partySize: number; name: string; phone?: string; email?: string; tableId?: string; notes?: string; customerId?: string }) =>
   request<Reservation>("/api/reservations", { method: "POST", body: JSON.stringify(body) });
 export const patchReservation = (id: string, body: { status?: string; tableId?: string; notes?: string; time?: string; partySize?: number; name?: string; phone?: string | null; email?: string | null; customerId?: string | null }) =>
