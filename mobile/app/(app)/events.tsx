@@ -12,6 +12,7 @@ import type { CalEvent } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
 import { ScreenMessage } from "@/components/ScreenMessage";
+import { EventCheckIn } from "@/components/EventCheckIn";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 type Tab = "upcoming" | "past" | "inquiries";
@@ -52,6 +53,7 @@ export default function EventsScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [checkInOpen, setCheckInOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -247,6 +249,15 @@ export default function EventsScreen() {
               <Text style={{ flex: 1, fontSize: 18, fontWeight: "700", color: C.pearl }} numberOfLines={1}>
                 {selectedEvent.name}
               </Text>
+              {selectedEvent.status === "CONFIRMED" && (
+                <TouchableOpacity
+                  onPress={() => setCheckInOpen(true)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12 }}
+                >
+                  <Ionicons name="qr-code-outline" size={14} color={C.gold} />
+                  <Text style={{ color: C.pearl, fontSize: 13, fontWeight: "700" }}>Check-in</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 onPress={() => openEditForm(selectedEvent)}
                 style={{ paddingHorizontal: 14, paddingVertical: 7, backgroundColor: C.gold, borderRadius: 12 }}
@@ -482,6 +493,10 @@ export default function EventsScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {selectedEvent && (
+        <EventCheckIn eventId={selectedEvent.id} eventName={selectedEvent.name} visible={checkInOpen} onClose={() => setCheckInOpen(false)} />
+      )}
 
       <CollapsingHeader
         title="Events & Catering"

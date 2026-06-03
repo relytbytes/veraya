@@ -450,6 +450,24 @@ export const createEvent = (body: object) => request<CalEvent>("/api/events", { 
 export const patchEvent = (id: string, body: object) => request<CalEvent>(`/api/events/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteEvent = (id: string) => request<void>(`/api/events/${id}`, { method: "DELETE" });
 
+// Event ticketing (attendee list + check-in)
+export interface EventAttendee {
+  id: string; confirmationCode: string; name: string; email: string; phone: string | null;
+  status: string; amountPaidCents: number; checkedInAt: string | null; seats: number;
+  items: { tierName: string; quantity: number; unitPriceCents: number }[];
+}
+export interface EventTicketingData {
+  enabled: boolean; mode: string;
+  tiers: { id: string; name: string; priceCents: number; depositCents: number | null; capacity: number; sold: number; remaining: number; active: boolean }[];
+  totalRemaining: number;
+  orders: EventAttendee[];
+  summary: { orders: number; seatsSold: number; revenueCents: number; checkedIn: number };
+}
+export const getEventTicketing = (eventId: string) =>
+  request<EventTicketingData>(`/api/events/${eventId}/ticketing`);
+export const eventOrderAction = (eventId: string, orderId: string, action: "checkin" | "uncheckin" | "refund") =>
+  request(`/api/events/${eventId}/orders/${orderId}`, { method: "PATCH", body: JSON.stringify({ action }) });
+
 // Gift Cards
 export const getGiftCards = () => request<GiftCard[]>("/api/gift-cards");
 export const createGiftCard = (body: object) => request<GiftCard>("/api/gift-cards", { method: "POST", body: JSON.stringify(body) });
