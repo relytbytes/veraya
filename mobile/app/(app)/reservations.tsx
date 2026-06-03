@@ -32,6 +32,7 @@ import {
   type Table,
 } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ export default function ReservationsScreen() {
 
   const qc = useQueryClient();
 
-  const { data: reservations = [], isLoading, refetch } = useQuery({
+  const { data: reservations = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["reservations", selectedDate],
     queryFn: () => getReservations(selectedDate),
     refetchInterval: 120_000,
@@ -263,7 +264,11 @@ export default function ReservationsScreen() {
           </View>
         )}
 
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && isError && reservations.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load reservations" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+
+        {!isLoading && !isError && filtered.length === 0 && (
           <View className="items-center py-16" style={{ gap: 12 }}>
             <View style={{ height: 64, width: 64, borderRadius: 20, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="calendar-outline" size={30} color={C.smoke} />

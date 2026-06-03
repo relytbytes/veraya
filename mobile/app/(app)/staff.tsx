@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getFullStaff, createStaff, patchStaff, getActiveClockIns, getStaffNotes, createStaffNote, deleteStaffNote } from "@/lib/api";
 import type { StaffMember, StaffNote } from "@/lib/api";
 import { C, T, shadow, roleColor, roleBg } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ export default function StaffScreen() {
   const [editMember, setEditMember] = useState<StaffMember | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  const { data: staff = [], isLoading, refetch } = useQuery({
+  const { data: staff = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["fullStaff"],
     queryFn: getFullStaff,
   });
@@ -90,7 +91,10 @@ export default function StaffScreen() {
             <ActivityIndicator color={C.gold} />
           </View>
         )}
-        {!isLoading && staff.length === 0 && (
+        {!isLoading && isError && staff.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load staff" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+        {!isLoading && !isError && staff.length === 0 && (
           <View className="items-center py-14 gap-3">
             <Ionicons name="people-outline" size={40} color={C.smoke} />
             <Text style={{ color: C.mist, fontSize: 14 }}>No staff members yet</Text>

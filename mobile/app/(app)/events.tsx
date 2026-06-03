@@ -11,6 +11,7 @@ import { getEvents, createEvent, patchEvent, deleteEvent, BASE_URL } from "@/lib
 import type { CalEvent } from "@/lib/api";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
 type Tab = "upcoming" | "past" | "inquiries";
@@ -57,7 +58,7 @@ export default function EventsScreen() {
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const { data: events = [], isLoading, refetch } = useQuery({
+  const { data: events = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["events"],
     queryFn: getEvents,
     refetchInterval: 120_000,
@@ -524,7 +525,11 @@ export default function EventsScreen() {
           </View>
         )}
 
-        {!isLoading && tabEvents.length === 0 && (
+        {!isLoading && isError && events.length === 0 && (
+          <ScreenMessage icon="cloud-offline-outline" tone="error" title="Couldn't load events" subtitle="Check your connection and try again." actionLabel="Retry" onAction={() => refetch()} />
+        )}
+
+        {!isLoading && !isError && tabEvents.length === 0 && (
           <View className="items-center py-14 gap-4">
             <View style={{ height: 64, width: 64, borderRadius: 16, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name="calendar-outline" size={30} color={C.smoke} />

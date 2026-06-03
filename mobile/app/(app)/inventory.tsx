@@ -12,6 +12,7 @@ import type { InventoryItem } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
 import { ShelfSetup } from "@/components/ShelfSetup";
 import { VoiceCountMode } from "@/components/VoiceCountMode";
+import { ScreenMessage } from "@/components/ScreenMessage";
 import { IngredientImport } from "@/components/IngredientImport";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
@@ -43,7 +44,7 @@ export default function InventoryScreen() {
   const [adjusting, setAdjusting] = useState(false);
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: getSuppliers });
 
-  const { data: inventory = [], isLoading, refetch } = useQuery({
+  const { data: inventory = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["inventory"],
     queryFn: getInventory,
     refetchInterval: 120_000,
@@ -614,7 +615,18 @@ export default function InventoryScreen() {
             <Text style={{ color: C.mist }}>Loading inventory…</Text>
           </View>
         )}
-        {!isLoading && inventory.length === 0 && (
+        {!isLoading && isError && inventory.length === 0 && (
+          <ScreenMessage
+            icon="cloud-offline-outline"
+            tone="error"
+            title="Couldn't load inventory"
+            subtitle="Check your connection and try again."
+            actionLabel="Retry"
+            onAction={() => refetch()}
+          />
+        )}
+
+        {!isLoading && !isError && inventory.length === 0 && (
           <View style={{ alignItems: "center", paddingVertical: 56, gap: 16 }}>
             <View
               style={{
