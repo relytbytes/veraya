@@ -9,8 +9,8 @@ turso db show veraya --url          # → libsql://veraya-<org>.turso.io
 turso db tokens create veraya       # → the auth token
 ```
 
-Apply the migration history to Turso (do NOT use `db push` — it skips the
-migration files):
+First-time setup — apply the migration history + seed (do NOT use `db push` —
+it skips the migration files):
 
 ```bash
 DATABASE_URL="libsql://veraya-<org>.turso.io" \
@@ -18,6 +18,9 @@ DATABASE_AUTH_TOKEN="<token>" \
 npm run db:deploy        # prisma migrate deploy
 npm run db:seed          # optional: seed starter data
 ```
+
+After that, **migrations apply automatically on every deploy** (see Build below) —
+you only run `db:deploy` by hand for the very first setup.
 
 ## 2. Vercel environment variables
 
@@ -41,6 +44,11 @@ See `.env.example` for the full list.
 No special config needed:
 - `postinstall` runs `prisma generate` (the client lives in the gitignored
   `app/generated/prisma`, so it must be regenerated on every install).
+- `build` runs `scripts/migrate-deploy.mjs` **before** `next build`, so every
+  deploy applies any pending migrations to the database automatically (idempotent
+  — `prisma migrate deploy` only runs pending ones). For Turso it maps
+  `TURSO_AUTH_TOKEN` → `DATABASE_AUTH_TOKEN` for the schema engine. If a migration
+  fails, the build fails on purpose rather than shipping a half-migrated schema.
 - `vercel.json` registers the daily reservation-reminder cron.
 
 Point Vercel at the repo and deploy. After the first deploy, set the Stripe
