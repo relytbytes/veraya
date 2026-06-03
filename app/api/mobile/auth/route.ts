@@ -20,8 +20,14 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // Encode a NextAuth v5-compatible JWT so the mobile app can use existing API routes
-    // NextAuth v5 requires a `salt` (HKDF salt) — use the standard session cookie name as salt
+    // NextAuth v5 names the session cookie differently over HTTPS: it adds the
+    // `__Secure-` prefix and uses that exact name as the JWT's HKDF salt. The
+    // mobile client sets the cookie by hand, so the token MUST be encoded with
+    // the salt matching the cookie name we tell it to send — otherwise the
+    // server can't decode it and every protected route 401s. Derive both from
+    // the request protocol so it's correct on Vercel (https) and local (http).
+    const isHttps = req.headers.get("x-forwarded-proto") === "https";
+    const cookieName = isHttps ? "__Secure-authjs.session-token" : "authjs.session-token";
     const secret = process.env.NEXTAUTH_SECRET ?? "dev-secret";
     const token = await encode({
       token: {
@@ -32,12 +38,13 @@ export async function POST(req: NextRequest) {
         role: user.role,
       },
       secret,
-      salt: "authjs.session-token",
+      salt: cookieName,
       maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
     return Response.json({
       token,
+      cookieName,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
   } catch (e) {

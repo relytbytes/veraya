@@ -13,8 +13,11 @@ export async function getHeaders(): Promise<Record<string, string>> {
     "bypass-tunnel-reminder": "true",  // bypass localtunnel reminder page
   };
   if (token) {
-    // NextAuth v5 reads the session from this cookie name
-    headers["Cookie"] = `authjs.session-token=${token}`;
+    // Over HTTPS (Vercel) NextAuth uses the secure-prefixed cookie name; the
+    // login response tells us which one to send. Default to the secure name
+    // since we target the production https backend.
+    const cookieName = (await SecureStore.getItemAsync("session_cookie_name")) ?? "__Secure-authjs.session-token";
+    headers["Cookie"] = `${cookieName}=${token}`;
   }
   return headers;
 }
@@ -34,7 +37,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Auth
 export const mobileLogin = (email: string, password: string) =>
-  request<{ token: string; user: { id: string; name: string; email: string; role: string } }>(
+  request<{ token: string; cookieName?: string; user: { id: string; name: string; email: string; role: string } }>(
     "/api/mobile/auth",
     { method: "POST", body: JSON.stringify({ email, password }) }
   );

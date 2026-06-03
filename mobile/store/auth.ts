@@ -7,7 +7,7 @@ interface AuthState {
   user: AuthUser | null;
   token: string | null;
   hydrated: boolean;
-  setAuth: (user: AuthUser, token: string) => Promise<void>;
+  setAuth: (user: AuthUser, token: string, cookieName?: string) => Promise<void>;
   clearAuth: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
@@ -17,15 +17,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   hydrated: false,
 
-  setAuth: async (user, token) => {
+  setAuth: async (user, token, cookieName) => {
     await SecureStore.setItemAsync("session_token", token);
     await SecureStore.setItemAsync("session_user", JSON.stringify(user));
+    // Remember which cookie name the backend expects (secure name over https).
+    await SecureStore.setItemAsync("session_cookie_name", cookieName ?? "__Secure-authjs.session-token");
     set({ user, token });
   },
 
   clearAuth: async () => {
     await SecureStore.deleteItemAsync("session_token");
     await SecureStore.deleteItemAsync("session_user");
+    await SecureStore.deleteItemAsync("session_cookie_name");
     set({ user: null, token: null });
   },
 

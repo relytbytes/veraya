@@ -19,8 +19,8 @@ export default function LoginScreen() {
     setLoading(true);
     setError("");
     try {
-      const { token, user } = await mobileLogin(email.toLowerCase().trim(), password);
-      await setAuth(user, token);
+      const { token, user, cookieName } = await mobileLogin(email.toLowerCase().trim(), password);
+      await setAuth(user, token, cookieName);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Login failed. Check your credentials.");
     } finally {
