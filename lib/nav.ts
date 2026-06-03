@@ -75,6 +75,7 @@ export const navGroups: NavGroup[] = [
     label: "Insights",
     items: [
       { href: "/pre-shift", label: "Pre-Shift", icon: Sparkles },
+      { href: "/guests", label: "Guest Profiles", icon: Users },
       { href: "/reports", label: "Reports", icon: BarChart3 },
     ],
   },
