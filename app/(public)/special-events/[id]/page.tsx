@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Clock, MapPin, Users, ArrowLeft } from "lucide-react";
 import { EventInquiryForm } from "./inquiry-form";
+import { TicketPurchase } from "./ticket-purchase";
+import { getEventTicketing } from "@/lib/event-tickets";
 
 // Reads live data — render per-request, never prerender at build time.
 export const dynamic = "force-dynamic";
@@ -32,6 +34,10 @@ export default async function PublicEventDetailPage({
   if (!event || event.status !== "CONFIRMED") {
     notFound();
   }
+
+  // When ticketing is on, show the live ticket-purchase widget instead of the
+  // inquiry form.
+  const ticketing = event.ticketingEnabled ? await getEventTicketing(id) : null;
 
   return (
     <div
@@ -188,13 +194,25 @@ export default async function PublicEventDetailPage({
             )}
           </div>
 
-          {/* Right: Inquiry form */}
+          {/* Right: ticket purchase (when ticketing on) or inquiry form */}
           <div className="lg:sticky lg:top-8 h-fit">
-            <EventInquiryForm
-              eventId={event.id}
-              eventName={event.name}
-              guestCount={event.guestCount ?? undefined}
-            />
+            {ticketing && ticketing.tiers.some((t) => t.active) ? (
+              <TicketPurchase
+                eventId={event.id}
+                mode={event.ticketMode}
+                tiers={ticketing.tiers.map((t) => ({
+                  id: t.id, name: t.name, description: t.description,
+                  priceCents: t.priceCents, chargeNowCents: t.chargeNowCents,
+                  remaining: t.remaining, active: t.active,
+                }))}
+              />
+            ) : (
+              <EventInquiryForm
+                eventId={event.id}
+                eventName={event.name}
+                guestCount={event.guestCount ?? undefined}
+              />
+            )}
           </div>
         </div>
       </main>
