@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/api";
 import { View, Text } from "react-native";
 import { useEffect } from "react";
-import * as ScreenOrientation from "expo-screen-orientation";
+import { lockPortrait } from "@/lib/orientation";
 import { useAuthStore } from "@/store/auth";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
 import { C } from "@/lib/theme";
@@ -43,7 +43,7 @@ export default function AppLayout() {
 
   // App is portrait by default; only Station mode rotates to landscape (it locks
   // landscape on entry and restores portrait on exit).
-  useEffect(() => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); }, []);
+  useEffect(() => { lockPortrait(); }, []);
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard"],

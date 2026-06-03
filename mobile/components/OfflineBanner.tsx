@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import NetInfo from "@react-native-community/netinfo";
+import { addConnectivityListener } from "@/lib/connectivity";
 import { C } from "@/lib/theme";
 
 /**
@@ -16,10 +16,8 @@ export function OfflineBanner() {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    return NetInfo.addEventListener((state) => {
-      // isConnected can be null briefly on launch — treat null as online.
-      setOffline(state.isConnected === false);
-    });
+    // online=false → offline. No-ops if netinfo's native module is absent.
+    return addConnectivityListener((online) => setOffline(!online));
   }, []);
 
   useEffect(() => {

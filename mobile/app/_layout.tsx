@@ -4,9 +4,9 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import NetInfo from "@react-native-community/netinfo";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuthStore } from "@/store/auth";
+import { addConnectivityListener } from "@/lib/connectivity";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { C } from "@/lib/theme";
 import "../global.css";
@@ -40,10 +40,8 @@ focusManager.setEventListener((handleFocus) => {
 
 // Wire React Query's online tracking to real device connectivity, so queries
 // pause when offline and auto-refetch the moment the network returns instead of
-// failing and showing errors on spotty wifi.
-onlineManager.setEventListener((setOnline) =>
-  NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)),
-);
+// failing and showing errors on spotty wifi. Safe no-op if netinfo is absent.
+onlineManager.setEventListener((setOnline) => addConnectivityListener(setOnline));
 
 function AuthGuard() {
   const { user, hydrated } = useAuthStore();
