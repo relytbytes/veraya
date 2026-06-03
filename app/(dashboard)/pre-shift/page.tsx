@@ -79,7 +79,7 @@ export default function PreShiftPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {[
               { label: "Parties", value: data.summary.parties, icon: <Users className="h-4 w-4 text-gray-500" /> },
-              { label: "Covers", value: data.summary.covers, icon: <Users className="h-4 w-4 text-gray-500" /> },
+              { label: "Guests", value: data.summary.covers, icon: <Users className="h-4 w-4 text-gray-500" /> },
               { label: "PPX", value: data.summary.ppx, icon: <Star className="h-4 w-4 text-green-600" /> },
               { label: "VIP", value: data.summary.vip, icon: <Star className="h-4 w-4 text-amber-500" /> },
               { label: "Watch", value: data.summary.watch, icon: <AlertTriangle className="h-4 w-4 text-warning-600" /> },
@@ -100,7 +100,7 @@ export default function PreShiftPage() {
           <p className="text-sm text-gray-600 leading-relaxed">
             {loading ? "Reading the book…"
               : data && data.entries.length === 0 ? `No reservations on the book for ${dateLabel}.`
-              : data ? `${data.summary.parties} parties, ${data.summary.covers} covers. ${data.summary.ppx} to make feel special${data.summary.watch ? `, ${data.summary.watch} to keep an eye on` : ""}.`
+              : data ? `${data.summary.parties} parties, ${data.summary.covers} guests. ${data.summary.ppx} to make feel special${data.summary.watch ? `, ${data.summary.watch} to keep an eye on` : ""}.`
               : "Could not load the brief."}
           </p>
         </div>

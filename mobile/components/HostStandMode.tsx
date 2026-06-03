@@ -180,7 +180,7 @@ export function HostStandMode({
             { val: occupiedTables.length,                                      label: "seated",   color: C.jade  },
             { val: tables.filter(t => t.status === "AVAILABLE").length,        label: "open",     color: C.sky   },
             { val: activeWaitlist.length,                                      label: "waiting",  color: C.coral },
-            { val: totalCovers,                                                label: "covers",   color: C.ember },
+            { val: totalCovers,                                                label: "guests",   color: C.ember },
             { val: avgTurnMins > 0 ? `${avgTurnMins}m` : "—",                 label: "avg turn", color: C.mist  },
           ].map(({ val, label, color }, i, arr) => (
             <View key={label} style={{ flex: 1, alignItems: "center", borderRightWidth: i < arr.length - 1 ? 1 : 0, borderColor: C.rim }}>

@@ -83,7 +83,7 @@ export function ReservationRail({
         </div>
         <div className="flex items-baseline gap-1.5">
           <span className="text-lg font-bold text-white tabular-nums">{covers}</span>
-          <span className="text-xs text-gray-400">covers</span>
+          <span className="text-xs text-gray-400">guests</span>
         </div>
         <div className="flex items-baseline gap-1.5 ml-auto">
           <span className="text-sm font-bold tabular-nums" style={{ color: BRAND.jade }}>{seated.length}</span>

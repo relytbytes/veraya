@@ -29,7 +29,7 @@ type Module = {
 
 const MODULES: Module[] = [
   // Front of House
-  { label: "Reservations",    description: "Book & manage covers",          icon: "calendar-outline",       color: C.sky,   href: "/(app)/reservations" },
+  { label: "Reservations",    description: "Book & manage guests",          icon: "calendar-outline",       color: C.sky,   href: "/(app)/reservations" },
   { label: "Customers",       description: "CRM, loyalty & profiles",       icon: "person-outline",         color: C.jade,  href: "/(app)/customers" },
   { label: "Events",          description: "Catering & private dining",     icon: "star-outline",           color: C.gold,  href: "/(app)/events" },
   { label: "Gift Cards",      description: "Issue, load & redeem",          icon: "gift-outline",           color: C.coral, href: "/(app)/giftcards" },

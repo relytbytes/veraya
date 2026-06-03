@@ -76,7 +76,7 @@ const LOG_TEMPLATES: Record<string, LogTemplate[]> = {
       label: "Closing Shift",
       type: "SHIFT_NOTE",
       title: "Closing Shift Notes",
-      body: "Staff departures:\n\nFinal cover count:\n\nSales highlights:\n\nIssues / follow-ups:\n\nEquipment status:\n\nNotes for opening team:",
+      body: "Staff departures:\n\nFinal guest count:\n\nSales highlights:\n\nIssues / follow-ups:\n\nEquipment status:\n\nNotes for opening team:",
     },
     {
       label: "Mid-Shift",
@@ -937,7 +937,7 @@ export default function ManagerLogPage() {
                   { label: "Avg Check", value: aiSummary.metrics.avgCheck != null ? `$${Number(aiSummary.metrics.avgCheck).toFixed(2)}` : "—" },
                   { label: "Labor %", value: aiSummary.metrics.laborPct != null ? `${Number(aiSummary.metrics.laborPct).toFixed(1)}%` : "—" },
                   { label: "Staff", value: aiSummary.metrics.staffCount != null ? String(aiSummary.metrics.staffCount) : "—" },
-                  { label: "Covers", value: aiSummary.metrics.covers != null ? String(aiSummary.metrics.covers) : "—" },
+                  { label: "Guests", value: aiSummary.metrics.covers != null ? String(aiSummary.metrics.covers) : "—" },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-white border border-gray-100 rounded-lg px-3 py-2 text-center">
                     <p className="text-xs text-gray-400">{label}</p>

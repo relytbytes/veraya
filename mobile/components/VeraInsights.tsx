@@ -32,7 +32,7 @@ export function VeraForecastCard() {
           <Text style={{ fontSize: 20, fontWeight: "800", color: C.gold, marginTop: 2 }}>${data.projectedSales.toLocaleString("en-US")}</Text>
         </View>
         <View style={{ flex: 1, padding: 12 }}>
-          <Text style={{ fontSize: 11, color: C.mist }}>Projected covers</Text>
+          <Text style={{ fontSize: 11, color: C.mist }}>Projected guests</Text>
           <Text style={{ fontSize: 20, fontWeight: "800", color: C.pearl, marginTop: 2 }}>{data.projectedCovers}{data.reservedCovers > 0 ? <Text style={{ fontSize: 11, color: C.smoke }}>  {data.reservedCovers} booked</Text> : null}</Text>
         </View>
       </View>

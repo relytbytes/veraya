@@ -84,7 +84,7 @@ function floorVisual(status: string, serviceStage: string | null): { hue: string
     if (s === "BUSSING")       return { hue: "#D44030", label: "Bussing", open: false };
     return { hue: "#1E7A45", label: "Seated", open: false };
   }
-  if (status === "DIRTY")    return { hue: "#D44030", label: "Cleaning", open: false };
+  if (status === "DIRTY")    return { hue: "#D44030", label: "Bussing", open: false };
   if (status === "RESERVED") return { hue: "#21A090", label: "Reserved", open: false };
   return { hue: "#8A97A6", label: "Open", open: true };
 }
@@ -2342,7 +2342,7 @@ function FloorPlanView({
           { key: "available", label: "Open", value: counts.available, dot: "#8A97A6" },
           { key: "occupied",  label: "Seated", value: counts.occupied, dot: "#1E7A45" },
           { key: "reserved",  label: "Reserved", value: counts.reserved, dot: "#21A090" },
-          { key: "dirty",     label: "Cleaning", value: counts.dirty, dot: "#D44030" },
+          { key: "dirty",     label: "Bussing", value: counts.dirty, dot: "#D44030" },
         ].map(({ key, label, value, dot }) => (
           <div key={key} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 shadow-sm">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dot }} />

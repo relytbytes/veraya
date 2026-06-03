@@ -35,7 +35,7 @@ function canAccess(role: string, href: string): boolean {
 const ALL_MODULES = [
   { href: "/pos",          label: "Point of Sale",    icon: "🛒", description: "Floor plan, tables & orders",  color: "bg-amber-50"  },
   { href: "/kitchen",      label: "Kitchen Display",  icon: "🍳", description: "Live ticket queue",            color: "bg-orange-50" },
-  { href: "/reservations", label: "Reservations",     icon: "📅", description: "Book & manage covers",         color: "bg-blue-50"   },
+  { href: "/reservations", label: "Reservations",     icon: "📅", description: "Book & manage guests",         color: "bg-blue-50"   },
   { href: "/host",         label: "Host Stand",       icon: "🪑", description: "Waitlist & seating",           color: "bg-indigo-50" },
   { href: "/menu",         label: "Menu",             icon: "🍽️", description: "Items, prices & categories",  color: "bg-green-50"  },
   { href: "/recipes",      label: "Recipes",          icon: "📖", description: "Ingredient-level costing",     color: "bg-teal-50"   },

@@ -46,7 +46,7 @@ const FLOOR_STATUS_M: Record<string, { color: string; bg: string; label: string 
   AVAILABLE: { color: C.smoke, bg: "rgba(138,151,166,0.08)", label: "Open" },
   OCCUPIED:  { color: C.jade,  bg: "rgba(30,122,69,0.07)",   label: "Seated" },
   RESERVED:  { color: C.gold,  bg: "rgba(33,160,144,0.08)",  label: "Reserved" },
-  DIRTY:     { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Cleaning" },
+  DIRTY:     { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Bussing" },
 };
 
 const TIP_OPTIONS = [

@@ -384,7 +384,7 @@ export default function HoursSettingsPage() {
                   value={pacing}
                   onChange={(e) => setPacing(Number(e.target.value))}
                 />
-                <p className="text-xs text-gray-400">Caps total covers booked in any overlapping window (pacing)</p>
+                <p className="text-xs text-gray-400">Caps total guests booked in any overlapping window (pacing)</p>
               </div>
             </div>
           </CardContent>

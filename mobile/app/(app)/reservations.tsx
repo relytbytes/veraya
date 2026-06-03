@@ -216,7 +216,7 @@ export default function ReservationsScreen() {
 
       {/* Stats bar */}
       <View style={{ flexDirection: "row", backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.rim, paddingHorizontal: 20, paddingVertical: 12, gap: 12 }}>
-        <StatChip label="Covers" value={stats.totalCovers} color={C.gold} />
+        <StatChip label="Guests" value={stats.totalCovers} color={C.gold} />
         <View style={{ width: 1, backgroundColor: C.rim }} />
         <StatChip label="Confirmed" value={stats.confirmed} color={C.jade} />
         <View style={{ width: 1, backgroundColor: C.rim }} />
