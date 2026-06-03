@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, TextInput, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,6 +23,9 @@ type PickTarget =
 export function StationHost({ onExit }: { onExit: () => void }) {
   const qc = useQueryClient();
   const router = useRouter();
+  // Read insets HERE (outside the Modal) — they're correct here; SafeAreaView
+  // inside HostStandMode's fullscreen Modal would report 0.
+  const insets = useSafeAreaInsets();
   const today = toYMD(new Date());
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 30_000); return () => clearInterval(t); }, []);
@@ -85,6 +89,8 @@ export function StationHost({ onExit }: { onExit: () => void }) {
       <HostStandMode
         visible
         onClose={onExit}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
         tables={tables}
         openOrders={(ordersQ.data ?? []).map((o) => ({ id: o.id, tableId: (o as { tableId?: string | null }).tableId ?? null, total: o.total }))}
         tableSize={64}

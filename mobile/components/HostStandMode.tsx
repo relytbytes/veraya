@@ -3,7 +3,6 @@ import {
   View, Text, Modal, TouchableOpacity, ScrollView,
   useWindowDimensions, RefreshControl, ActivityIndicator,
 } from "react-native";
-import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { TableCanvas } from "./TableCanvas";
 import { C, T, shadow } from "@/lib/theme";
@@ -37,6 +36,10 @@ interface HostStandModeProps {
   onSeatReservation?: (res: Reservation) => void;
   onMarkLeft?: (entryId: string) => Promise<void>;
   onMarkNoShow?: (resId: string) => Promise<void>;
+  // SafeAreaView reports 0 insets inside a fullscreen Modal, so the parent (which
+  // can read them correctly) passes them in for manual padding.
+  topInset?: number;
+  bottomInset?: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -131,6 +134,7 @@ export function HostStandMode({
   onAddWalkIn, onAddWaitlist, onAddReservation,
   onSeatWaitlistEntry, onSeatReservation,
   onMarkLeft, onMarkNoShow,
+  topInset = 0, bottomInset = 0,
 }: HostStandModeProps) {
 
   const { width, height } = useWindowDimensions();
@@ -156,7 +160,7 @@ export function HostStandMode({
   // Leave room for the header (~56) + the color legend (~80) + top/bottom safe
   // insets so the legend isn't pushed off the bottom of a landscape iPad.
   const canvasH = isTablet
-    ? height - 220
+    ? height - 250 - topInset - bottomInset
     : Math.max(240, Math.min(380, Math.round(height * 0.38)));
 
   // ── Derived lists ─────────────────────────────────────────────────────────
@@ -494,13 +498,13 @@ export function HostStandMode({
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent presentationStyle="fullScreen">
-      <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.void }} edges={["top", "left", "right", "bottom"]}>
+      <View style={{ flex: 1, backgroundColor: C.void }}>
 
-        {/* Header */}
+        {/* Header — paddingTop carries the status-bar inset manually, because a
+            SafeAreaView reports 0 insets inside a fullscreen Modal on iOS. */}
         <View style={{
           flexDirection: "row", alignItems: "center",
-          paddingHorizontal: 16, paddingVertical: 10,
+          paddingHorizontal: 16, paddingTop: 10 + topInset, paddingBottom: 10,
           backgroundColor: C.surface,
           borderBottomWidth: 1, borderColor: C.rim, gap: 10,
         }}>
@@ -565,7 +569,7 @@ export function HostStandMode({
           <View style={{ flex: 1, flexDirection: "row" }}>
             {/* Left: floor plan */}
             <View style={{ flex: 1, borderRightWidth: 1, borderColor: C.rim }}>
-              <ScrollView scrollEnabled={false} contentContainerStyle={{ flexGrow: 0 }}>
+              <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomInset + 8 }}>
                 <TableCanvas
                   tables={tables}
                   openOrders={openOrders}
@@ -590,7 +594,7 @@ export function HostStandMode({
         ) : (
           // Phone: stacked layout
           <View style={{ flex: 1 }}>
-            <ScrollView scrollEnabled={false} contentContainerStyle={{ flexGrow: 0 }}>
+            <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: bottomInset + 8 }}>
               <TableCanvas
                 tables={tables}
                 openOrders={openOrders}
@@ -611,8 +615,7 @@ export function HostStandMode({
           </View>
         )}
 
-      </SafeAreaView>
-      </SafeAreaProvider>
+      </View>
     </Modal>
   );
 }
