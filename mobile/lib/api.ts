@@ -162,6 +162,14 @@ export const patchCustomer = (id: string, body: Partial<{ name: string; phone: s
 export const deleteCustomer = (id: string) =>
   request<void>(`/api/customers/${id}`, { method: "DELETE" });
 
+// ── Duplicate-profile review & merge (mirrors web Guest Profiles) ──────────────
+export interface DuplicateMember { id: string; name: string; phone: string | null; email: string | null; visitCount?: number; loyaltyPoints?: number }
+export interface DuplicateGroup { confidence: "high" | "possible"; reason: string; primaryId: string; members: DuplicateMember[] }
+export const getCustomerDuplicates = () =>
+  request<{ groups: DuplicateGroup[] }>("/api/customers/duplicates");
+export const mergeCustomers = (primaryId: string, duplicateIds: string[]) =>
+  request<{ ok: boolean }>("/api/customers/merge", { method: "POST", body: JSON.stringify({ primaryId, duplicateIds }) });
+
 // Vision / AI photo identification
 export const visionIdentify = (image: string) =>
   request<VisionResult>("/api/vision", { method: "POST", body: JSON.stringify({ image }) });

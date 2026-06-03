@@ -27,8 +27,11 @@ import {
   getLoyalty,
   loyaltyAction,
   getCustomerReservations,
+  getCustomerDuplicates,
+  mergeCustomers,
   type Customer,
   type Reservation,
+  type DuplicateGroup,
 } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
@@ -687,6 +690,98 @@ function CustomerDetailSheet({
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
+// ── Duplicate-profile review & merge ───────────────────────────────────────────
+function DuplicatesModal({ onClose, onMerged }: { onClose: () => void; onMerged: () => void }) {
+  const { data, isLoading, refetch } = useQuery({ queryKey: ["customerDuplicates"], queryFn: getCustomerDuplicates });
+  const [primaries, setPrimaries] = useState<Record<number, string>>({});
+  const [merging, setMerging] = useState<number | null>(null);
+  const groups: DuplicateGroup[] = data?.groups ?? [];
+
+  async function doMerge(gi: number, g: DuplicateGroup) {
+    const primaryId = primaries[gi] ?? g.primaryId;
+    const dupes = g.members.filter((m) => m.id !== primaryId).map((m) => m.id);
+    if (!dupes.length) return;
+    setMerging(gi);
+    try {
+      await mergeCustomers(primaryId, dupes);
+      await refetch();
+      onMerged();
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Merge failed");
+    } finally {
+      setMerging(null);
+    }
+  }
+
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "85%", paddingBottom: 28 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
+            <View>
+              <Text style={{ fontSize: 17, fontWeight: "800", color: C.pearl }}>Duplicate Profiles</Text>
+              <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }}>Vera matched these on phone, email, or name. History is preserved.</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
+          </View>
+
+          {isLoading ? (
+            <View style={{ alignItems: "center", paddingVertical: 48 }}><ActivityIndicator color={C.gold} /></View>
+          ) : groups.length === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: 48, gap: 8 }}>
+              <Ionicons name="checkmark-circle-outline" size={34} color={C.jade} />
+              <Text style={{ fontSize: 14, fontWeight: "600", color: C.pearl }}>No duplicate profiles found</Text>
+              <Text style={{ fontSize: 12, color: C.smoke }}>Your guest book is clean.</Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
+              {groups.map((g, gi) => {
+                const primaryId = primaries[gi] ?? g.primaryId;
+                return (
+                  <View key={gi} style={{ borderWidth: 1, borderColor: C.rim, borderRadius: 14, padding: 12, gap: 8, backgroundColor: C.surfaceHi }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: g.confidence === "high" ? `${C.coral}1A` : `${C.ember}1A` }}>
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: g.confidence === "high" ? C.coral : C.ember }}>{g.confidence === "high" ? "LIKELY" : "POSSIBLE"}</Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: C.smoke }}>{g.reason}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => doMerge(gi, g)}
+                        disabled={merging === gi}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.gold, opacity: merging === gi ? 0.6 : 1 }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: C.void }}>{merging === gi ? "Merging…" : "Merge"}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {g.members.map((m) => {
+                      const sel = m.id === primaryId;
+                      return (
+                        <TouchableOpacity
+                          key={m.id}
+                          onPress={() => setPrimaries((p) => ({ ...p, [gi]: m.id }))}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: sel ? C.gold : C.rim, borderRadius: 10, padding: 10, backgroundColor: sel ? `${C.gold}0F` : C.surface }}
+                        >
+                          <Ionicons name={sel ? "radio-button-on" : "radio-button-off"} size={18} color={sel ? C.gold : C.smoke} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: C.pearl }}>{m.name}</Text>
+                            <Text style={{ fontSize: 11, color: C.smoke }}>{[m.phone, m.email].filter(Boolean).join(" · ") || "No contact info"}{m.visitCount != null ? ` · ${m.visitCount} visits` : ""}</Text>
+                          </View>
+                          {sel && <Text style={{ fontSize: 10, fontWeight: "800", color: C.gold, letterSpacing: 0.5 }}>KEEP</Text>}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function CustomersScreen() {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -694,6 +789,7 @@ export default function CustomersScreen() {
   const [sortMode, setSortMode] = useState<SortMode>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -760,7 +856,9 @@ export default function CustomersScreen() {
         subtitle={`${customers.length} customers`}
         scrollY={scrollY}
         left={<TouchableOpacity onPress={() => router.navigate("/(app)/more")} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="chevron-back" size={20} color={C.gold} /></TouchableOpacity>}
+        right={<TouchableOpacity onPress={() => setDupOpen(true)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}><Ionicons name="git-merge-outline" size={19} color={C.gold} /></TouchableOpacity>}
       />
+      {dupOpen && <DuplicatesModal onClose={() => setDupOpen(false)} onMerged={() => { queryClient.invalidateQueries({ queryKey: ["customers"] }); }} />}
       {/* search + sort controls */}
       <View style={{ backgroundColor: C.surface, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
 
