@@ -43,8 +43,14 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
           <img src="/veraya-icon.png" alt="Veraya" width={44} height={44} className="rounded-full" />
         </div>
         <span
-          className="text-3xl font-extrabold tracking-tight leading-none"
-          style={{ color: "#E7B23E" }}
+          className="text-3xl leading-none"
+          style={{
+            color: "#FFFFFF",
+            // IvyPresto Display — Adobe Fonts family name first (resolves once an
+            // Adobe kit is loaded), then the desktop name, then a serif fallback.
+            fontFamily: '"ivypresto-display", "IvyPresto Display", Georgia, "Times New Roman", serif',
+            fontWeight: 500,
+          }}
         >
           Veraya
         </span>
