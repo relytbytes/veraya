@@ -141,21 +141,23 @@ export function VeraCard() {
       borderWidth: 1, borderColor: C.rim,
       overflow: "hidden", ...shadow.sm,
     }}>
-      {/* Vera header band */}
-      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: "#0C1A1E" }}>
+      {/* Health accent strip — tracks the score color (green→amber→red), matching web */}
+      <View style={{ height: 5, backgroundColor: hc.ring }} />
+      {/* Vera header band (white, to match the web Vera panel) */}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: C.surface }}>
         {/* Vera mark — the face logo */}
         <Image source={require("../assets/vera-avatar.png")} style={{ width: 44, height: 44, borderRadius: 12 }} />
 
         {/* Identity + narrative */}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 5 }}>
-            <Text style={{ fontSize: 16, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.2 }}>Vera</Text>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: C.pearl, letterSpacing: -0.2 }}>Vera</Text>
             <Ionicons name="sparkles" size={11} color={C.ember} />
-            <Text style={{ fontSize: 9, fontWeight: "700", color: "#5EEAD4", letterSpacing: 1.2, textTransform: "uppercase" }}>
+            <Text style={{ fontSize: 9, fontWeight: "700", color: C.gold, letterSpacing: 1.2, textTransform: "uppercase" }}>
               Always Working
             </Text>
           </View>
-          <Text style={{ fontSize: 13, color: "#C7D2DE", lineHeight: 19 }}>
+          <Text style={{ fontSize: 13, color: C.mist, lineHeight: 19 }}>
             {data.narrative}
           </Text>
         </View>
@@ -173,7 +175,7 @@ export function VeraCard() {
             </Text>
             <Text style={{ fontSize: 8, color: C.smoke, fontWeight: "600" }}>/100</Text>
           </View>
-          <Text style={{ fontSize: 9, color: "#E5E8EC", fontWeight: "700", textAlign: "center", maxWidth: 52 }}>
+          <Text style={{ fontSize: 9, color: hc.text, fontWeight: "700", textAlign: "center", maxWidth: 52 }}>
             {hc.label}
           </Text>
         </View>
