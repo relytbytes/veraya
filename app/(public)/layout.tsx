@@ -1,11 +1,17 @@
 import Link from "next/link";
+import { getPublicBrand } from "@/lib/brand";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const brand = await getPublicBrand();
   return (
     <div className="min-h-full bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-900">Veraya</h1>
+          <Link href="/book" className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={brand.logoUrl} alt={brand.name} width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
+            <span className="text-lg font-bold tracking-tight text-gray-900">{brand.name}</span>
+          </Link>
           <nav className="flex gap-6 text-sm">
             <Link href="/book" className="text-gray-600 hover:text-gray-900 font-medium">
               Reserve a Table
