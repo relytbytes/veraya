@@ -221,8 +221,8 @@ function profitability(i: HealthInput, p: Projection): Dimension {
       message: `Projected to lose ${money(p.projectedNet)} today`,
       impact: `Break-even needs ${money(p.breakEvenRevenue)}; on pace for ${money(p.projectedRevenue)}`,
       action: i.activeStaff > 0 && p.projectedRevenue < p.breakEvenRevenue * 0.6
-        ? "Cut labor to your break-even staffing or drive covers now"
-        : "Push covers / check spend — you're under break-even",
+        ? "Cut labor toward break-even staffing — you're well under"
+        : "You're under break-even — tighten labor and watch spend",
       link: "/reports",
     });
   } else if (p.projectedMarginPct < TARGET_MARGIN * 100) {
@@ -322,20 +322,28 @@ function labor(i: HealthInput, p: Projection): Dimension {
   const laborPct = p.projectedRevenue > 0 ? (p.projectedLabor / p.projectedRevenue) * 100 : (p.projectedLabor > 0 ? 999 : 0);
   const assessable = p.projectedRevenue > 0 || i.activeStaff > 0;
 
+  // Staff on with no sales: a real problem DURING service, but completely normal
+  // before doors (prep + opening side work). Vera shouldn't read a prep crew as
+  // a crisis — that's the "doesn't understand the business" failure.
+  const staffedNoSales = laborPct >= 999;
+  const prepCrew = staffedNoSales && !p.inService;
+
   // Score off labor % vs a 20% target. ≤20%→100, 25%→80, 30%→60, 40%→20.
   let score: number;
-  if (!assessable) score = 70;
-  else if (laborPct >= 999) score = 5;
+  if (!assessable || prepCrew) score = 72;          // pre-service prep is not graded as bad labor
+  else if (staffedNoSales) score = 5;               // in service with staff and no sales = real bleed
   else score = clamp(Math.round(100 - Math.max(0, laborPct - LABOR_TARGET_PCT) * 4), 0, 100);
 
   const metrics: HealthMetric[] = [
-    { label: "Labor %", value: laborPct >= 999 ? "—" : pct(laborPct), target: `${LABOR_TARGET_PCT}%`, status: statusFromScore(score) },
+    { label: "Labor %", value: staffedNoSales ? "—" : pct(laborPct), target: `${LABOR_TARGET_PCT}%`, status: statusFromScore(score) },
     { label: "Staff on", value: String(i.activeStaff), status: "good" },
     { label: "Projected labor", value: money(p.projectedLabor), status: statusFromScore(score) },
   ];
 
-  if (laborPct >= 999) {
-    issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `Burning ${money(p.projectedLabor)} against ${money(p.projectedRevenue)}`, action: "Send staff home or drive covers", link: "/timeclock" });
+  if (prepCrew) {
+    issues.push({ severity: "LOW", message: `${i.activeStaff} clocked in before service`, impact: `${money(p.projectedLabor)} in labor so far — normal for prep & opening`, action: "Trim anyone not needed until doors open", link: "/timeclock" });
+  } else if (staffedNoSales) {
+    issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `${money(p.projectedLabor)} in labor with little coming in`, action: "Send staff home until covers justify the labor", link: "/timeclock" });
   } else if (laborPct > LABOR_TARGET_PCT + 8) {
     issues.push({ severity: laborPct > LABOR_TARGET_PCT + 18 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Cut a position or extend only if covers justify it", link: "/staff" });
   } else if (assessable && laborPct <= LABOR_TARGET_PCT) {
@@ -344,8 +352,8 @@ function labor(i: HealthInput, p: Projection): Dimension {
 
   return {
     key: "labor", label: "Labor", score, status: statusFromScore(score),
-    confidence: assessable ? 0.75 : 0.4,
-    summary: laborPct >= 999 ? "Staffed with no sales to cover it." : assessable ? `Labor tracking ${pct(laborPct)} of sales.` : "Not enough data to grade labor.",
+    confidence: prepCrew ? 0.4 : assessable ? 0.75 : 0.4,
+    summary: prepCrew ? "Prep crew on before service — normal." : staffedNoSales ? "Staffed with no sales to cover it." : assessable ? `Labor tracking ${pct(laborPct)} of sales.` : "Not enough data to grade labor.",
     metrics, wins, issues,
   };
 }
@@ -490,8 +498,9 @@ function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preSe
     else if (z <= -1) out.push({ key: "avgcheck_low", tone: "concern", text: `Avg check ${money(i.avgCheckToday)} — ${money(Math.abs(diff))} below your normal. Check attach/upsell.` });
   }
 
-  // Profitability.
-  if (p.projectedNet < 0) out.push({ key: "below_breakeven", tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
+  // Profitability. Only flag below-break-even once service is underway — before
+  // doors it's just a projection for a normal day, not an actionable concern.
+  if (!preService && p.projectedNet < 0) out.push({ key: "below_breakeven", tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
   else if (!preService && p.projectedMarginPct >= 12) out.push({ key: "margin_healthy", tone: "positive", text: `Healthy margin — projected ${pct(p.projectedMarginPct)} net (${money(p.projectedNet)}).` });
 
   // Pull in any HIGH issues the manager must see.
