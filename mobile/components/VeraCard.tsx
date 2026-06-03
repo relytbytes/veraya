@@ -79,6 +79,7 @@ export function VeraCard() {
   const anomalies = anomData?.anomalies ?? [];
   const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
   const [openDim, setOpenDim] = useState<string | null>(null);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   function indicatorFeedback(ind: VeraIndicator, action: "dismissed" | "helpful") {
     if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
@@ -197,6 +198,46 @@ export function VeraCard() {
               <Text style={{ fontSize: 15, fontWeight: "800", color: cell.color, marginTop: 2 }}>{cell.value}</Text>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* Where the money goes — projected P&L waterfall explaining the net above */}
+      {data.projection && (
+        <View style={{ borderBottomWidth: 1, borderColor: C.rim }}>
+          <TouchableOpacity
+            onPress={() => setShowBreakdown((v) => !v)}
+            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 9 }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: "700", color: C.smoke }}>
+              Where the money goes
+              <Text style={{ color: C.smoke, fontWeight: "400" }}>  ·  {Math.round(data.projection.serviceElapsedPct)}% of service done</Text>
+            </Text>
+            <Ionicons name={showBreakdown ? "chevron-up" : "chevron-down"} size={15} color={C.smoke} />
+          </TouchableOpacity>
+          {showBreakdown && (() => {
+            const p = data.projection;
+            const pctOf = (n: number) => p.projectedRevenue > 0 ? `  ·  ${Math.round((n / p.projectedRevenue) * 100)}%` : "";
+            const otherOpex = Math.max(0, p.projectedRevenue - p.projectedCOGS - p.projectedLabor - p.fixedDaily - p.projectedNet);
+            const Row = ({ label, value, sub, strong, net }: { label: string; value: string; sub?: string; strong?: boolean; net?: boolean }) => (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 }}>
+                <Text style={{ fontSize: 12.5, color: net ? C.pearl : C.mist, fontWeight: net ? "800" : "400" }}>{label}</Text>
+                <Text style={{ fontSize: 12.5, color: net ? (p.projectedNet >= 0 ? C.jade : C.coral) : strong ? C.pearl : C.smoke, fontWeight: strong || net ? "800" : "500" }}>
+                  {value}<Text style={{ color: C.smoke, fontWeight: "400" }}>{sub ?? ""}</Text>
+                </Text>
+              </View>
+            );
+            return (
+              <View style={{ paddingHorizontal: 14, paddingBottom: 12, paddingTop: 2 }}>
+                <Row label="Projected revenue" value={fmt(p.projectedRevenue)} strong />
+                <Row label="Food & beverage cost" value={`(${fmt(p.projectedCOGS)})`} sub={pctOf(p.projectedCOGS)} />
+                <Row label="Labor" value={`(${fmt(p.projectedLabor)})`} sub={pctOf(p.projectedLabor)} />
+                <Row label="Fixed (rent, salaries)" value={`(${fmt(p.fixedDaily)})`} sub={pctOf(p.fixedDaily)} />
+                {otherOpex > 0 && <Row label="Other operating" value={`(${fmt(otherOpex)})`} sub={pctOf(otherOpex)} />}
+                <View style={{ height: 1, backgroundColor: C.rim, marginVertical: 5 }} />
+                <Row label="Projected net" value={`${fmt(p.projectedNet)}`} sub={`  ·  ${Math.round(p.projectedMarginPct)}%`} net />
+              </View>
+            );
+          })()}
         </View>
       )}
 

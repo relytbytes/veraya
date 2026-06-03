@@ -145,6 +145,7 @@ export function VeraPanel() {
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [expandedDims, setExpandedDims] = useState<Set<string>>(new Set());
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const toggleDim = (key: string) => setExpandedDims((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -351,6 +352,43 @@ export function VeraPanel() {
         <PLCell label="Break-even" value={dol(data.projection.breakEvenRevenue)} sub={data.projection.breakEvenProgressPct != null ? `${pctTxt(data.projection.breakEvenProgressPct)} there` : "—"} />
       </div>
 
+      {/* Where the money goes — full projected P&L waterfall. Explains the "net"
+          number above: Revenue − COGS − Labor − Fixed − Other = Net. */}
+      <div className="border-b border-gray-100">
+        <button
+          onClick={() => setShowBreakdown((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-gray-500 hover:bg-gray-50"
+        >
+          <span className="flex items-center gap-1.5">
+            Where the money goes
+            <span className="text-gray-400 font-normal">· {pctTxt(data.projection.serviceElapsedPct)} of service done</span>
+          </span>
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showBreakdown && "rotate-180")} />
+        </button>
+        {showBreakdown && (() => {
+          const p = data.projection;
+          const pctOf = (n: number) => p.projectedRevenue > 0 ? ` · ${pctTxt((n / p.projectedRevenue) * 100)}` : "";
+          // Engine folds an "other opex" % into net; show it as the residual so
+          // the rows sum exactly to the projected net.
+          const otherOpex = Math.max(0, p.projectedRevenue - p.projectedCOGS - p.projectedLabor - p.fixedDaily - p.projectedNet);
+          return (
+            <div className="px-4 pb-3 pt-1 space-y-1.5">
+              <PLRow label="Projected revenue" value={dol(p.projectedRevenue)} />
+              <PLRow label="Food & beverage cost" value={`(${dol(p.projectedCOGS)})`} sub={pctOf(p.projectedCOGS)} negative />
+              <PLRow label="Labor" value={`(${dol(p.projectedLabor)})`} sub={pctOf(p.projectedLabor)} negative />
+              <PLRow label="Fixed (rent, salaries)" value={`(${dol(p.fixedDaily)})`} sub={pctOf(p.fixedDaily)} negative />
+              {otherOpex > 0 && <PLRow label="Other operating" value={`(${dol(otherOpex)})`} sub={pctOf(otherOpex)} negative />}
+              <div className="flex items-center justify-between border-t border-gray-200 pt-1.5 mt-1">
+                <span className="text-xs font-bold text-gray-800">Projected net</span>
+                <span className={cn("text-xs font-bold", p.projectedNet >= 0 ? "text-emerald-600" : "text-red-600")}>
+                  {dol(p.projectedNet)} <span className="font-medium text-gray-400">· {pctTxt(p.projectedMarginPct)}</span>
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* What stands out — Vera's read vs your learned normal (with feedback) */}
       {data.indicators && data.indicators.some((ind) => !hiddenInd.has(ind.text)) && (
         <div className="px-4 pt-3">
@@ -484,6 +522,17 @@ function PLCell({ label, value, sub, valueClass }: { label: string; value: strin
       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
       <p className={cn("text-lg font-bold tabular-nums leading-tight mt-0.5", valueClass ?? "text-gray-900")}>{value}</p>
       {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function PLRow({ label, value, sub, negative }: { label: string; value: string; sub?: string; negative?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-gray-600">{label}</span>
+      <span className={cn("text-xs tabular-nums", negative ? "text-gray-500" : "font-semibold text-gray-800")}>
+        {value}{sub && <span className="text-gray-400 font-normal">{sub}</span>}
+      </span>
     </div>
   );
 }
