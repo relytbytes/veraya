@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { prisma } from "./prisma";
+import { nowInTZ, localDateStr as tzDateStr, localDow, dayWindow } from "./time";
 
 const WINDOW_DAYS = 84;        // ~12 weeks
 const TTL_MS = 30 * 60 * 1000; // recompute at most every 30 min
@@ -32,9 +33,7 @@ export interface Baselines {
   avgCheckStdev: number | null;
 }
 
-function localDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const localDateStr = (d: Date) => tzDateStr(d); // restaurant-local calendar day
 function mean(xs: number[]) { return xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0; }
 function stdev(xs: number[]) {
   if (xs.length < 2) return 0;
@@ -56,8 +55,8 @@ export async function getBaselines(now: Date = new Date()): Promise<Baselines> {
 }
 
 async function computeBaselines(now: Date): Promise<Baselines> {
-  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-  const start = new Date(now); start.setDate(start.getDate() - WINDOW_DAYS); start.setHours(0, 0, 0, 0);
+  const { start: todayStart } = dayWindow(now); // local midnight today
+  const { start } = dayWindow(new Date(now.getTime() - WINDOW_DAYS * 86400_000));
 
   const orders = await prisma.order.findMany({
     where: { status: "COMPLETED", createdAt: { gte: start, lt: todayStart } },
@@ -70,13 +69,14 @@ async function computeBaselines(now: Date): Promise<Baselines> {
   const days = new Map<string, Day>();
   for (const o of orders) {
     const d = new Date(o.createdAt);
+    const local = nowInTZ(d); // read local wall-clock fields via getUTC*
     const key = localDateStr(d);
     let day = days.get(key);
-    if (!day) { day = { dow: d.getDay(), revenue: 0, orders: 0, byHour: new Array(24).fill(0) }; days.set(key, day); }
+    if (!day) { day = { dow: localDow(d), revenue: 0, orders: 0, byHour: new Array(24).fill(0) }; days.set(key, day); }
     const t = Number(o.total);
     day.revenue += t;
     day.orders += 1;
-    day.byHour[d.getHours()] += t;
+    day.byHour[local.getUTCHours()] += t;
   }
 
   const allDays = [...days.values()].filter((d) => d.revenue > 0);

@@ -5,6 +5,7 @@ import { veraComplete, aiEnabled } from "@/lib/openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 import { getLearnedWeights } from "@/lib/vera-weights";
+import { localDateStr, dayWindow, localHourFloat, localDow } from "@/lib/time";
 
 // Operating window (estimate until per-restaurant hours are wired in).
 const OPEN_HOUR = 11;
@@ -20,22 +21,6 @@ function shiftHours(start: string, end: string): number {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function localDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function dayWindow(d: Date) {
-  const start = new Date(d); start.setHours(0, 0, 0, 0);
-  const end   = new Date(d); end.setHours(23, 59, 59, 999);
-  return { start, end };
-}
-
-// Current-hour window: midnight → now (used for same-hour pacing)
-function toNowWindow(d: Date) {
-  const start = new Date(d); start.setHours(0, 0, 0, 0);
-  return { start, end: new Date(d) };
-}
 
 function fmt(n: number) { return `$${n.toFixed(2)}`; }
 
@@ -53,20 +38,18 @@ export async function GET(req: NextRequest) {
 
   try {
   const now = new Date();
+  // All day boundaries + current hour are computed in the restaurant's local
+  // timezone (lib/time), not the UTC server clock — otherwise dinner service at
+  // 7pm Central looks like "tomorrow, 0 sales" to Vercel.
   const todayStr = localDateStr(now);
   const { start: todayStart, end: todayEnd } = dayWindow(now);
-  const { start: toNowStart } = toNowWindow(now);
+  const elapsedMs = now.getTime() - todayStart.getTime(); // wall-clock elapsed since local midnight
 
-  // Reference windows for pacing: yesterday and same-DOW last week
-  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-  const lastWeek  = new Date(now); lastWeek.setDate(lastWeek.getDate() - 7);
-  const { start: yestStart } = toNowWindow(yesterday);
-  const { start: lwStart   } = toNowWindow(lastWeek);
-  const { end:   yestHourEnd } = toNowWindow(yesterday);
-  const { end:   lwHourEnd   } = toNowWindow(lastWeek);
-  // Fix: make "yesterday at same hour" window correct
-  yestHourEnd.setDate(yestHourEnd.getDate());
-  lwHourEnd.setDate(lwHourEnd.getDate());
+  // Reference windows for pacing: same elapsed slice of yesterday + last week.
+  const { start: yestStart } = dayWindow(new Date(now.getTime() - 24 * 3600 * 1000));
+  const { start: lwStart }   = dayWindow(new Date(now.getTime() - 7 * 24 * 3600 * 1000));
+  const yestHourEnd = new Date(yestStart.getTime() + elapsedMs);
+  const lwHourEnd   = new Date(lwStart.getTime() + elapsedMs);
 
   const [
     // Today's completed sales (to now)
@@ -100,11 +83,11 @@ export async function GET(req: NextRequest) {
       _count: true,
     }),
     prisma.order.aggregate({
-      where: { status: "COMPLETED", createdAt: { gte: yestStart, lte: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), now.getHours(), now.getMinutes()) } },
+      where: { status: "COMPLETED", createdAt: { gte: yestStart, lte: yestHourEnd } },
       _sum: { total: true },
     }),
     prisma.order.aggregate({
-      where: { status: "COMPLETED", createdAt: { gte: lwStart, lte: new Date(lastWeek.getFullYear(), lastWeek.getMonth(), lastWeek.getDate(), now.getHours(), now.getMinutes()) } },
+      where: { status: "COMPLETED", createdAt: { gte: lwStart, lte: lwHourEnd } },
       _sum: { total: true },
     }),
     prisma.reservation.findMany({
@@ -191,7 +174,7 @@ export async function GET(req: NextRequest) {
     laborSoFar += hours * Number(c.user.hourlyRate ?? 0);
   }
   // Project for full day: hours so far / fraction of day elapsed
-  const dayFraction = (now.getHours() + now.getMinutes() / 60) / 24;
+  const dayFraction = localHourFloat(now) / 24;
   const projectedLaborCost = dayFraction > 0.05 ? laborSoFar / dayFraction : null;
   const projectedLaborPct = (projectedLaborCost !== null && salesToday > 0)
     ? (projectedLaborCost / (salesToday / dayFraction)) * 100
@@ -298,13 +281,13 @@ export async function GET(req: NextRequest) {
 
   // Learned baselines: this restaurant's own normal for the day-of-week + the
   // intraday revenue curve (how the day fills in hour by hour).
-  const dow = now.getDay();
-  const nowFloat = now.getHours() + now.getMinutes() / 60;
+  const dow = localDow(now);
+  const nowFloat = localHourFloat(now);
   const baselines = await getBaselines(now);
   const expectedRevenue = expectedRevenueForDow(baselines, dow);
   const expectedByNowFraction = expectedFractionByNow(baselines, dow, nowFloat);
   const avgCheckToday = todaySales._count > 0 ? salesToday / todaySales._count : null;
-  const dowLabel = now.toLocaleDateString("en-US", { weekday: "long" });
+  const dowLabel = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dow];
 
   // Learned-from-feedback: per-indicator dismissed/helpful tallies. Wrapped so a
   // not-yet-migrated table (e.g. a stale process) can't blank the dashboard.
@@ -348,7 +331,7 @@ export async function GET(req: NextRequest) {
 
   // ── Economics-grounded diagnosis ─────────────────────────────────────────────
   const diag = buildDiagnosis({
-    nowHour: now.getHours() + now.getMinutes() / 60, openHour, closeHour,
+    nowHour: localHourFloat(now), openHour, closeHour,
     salesToday, ordersToday: todaySales._count,
     expectedRevenue,
     laborSoFar,

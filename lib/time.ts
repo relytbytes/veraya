@@ -1,0 +1,54 @@
+// Timezone-aware "business day" helpers. Vercel runs in UTC, so a naive
+// new Date().getDate() rolls over to tomorrow at ~7pm Central — which made Vera
+// think dinner service "hadn't started." All day boundaries + the current hour
+// for Vera/reports must be computed in the restaurant's local timezone.
+//
+// Set RESTAURANT_TZ (IANA, e.g. "America/Chicago") to match the venue.
+
+export const RESTAURANT_TZ = process.env.RESTAURANT_TZ || "America/Chicago";
+
+/** Milliseconds to add to a UTC instant to get wall-clock time in `tz`. */
+function tzOffsetMs(tz: string, at: Date): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const parts = dtf.formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asUTC = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+  return asUTC - at.getTime();
+}
+
+/** A Date whose UTC fields equal the tz wall-clock fields (read with getUTC*). */
+export function nowInTZ(at: Date = new Date(), tz: string = RESTAURANT_TZ): Date {
+  return new Date(at.getTime() + tzOffsetMs(tz, at));
+}
+
+/** Local calendar date "YYYY-MM-DD" for the business day containing `at`. */
+export function localDateStr(at: Date = new Date(), tz: string = RESTAURANT_TZ): string {
+  const l = nowInTZ(at, tz);
+  return `${l.getUTCFullYear()}-${String(l.getUTCMonth() + 1).padStart(2, "0")}-${String(l.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Start/end UTC instants of the tz-local day containing `at`. */
+export function dayWindow(at: Date = new Date(), tz: string = RESTAURANT_TZ): { start: Date; end: Date } {
+  const l = nowInTZ(at, tz);
+  const y = l.getUTCFullYear(), m = l.getUTCMonth(), d = l.getUTCDate();
+  const startGuess = Date.UTC(y, m, d, 0, 0, 0);
+  const off = tzOffsetMs(tz, new Date(startGuess)); // re-derive at midnight for DST safety
+  const start = new Date(startGuess - off);
+  const end = new Date(start.getTime() + 24 * 3600 * 1000 - 1);
+  return { start, end };
+}
+
+/** Current local hour as a float, e.g. 19.27 for 7:16pm. */
+export function localHourFloat(at: Date = new Date(), tz: string = RESTAURANT_TZ): number {
+  const l = nowInTZ(at, tz);
+  return l.getUTCHours() + l.getUTCMinutes() / 60;
+}
+
+/** Day-of-week (0=Sun..6=Sat) for the local business day. */
+export function localDow(at: Date = new Date(), tz: string = RESTAURANT_TZ): number {
+  return nowInTZ(at, tz).getUTCDay();
+}
