@@ -103,6 +103,7 @@ model User {
   shifts              Shift[]
   auditLogs           AuditLog[]
   servedTables        Table[]                @relation("TableServer")
+  serverSections      ServerSection[]        @relation("SectionServer")
   tipDistributions    TipDistribution[]
   managerLogEntries   ManagerLogEntry[]      @relation("ManagerLogAuthor")
   staffNotesAuthored  StaffNote[]            @relation("StaffNoteAuthor")
@@ -303,13 +304,32 @@ model Table {
   // Combine/merge: a linked table points at its primary; the primary's
   // linkedTables span the same party (combined capacity, single check).
   primaryTableId String?
+  // Dedicated server section the table belongs to; its server is the section's
+  // server unless a table-level serverId overrides it.
+  sectionId      String?
 
   orders       Order[]
   reservations Reservation[]
-  server       User?         @relation("TableServer", fields: [serverId], references: [id])
-  customer     Customer?     @relation(fields: [customerId], references: [id])
-  primaryTable Table?        @relation("CombinedTables", fields: [primaryTableId], references: [id])
-  linkedTables Table[]       @relation("CombinedTables")
+  server       User?          @relation("TableServer", fields: [serverId], references: [id])
+  customer     Customer?      @relation(fields: [customerId], references: [id])
+  primaryTable Table?         @relation("CombinedTables", fields: [primaryTableId], references: [id])
+  linkedTables Table[]        @relation("CombinedTables")
+  section      ServerSection? @relation(fields: [sectionId], references: [id])
+}
+
+// A dedicated server section: a named group of tables worked by one server for
+// the shift. A table's effective server is its own serverId, falling back to
+// the section's serverId.
+model ServerSection {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#21A090")
+  serverId  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  server User?   @relation("SectionServer", fields: [serverId], references: [id])
+  tables Table[]
 }
 
 model Order {

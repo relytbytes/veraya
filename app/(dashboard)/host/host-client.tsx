@@ -5,15 +5,16 @@ import { cn } from "@/lib/utils";
 import { X, Loader2 } from "lucide-react";
 import {
   type TableRow, type Reservation, type WaitlistEntry, type FloorObject,
-  type CardPolicy, type PeriodLabel, type StaffMember, SERVER_ROLES,
+  type CardPolicy, type PeriodLabel, type StaffMember, type ServerSection, SERVER_ROLES,
   toISO, stateStyle, BRAND,
 } from "./host-utils";
+import { SectionsDialog } from "./components/sections-dialog";
 import { ReservationRail } from "./components/reservation-rail";
 import { FloorCanvas, isEligibleForSeating } from "./components/floor-canvas";
 import { TimelineGrid } from "./components/timeline-grid";
 import { TablePanel } from "./components/table-panel";
 import { toMinutes } from "./host-utils";
-import { LayoutGrid, CalendarRange } from "lucide-react";
+import { LayoutGrid, CalendarRange, Users } from "lucide-react";
 import { ReservationFormDialog, type NewReservation } from "./components/reservation-form-dialog";
 import { SeatWalkInDialog, type WalkInData } from "./components/seat-walkin-dialog";
 import { GuestEditDialog } from "./components/guest-edit-dialog";
@@ -51,6 +52,9 @@ export function HostClient() {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [cardPolicy, setCardPolicy] = useState<CardPolicy | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [sections, setSections] = useState<ServerSection[]>([]);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [sectionMode, setSectionMode] = useState<string | null>(null); // section id accepting table taps
   const [blocks, setBlocks] = useState<TableBlock[]>([]);
   const [blockTarget, setBlockTarget] = useState<TableRow | null>(null);
   const [blockReason, setBlockReason] = useState("");
@@ -75,16 +79,18 @@ export function HostClient() {
 
   // ── Data ──────────────────────────────────────────────────────────────────
   const loadAll = useCallback(async (d: string) => {
-    const [tabRes, resRes, waitRes, settingsRes, staffRes] = await Promise.all([
+    const [tabRes, resRes, waitRes, settingsRes, staffRes, secRes] = await Promise.all([
       fetch("/api/tables"),
       fetch(`/api/reservations?date=${d}`),
       fetch("/api/waitlist"),
       fetch("/api/settings"),
       fetch("/api/staff"),
+      fetch("/api/sections"),
     ]);
     if (tabRes.ok) setTables(((await tabRes.json()) as TableRow[]).sort((a, b) => a.number - b.number));
     if (resRes.ok) setReservations(await resRes.json());
     if (waitRes.ok) setWaitlist(await waitRes.json());
+    if (secRes.ok) setSections(await secRes.json());
     if (staffRes.ok) {
       const all = (await staffRes.json()) as StaffMember[];
       setStaff(all.filter((s) => s.isActive && SERVER_ROLES.includes(s.role)));
@@ -149,6 +155,36 @@ export function HostClient() {
     setMoveFromId(null);
     setCombinePrimaryId(null);
     setCombineSet([]);
+    setSectionMode(null);
+  }
+
+  // ── Server sections ─────────────────────────────────────────────────────────
+  async function createSection(name: string) {
+    const res = await api("/api/sections", { name }, "POST");
+    if (res.ok) { await loadAll(date); }
+    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Could not create section"); }
+  }
+  async function updateSection(id: string, patch: { serverId?: string | null; name?: string; color?: string }) {
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch, server: patch.serverId !== undefined ? (staff.find((u) => u.id === patch.serverId) ?? null) : s.server } : s)));
+    await api(`/api/sections/${id}`, patch, "PATCH");
+    await loadAll(date);
+  }
+  async function deleteSection(id: string) {
+    await api(`/api/sections/${id}`, {}, "DELETE");
+    if (sectionMode === id) setSectionMode(null);
+    await loadAll(date);
+  }
+  function startSectionAssign(id: string) {
+    cancelModes();
+    setSelectedTableId(null);
+    setSectionsOpen(false);
+    setSectionMode(id);
+  }
+  async function toggleTableSection(t: TableRow) {
+    if (!sectionMode) return;
+    const next = t.sectionId === sectionMode ? null : sectionMode;
+    setTables((prev) => prev.map((x) => (x.id === t.id ? { ...x, sectionId: next } : x)));
+    await api(`/api/tables/${t.id}`, { sectionId: next });
   }
 
   // ── Combine / merge tables ──────────────────────────────────────────────────
@@ -267,6 +303,10 @@ export function HostClient() {
 
   // ── Floor table click router ────────────────────────────────────────────────
   function handleTableClick(t: TableRow) {
+    if (sectionMode) {
+      if (!t.primaryTableId) toggleTableSection(t);
+      return;
+    }
     if (seatMode) {
       if (isEligibleForSeating(t, seatMode.kind === "walkin" ? Number(seatMode.data.partySize) : seatMode.reservation.partySize, tables)) {
         seatAtTable(t);
@@ -481,6 +521,18 @@ export function HostClient() {
                 <X className="h-3.5 w-3.5" /> Cancel
               </button>
             </div>
+          ) : sectionMode ? (
+            <div className="flex items-center gap-3 flex-1">
+              <span className="text-sm font-semibold" style={{ color: BRAND.goldBright }}>
+                Assigning to {sections.find((s) => s.id === sectionMode)?.name ?? "section"} — tap tables to add / remove
+              </span>
+              <button onClick={() => setSectionsOpen(true)} className="text-xs font-semibold text-gray-300 hover:text-white underline">
+                Manage sections
+              </button>
+              <button onClick={() => setSectionMode(null)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white">
+                <X className="h-3.5 w-3.5" /> Done
+              </button>
+            </div>
           ) : banner ? (
             <div className="flex items-center gap-3 flex-1">
               <span className="text-sm font-semibold" style={{ color: BRAND.goldBright }}>{banner}</span>
@@ -502,8 +554,13 @@ export function HostClient() {
             </div>
           )}
           {(loading || busy) && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+          {/* Sections manager */}
+          <button onClick={() => setSectionsOpen(true)} title="Server sections"
+            className="ml-auto flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md bg-gray-800 text-gray-300 hover:text-white">
+            <Users className="h-3.5 w-3.5" /> Sections{sections.length > 0 ? ` (${sections.length})` : ""}
+          </button>
           {/* Floor / Timeline toggle */}
-          <div className="ml-auto flex items-center gap-0.5 rounded-lg bg-gray-800 p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg bg-gray-800 p-0.5">
             <button onClick={() => setViewMode("floor")} title="Floor plan"
               className={cn("flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md", viewMode === "floor" ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-white")}>
               <LayoutGrid className="h-3.5 w-3.5" /> Floor
@@ -519,6 +576,7 @@ export function HostClient() {
           {viewMode === "floor" ? (
             <FloorCanvas
               tables={tables} floorObjects={floorObjects} reservations={reservations} staff={staff}
+              sections={sections} sectionMode={sectionMode}
               selectedTableId={selectedTableId}
               seatMode={!!seatMode} seatPartySize={seatPartySize}
               moveMode={!!moveFromId}
@@ -573,6 +631,12 @@ export function HostClient() {
         open={!!editGuest} customer={editGuest}
         onClose={() => setEditGuest(null)}
         onSaved={() => { toast.success("Guest updated"); loadAll(date); }}
+      />
+      <SectionsDialog
+        open={sectionsOpen} onClose={() => setSectionsOpen(false)}
+        sections={sections} staff={staff} activeAssignId={sectionMode}
+        onCreate={createSection} onUpdate={updateSection} onDelete={deleteSection}
+        onAssignTables={startSectionAssign}
       />
 
       {/* Block table (today) */}

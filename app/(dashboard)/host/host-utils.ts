@@ -11,6 +11,7 @@ export interface TableRow {
   guestName: string | null;
   partySize: number | null;
   serverId: string | null;
+  sectionId: string | null;
   primaryTableId: string | null;
   floorX: number | null;
   floorY: number | null;
@@ -23,6 +24,15 @@ export interface StaffMember {
   name: string;
   role: string;
   isActive: boolean;
+}
+
+export interface ServerSection {
+  id: string;
+  name: string;
+  color: string;
+  serverId: string | null;
+  server?: { id: string; name: string } | null;
+  tables?: { id: string; number: number }[];
 }
 
 /** Roles that can be assigned to a floor section. */

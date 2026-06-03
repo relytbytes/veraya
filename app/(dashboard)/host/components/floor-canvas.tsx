@@ -2,10 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import {
-  type TableRow, type Reservation, type FloorObject, type StaffMember,
+  type TableRow, type Reservation, type FloorObject, type StaffMember, type ServerSection,
   deriveTableState, stateStyle, seatedReservationForTable, nextReservationForTable,
   fmtBadgeTime, fmtElapsed, serverColor, initials, effectiveCapacity, linkedTablesOf,
 } from "../host-utils";
+
+const lastName = (n: string) => n.trim().split(/\s+/).pop() || n;
 
 /** A table can take a party now if it's free, not a combo member, and big
  *  enough (counting any linked tables). `tables` lets us include combined seats. */
@@ -21,6 +23,8 @@ export function FloorCanvas({
   floorObjects,
   reservations,
   staff,
+  sections = [],
+  sectionMode = null,
   selectedTableId,
   seatMode,
   seatPartySize,
@@ -35,6 +39,8 @@ export function FloorCanvas({
   floorObjects: FloorObject[];
   reservations: Reservation[];
   staff: StaffMember[];
+  sections?: ServerSection[];
+  sectionMode?: string | null; // id of the section currently accepting table taps
   selectedTableId: string | null;
   seatMode: boolean;
   seatPartySize: number;
@@ -45,6 +51,11 @@ export function FloorCanvas({
   onTableClick: (t: TableRow) => void;
   onDropOnTable: (payload: { kind: string; id?: string; fromId?: string; partySize?: number }, table: TableRow) => void;
 }) {
+  const sectionsById = new Map(sections.map((s) => [s.id, s]));
+  // A table's effective server: its own, else its section's.
+  const effServerId = (t: TableRow): string | null =>
+    t.serverId ?? (t.sectionId ? sectionsById.get(t.sectionId)?.serverId ?? null : null);
+  const assigning = !!sectionMode;
   function dragProps(t: TableRow) {
     const occupied = t.status === "OCCUPIED";
     return {
@@ -67,7 +78,7 @@ export function FloorCanvas({
   const unpositioned = tables.filter((t) => t.floorX === null);
   const hasMapped = positioned.length > 0;
   const combining = !!combinePrimaryId;
-  const choosing = seatMode || moveMode || combining;
+  const choosing = seatMode || moveMode || combining || assigning;
 
   function visualFor(t: TableRow) {
     // A blocked, currently-empty table reads as out of service.
@@ -82,8 +93,10 @@ export function FloorCanvas({
   }
 
   function serverBadge(t: TableRow, round = false) {
-    if (!t.serverId) return null;
-    const name = staff.find((s) => s.id === t.serverId)?.name ?? "?";
+    const sid = effServerId(t);
+    if (!sid) return null;
+    const name = staff.find((s) => s.id === sid)?.name ?? "?";
+    const viaSection = !t.serverId && !!t.sectionId; // inherited from the section
     return (
       <span
         // Round tables: inset further so the badge sits inside the circle, not
@@ -92,11 +105,24 @@ export function FloorCanvas({
           "absolute z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[7px] font-bold text-white ring-1 ring-white/60",
           round ? "top-2.5 right-2.5" : "top-1 right-1",
         )}
-        style={{ background: serverColor(t.serverId) }}
-        title={`Server: ${name}`}
+        style={{ background: serverColor(sid) }}
+        title={`Server: ${name}${viaSection ? " (section)" : ""}`}
       >
         {initials(name)}
       </span>
+    );
+  }
+
+  // Small colored dot marking the table's section (bottom-left, inset on round).
+  function sectionDot(t: TableRow, round = false) {
+    const s = t.sectionId ? sectionsById.get(t.sectionId) : null;
+    if (!s) return null;
+    return (
+      <span
+        className={cn("absolute z-10 h-2 w-2 rounded-full ring-1 ring-white/70", round ? "bottom-2.5 left-2.5" : "bottom-1 left-1")}
+        style={{ background: s.color }}
+        title={`Section ${s.name}`}
+      />
     );
   }
 
@@ -133,9 +159,16 @@ export function FloorCanvas({
     if (next) {
       return (
         <>
-          <span className="text-sm font-bold leading-none">{t.number}</span>
-          <span className="text-[9px] font-bold leading-none mt-0.5">{fmtBadgeTime(next.time)}</span>
-          <span className="text-[8px] opacity-70">{next.partySize}p</span>
+          {next.name && (
+            <span className="text-[10px] font-bold text-center truncate px-1 w-full leading-tight">
+              {lastName(next.name)}
+            </span>
+          )}
+          <span className="flex items-center justify-center gap-1 text-[8px] opacity-90 leading-none mt-0.5">
+            <span className="font-semibold">T{t.number}</span>
+            <span>· {fmtBadgeTime(next.time)}</span>
+            <span>· {next.partySize}p</span>
+          </span>
         </>
       );
     }
@@ -163,7 +196,10 @@ export function FloorCanvas({
     let eligible = false;
     let combineSelected = false;
     const blocked = blockedIds.has(t.id);
-    if (seatMode) eligible = !blocked && isEligibleForSeating(t, seatPartySize, tables);
+    if (assigning) {
+      // Section-assign mode: every real table is tappable to toggle membership.
+      eligible = !t.primaryTableId;
+    } else if (seatMode) eligible = !blocked && isEligibleForSeating(t, seatPartySize, tables);
     else if (moveMode) eligible = !blocked && isEligibleForSeating(t, 1, tables);
     else if (combining) {
       const isTarget = t.id !== combinePrimaryId && !t.primaryTableId
@@ -171,15 +207,19 @@ export function FloorCanvas({
       eligible = isTarget;
       combineSelected = combineSet.includes(t.id);
     }
+    // In section-assign mode, members of the active section read as "selected".
+    const inActiveSection = assigning && t.sectionId === sectionMode;
     const isPrimaryInCombine = combining && t.id === combinePrimaryId;
-    const dimmed = choosing && !eligible && !isPrimaryInCombine && !combineSelected;
+    const dimmed = choosing && !eligible && !isPrimaryInCombine && !combineSelected && !inActiveSection;
     const selected = !choosing && t.id === selectedTableId;
     return cn(
       "border-2 transition-all select-none flex flex-col items-center justify-center overflow-hidden shadow-sm",
       selected && "ring-2 ring-offset-2 ring-offset-[#0C1A1E] ring-[#21A090]",
       isPrimaryInCombine && "ring-2 ring-offset-2 ring-offset-[#0C1A1E] ring-[#21A090]",
       combineSelected && "ring-2 ring-[#1E7A45]",
-      eligible && !combineSelected && "ring-2 ring-[#1E7A45] animate-pulse cursor-pointer",
+      inActiveSection && "ring-2 ring-offset-2 ring-offset-[#0C1A1E] ring-white",
+      eligible && !combineSelected && !inActiveSection && "ring-2 ring-[#1E7A45] cursor-pointer",
+      eligible && !assigning && !combineSelected && "animate-pulse",
       dimmed && "opacity-30",
       !choosing && "cursor-pointer hover:brightness-95",
     );
@@ -193,7 +233,7 @@ export function FloorCanvas({
           return (
             <button key={t.id} onClick={() => onTableClick(t)} style={visualFor(t).style} {...dragProps(t)}
               className={cn(tableClasses(t), isRect ? "rounded-xl" : "rounded-full", "h-20 relative")}>
-              {serverBadge(t, !isRect)}{renderTableInner(t)}
+              {serverBadge(t, !isRect)}{sectionDot(t, !isRect)}{renderTableInner(t)}
             </button>
           );
         })}
@@ -241,7 +281,7 @@ export function FloorCanvas({
               }}
               className={cn(tableClasses(t), isRect ? "rounded-xl" : "rounded-full")}
             >
-              {serverBadge(t, !isRect)}{renderTableInner(t)}
+              {serverBadge(t, !isRect)}{sectionDot(t, !isRect)}{renderTableInner(t)}
             </button>
           );
         })}

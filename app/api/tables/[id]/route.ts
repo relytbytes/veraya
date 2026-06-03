@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { status, capacity, notes, number, serviceStage, seatedAt, guestName, partySize, serverId, customerId } = body as {
+  const { status, capacity, notes, number, serviceStage, seatedAt, guestName, partySize, serverId, customerId, sectionId } = body as {
     status?: string;
     capacity?: number;
     notes?: string;
@@ -38,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     partySize?: number | null;
     serverId?: string | null;
     customerId?: string | null;
+    sectionId?: string | null;
   };
 
   const force = new URL(req.url).searchParams.get("force") === "true";
@@ -83,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(partySize !== undefined && { partySize }),
       ...(serverId !== undefined && { serverId }),
       ...(customerId !== undefined && { customerId }),
+      ...(sectionId !== undefined && { sectionId }),
     },
     include: { server: { select: { id: true, name: true } } },
   });
