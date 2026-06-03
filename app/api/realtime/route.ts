@@ -5,6 +5,12 @@ import { subscribe as subscribeAppEvents, type AppEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// Vercel kills a function at its plan's hard cap (300s on Pro) and logs a
+// "Runtime Timeout Error". An SSE stream is meant to stay open, so instead of
+// riding into that cap we close the stream ourselves comfortably before it and
+// let the client's EventSource reconnect — a clean rollover, no error logged.
+export const maxDuration = 300;
+const STREAM_TTL_MS = 240_000; // recycle the connection every 4 min (< 300s cap)
 
 // GET /api/realtime — Server-Sent Events stream of live floor/kitchen changes.
 export async function GET(req: NextRequest) {
@@ -21,8 +27,10 @@ export async function GET(req: NextRequest) {
         try { controller.enqueue(encoder.encode(chunk)); } catch { /* stream closed */ }
       };
 
-      // Initial comment so the client's onopen fires promptly.
-      safeEnqueue(": connected\n\n");
+      // Initial comment so the client's onopen fires promptly, plus a short
+      // reconnect hint so the browser/RN EventSource comes back fast after we
+      // recycle the stream.
+      safeEnqueue("retry: 2000\n: connected\n\n");
 
       const send = (event: RealtimeEvent) => safeEnqueue(`event: change\ndata: ${JSON.stringify(event)}\n\n`);
 
@@ -43,10 +51,15 @@ export async function GET(req: NextRequest) {
         if (closed) return;
         closed = true;
         clearInterval(heartbeat);
+        clearTimeout(ttl);
         unsubscribe();
         unsubscribeApp();
         try { controller.close(); } catch { /* already closed */ }
       };
+
+      // Recycle the connection before Vercel's function cap so the platform
+      // never has to time it out. The client reconnects automatically.
+      const ttl = setTimeout(cleanup, STREAM_TTL_MS);
 
       req.signal.addEventListener("abort", cleanup);
     },
