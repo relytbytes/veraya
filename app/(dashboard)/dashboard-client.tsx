@@ -141,7 +141,6 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
     <div>
       <Header
         title={`${greeting}, ${firstName}`}
-        description={`${stats?.salesCount ?? 0} orders today`}
         actions={
           <button
             onClick={() => load(true)}

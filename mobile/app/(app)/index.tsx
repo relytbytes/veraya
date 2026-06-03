@@ -134,7 +134,6 @@ export default function HomeScreen() {
 
       <CollapsingHeader
         title={`${greeting}, ${firstName}`}
-        subtitle={`${stats?.salesCount ?? 0} orders today`}
         scrollY={scrollY}
         right={
           <TouchableOpacity
