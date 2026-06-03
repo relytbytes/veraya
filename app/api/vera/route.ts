@@ -165,6 +165,15 @@ export async function GET(req: NextRequest) {
   const compTotal = flaggedItems.filter(i => i.comped).reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
   const voidTotal = flaggedItems.filter(i => i.voided && !i.comped).reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
 
+  // The real, manager-entered reasons behind today's comps/voids (most common
+  // first) so Vera cites them instead of guessing at "theft or training".
+  const reasonCounts = new Map<string, number>();
+  for (const l of [...voids, ...comps]) {
+    const r = (l.reason ?? "").trim();
+    if (r) reasonCounts.set(r, (reasonCounts.get(r) ?? 0) + 1);
+  }
+  const compVoidReasons = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).map(([r, c]) => `${r} (${c})`);
+
   // Labor so far today: count every clock entry that touched today (still open
   // OR clocked out today), measuring only the portion within today × rate.
   const activeClock = clockEntries.filter((c) => !c.clockOut);
@@ -343,7 +352,7 @@ export async function GET(req: NextRequest) {
     openOrders,
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
     active86Count: active86.length,
-    voidTotal, voidCount: voids.length, compTotal,
+    voidTotal, voidCount: voids.length, compTotal, compVoidReasons,
     priceChangeCount: priceChanges.length,
     fixedDailyOverride, cogsTargetPct,
     expectedByNowFraction,

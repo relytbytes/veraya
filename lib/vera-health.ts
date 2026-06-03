@@ -83,6 +83,9 @@ export interface HealthInput {
   voidTotal: number;
   voidCount: number;
   compTotal: number;
+  /** The actual manager-entered reasons behind today's comps/voids, most common
+   *  first (e.g. "wrong order (3)"). Lets Vera cite real reasons, not guess. */
+  compVoidReasons?: string[];
   priceChangeCount: number;
   fixedDailyOverride?: number | null; // configured daily fixed cost (else estimated)
   cogsTargetPct?: number | null;      // configured food-cost target as a fraction (else 0.30)
@@ -376,7 +379,12 @@ function service(i: HealthInput): Dimension {
   const wins: string[] = [];
   const lossRate = i.salesToday > 0 ? ((i.voidTotal + i.compTotal) / i.salesToday) * 100 : 0;
   const score = i.salesToday > 0 ? clamp(Math.round(100 - lossRate * 6), 30, 100) : 75;
-  if (lossRate > 4) issues.push({ severity: lossRate > 8 ? "HIGH" : "MEDIUM", message: `Voids + comps at ${pct(lossRate)} of sales`, impact: money(i.voidTotal + i.compTotal), action: "Spot-check reasons — training or theft signal", link: "/reports" });
+  if (lossRate > 4) {
+    const reasons = i.compVoidReasons?.length
+      ? `Logged reasons: ${i.compVoidReasons.slice(0, 3).join("; ")}.`
+      : "Each was logged with a manager reason — review them.";
+    issues.push({ severity: lossRate > 8 ? "HIGH" : "MEDIUM", message: `Voids + comps at ${pct(lossRate)} of sales`, impact: money(i.voidTotal + i.compTotal), action: reasons, link: "/reports" });
+  }
   else if (i.salesToday > 0) wins.push(`Voids/comps low at ${pct(lossRate)}`);
 
   return {

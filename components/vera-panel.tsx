@@ -140,7 +140,12 @@ export function VeraPanel() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [expandedDim, setExpandedDim] = useState<string | null>(null);
+  const [expandedDims, setExpandedDims] = useState<Set<string>>(new Set());
+  const toggleDim = (key: string) => setExpandedDims((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
 
   function indicatorFeedback(ind: Indicator, action: "dismissed" | "helpful") {
@@ -371,7 +376,7 @@ export function VeraPanel() {
       {/* Dimensions — the finite detail */}
       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {data.dimensions.map((d) => (
-          <DimensionCard key={d.key} d={d} expanded={expandedDim === d.key} onToggle={() => setExpandedDim(expandedDim === d.key ? null : d.key)} />
+          <DimensionCard key={d.key} d={d} expanded={expandedDims.has(d.key)} onToggle={() => toggleDim(d.key)} />
         ))}
       </div>
       {/* Vera caught — anomalies (price creep, comp/void outliers) */}
