@@ -193,6 +193,9 @@ export const clockAction = (body: { userId: string; action: "IN" | "OUT"; notes?
   request<ClockEntry>("/api/timeclock", { method: "POST", body: JSON.stringify(body) });
 export const getClockHistory = (userId: string, from: string, to: string) =>
   request<ClockEntry[]>(`/api/timeclock/history?userId=${userId}&from=${from}&to=${to}`);
+// Manager/admin punch edit — a non-empty reason is mandatory and audited.
+export const editClockEntry = (id: string, body: { clockIn?: string; clockOut?: string | null; reason: string }) =>
+  request<ClockEntry>(`/api/timeclock/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
 // Full staff (with hourlyRate, isActive, createdAt)
 export const getFullStaff = () => request<StaffMember[]>("/api/staff");

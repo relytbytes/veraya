@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getActiveClockIns, clockAction, getFullStaff, getClockHistory } from "@/lib/api";
+import { getActiveClockIns, clockAction, getFullStaff, getClockHistory, editClockEntry } from "@/lib/api";
 import type { ClockEntryWithUser, StaffMember, ClockEntry } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
@@ -73,6 +73,7 @@ export default function TimeClockScreen() {
   const [clockingId, setClockingId] = useState<string | null>(null);
   const [notesModal, setNotesModal] = useState<{ userId: string; action: "IN" | "OUT"; name: string } | null>(null);
   const [notes, setNotes] = useState("");
+  const [editEntry, setEditEntry] = useState<(ClockEntry & { user?: { name: string } }) | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const clockedInIds = new Set(activeClockIns.map((e) => e.userId));
@@ -189,6 +190,7 @@ export default function TimeClockScreen() {
                   entry={entry as ClockEntry & { user?: { name: string } }}
                   staff={staff}
                   last={i === history.length - 1}
+                  onEdit={() => setEditEntry(entry as ClockEntry & { user?: { name: string } })}
                 />
               ))}
             </View>
@@ -275,6 +277,15 @@ export default function TimeClockScreen() {
           </TouchableOpacity>
         </Modal>
       )}
+
+      {editEntry && (
+        <EditPunchModal
+          entry={editEntry}
+          name={editEntry.user?.name ?? staff.find((s) => s.id === editEntry.userId)?.name ?? "Staff"}
+          onClose={() => setEditEntry(null)}
+          onSaved={() => { setEditEntry(null); refetchAll(); }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -358,7 +369,7 @@ function StaffClockRow({ member, last, loading, onClockIn }: { member: StaffMemb
   );
 }
 
-function HistoryRow({ entry, staff, last }: { entry: ClockEntry & { user?: { name: string } }; staff: StaffMember[]; last: boolean }) {
+function HistoryRow({ entry, staff, last, onEdit }: { entry: ClockEntry & { user?: { name: string } }; staff: StaffMember[]; last: boolean; onEdit: () => void }) {
   const name = entry.user?.name ?? staff.find((s) => s.id === entry.userId)?.name ?? "Unknown";
   const duration = entry.clockOut ? formatDuration(entry.clockIn, entry.clockOut) : "—";
   return (
@@ -380,6 +391,89 @@ function HistoryRow({ entry, staff, last }: { entry: ClockEntry & { user?: { nam
         <Text style={{ fontSize: 14, fontWeight: "700", color: C.pearl }}>{duration}</Text>
         <Text style={{ fontSize: 10, color: C.smoke }}>total</Text>
       </View>
+      <TouchableOpacity onPress={onEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={{ padding: 4 }}>
+        <Ionicons name="create-outline" size={17} color={C.smoke} />
+      </TouchableOpacity>
     </View>
+  );
+}
+
+// ── Manager punch edit (reason mandatory, audited server-side) ──────────────────
+function toHHMM(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function applyTime(baseISO: string, hhmm: string): string | null {
+  const m = hhmm.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  const d = new Date(baseISO);
+  d.setHours(h, min, 0, 0);
+  return d.toISOString();
+}
+
+function EditPunchModal({ entry, name, onClose, onSaved }: {
+  entry: ClockEntry; name: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [inT, setInT] = useState(toHHMM(entry.clockIn));
+  const [outT, setOutT] = useState(entry.clockOut ? toHHMM(entry.clockOut) : "");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    if (!reason.trim()) { Alert.alert("Reason required", "Enter why this punch is being edited."); return; }
+    const clockIn = applyTime(entry.clockIn, inT);
+    if (!clockIn) { Alert.alert("Invalid time", "Clock-in must be HH:MM (24-hour)."); return; }
+    let clockOut: string | null | undefined;
+    if (outT.trim()) {
+      clockOut = applyTime(entry.clockOut ?? entry.clockIn, outT);
+      if (!clockOut) { Alert.alert("Invalid time", "Clock-out must be HH:MM (24-hour)."); return; }
+    }
+    setSaving(true);
+    try {
+      await editClockEntry(entry.id, { clockIn, ...(clockOut !== undefined ? { clockOut } : {}), reason: reason.trim() });
+      onSaved();
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to save edit");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const fieldStyle = { backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: C.pearl } as const;
+  const labelStyle = { fontSize: 10, fontWeight: "700" as const, color: C.smoke, letterSpacing: 1.2, textTransform: "uppercase" as const };
+
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+          <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40, gap: 16, borderTopWidth: 1, borderTopColor: C.rim }}>
+            <View style={{ width: 40, height: 4, backgroundColor: C.rim, borderRadius: 2, alignSelf: "center" }} />
+            <View>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: C.pearl }}>Edit Punch</Text>
+              <Text style={{ fontSize: 13, color: C.mist, marginTop: 2 }}>{name} · {new Date(entry.clockIn).toLocaleDateString()}</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Text style={labelStyle}>Clock In (HH:MM)</Text>
+                <TextInput style={fieldStyle} value={inT} onChangeText={setInT} placeholder="09:00" placeholderTextColor={C.smoke} keyboardType="numbers-and-punctuation" />
+              </View>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Text style={labelStyle}>Clock Out (HH:MM)</Text>
+                <TextInput style={fieldStyle} value={outT} onChangeText={setOutT} placeholder="—" placeholderTextColor={C.smoke} keyboardType="numbers-and-punctuation" />
+              </View>
+            </View>
+            <View style={{ gap: 6 }}>
+              <Text style={labelStyle}>Reason (required)</Text>
+              <TextInput style={[fieldStyle, { minHeight: 60 }]} value={reason} onChangeText={setReason} placeholder="e.g. Forgot to clock out; left at 10pm" placeholderTextColor={C.smoke} multiline />
+            </View>
+            <TouchableOpacity onPress={save} disabled={saving} style={{ height: 52, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: C.gold, opacity: saving ? 0.6 : 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: C.void }}>{saving ? "Saving…" : "Save Edit"}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
   );
 }
