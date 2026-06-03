@@ -131,15 +131,17 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
   // Suppress unused warning — router is used for future nav
   void router;
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long", month: "long", day: "numeric",
-  });
+  // Match the mobile dashboard header: a warm, personal greeting + today's order
+  // count, instead of a generic "Dashboard" title.
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = name?.split(" ")[0] ?? "there";
 
   return (
     <div>
       <Header
-        title="Dashboard"
-        description={today}
+        title={`${greeting}, ${firstName}`}
+        description={`${stats?.salesCount ?? 0} orders today`}
         actions={
           <button
             onClick={() => load(true)}
