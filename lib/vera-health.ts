@@ -86,6 +86,8 @@ export interface HealthInput {
   /** The actual manager-entered reasons behind today's comps/voids, most common
    *  first (e.g. "wrong order (3)"). Lets Vera cite real reasons, not guess. */
   compVoidReasons?: string[];
+  /** Same data, structured — drives the per-reason breakdown on the Service card. */
+  compVoidReasonCounts?: { reason: string; count: number }[];
   priceChangeCount: number;
   fixedDailyOverride?: number | null; // configured daily fixed cost (else estimated)
   cogsTargetPct?: number | null;      // configured food-cost target as a fraction (else 0.30)
@@ -406,6 +408,13 @@ function service(i: HealthInput): Dimension {
     metrics: [
       { label: "Voids", value: `${money(i.voidTotal)} (${i.voidCount})`, status: i.voidTotal ? "fair" : "good" },
       { label: "Comps", value: money(i.compTotal), status: i.compTotal ? "fair" : "good" },
+      // Per-reason breakdown (top 4) so expanding Service shows *why* — wrong
+      // order ×3, training ×2 — not just the dollar totals.
+      ...(i.compVoidReasonCounts ?? []).slice(0, 4).map((r) => ({
+        label: r.reason.charAt(0).toUpperCase() + r.reason.slice(1),
+        value: `${r.count}×`,
+        status: "fair" as const,
+      })),
     ],
     wins, issues,
   };

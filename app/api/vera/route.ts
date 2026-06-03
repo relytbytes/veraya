@@ -187,7 +187,9 @@ export async function GET(req: NextRequest) {
     const r = (l.reason ?? "").trim();
     if (r) reasonCounts.set(r, (reasonCounts.get(r) ?? 0) + 1);
   }
-  const compVoidReasons = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).map(([r, c]) => `${r} (${c})`);
+  const reasonCountsSorted = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]);
+  const compVoidReasons = reasonCountsSorted.map(([r, c]) => `${r} (${c})`);
+  const compVoidReasonCounts = reasonCountsSorted.map(([reason, count]) => ({ reason, count }));
 
   // Managers and admins clock in only to unlock POS functions — they're salaried,
   // not "on the clock" in the labor sense. They never count toward the active-staff
@@ -380,7 +382,7 @@ export async function GET(req: NextRequest) {
     openOrders,
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
     active86Count: active86.length,
-    voidTotal, voidCount: voids.length, compTotal, compVoidReasons,
+    voidTotal, voidCount: voids.length, compTotal, compVoidReasons, compVoidReasonCounts,
     priceChangeCount: priceChanges.length,
     fixedDailyOverride, cogsTargetPct,
     expectedByNowFraction,
