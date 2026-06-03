@@ -15,6 +15,7 @@ import {
 } from "@/lib/fiscal";
 import { C, shadow } from "@/lib/theme";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
+import { PnlStatementMobile } from "@/components/PnlStatementMobile";
 
 function toYMD(d: Date): string { return d.toISOString().slice(0, 10); }
 
@@ -800,7 +801,7 @@ export default function ReportsScreen() {
         {tab === "sales"    && <SalesTab    data={salesQ.data} isLoading={salesQ.isLoading} laborData={laborQ.data} />}
         {tab === "labor"    && <LaborTab    data={laborQ.data} isLoading={laborQ.isLoading} salesData={salesQ.data} />}
         {tab === "foodcost" && <FoodCostTab data={foodQ.data}  isLoading={foodQ.isLoading} />}
-        {tab === "cogs"     && <CogsTab        data={cogsQ.data}    isLoading={cogsQ.isLoading} />}
+        {tab === "cogs"     && <><CogsTab data={cogsQ.data} isLoading={cogsQ.isLoading} /><PnlStatementMobile from={range.from} to={range.to} /></>}
         {tab === "bev"      && <BevCostTab    data={bevQ.data}     isLoading={bevQ.isLoading} />}
         {tab === "prices"   && <PriceHistoryTab data={pricesQ.data}    isLoading={pricesQ.isLoading} />}
         {tab === "variance" && <VarianceTab     data={varianceQ.data} isLoading={varianceQ.isLoading} />}

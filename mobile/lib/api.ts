@@ -776,6 +776,39 @@ export interface CogsReport {
 export const getCogsReport = (from: string, to: string) =>
   request<CogsReport>(`/api/reports/cogs?from=${from}&to=${to}`);
 
+// ── P&L line-item statement (mirrors the web statement) ─────────────────────────
+
+export interface PnlRow {
+  key: string;
+  label: string;
+  indent: number;
+  kind: "header" | "line" | "subtotal" | "metric";
+  input?: "auto" | "manual";
+  emphasize?: boolean;
+  isPercentOfSelf?: boolean;
+  value: number;
+  pct: number | null;
+}
+export interface PnlBonus {
+  enabled: boolean;
+  bonus: number;
+  rawBonus: number;
+  target: number;
+  peBeforeBonus: number;
+  overage: number;
+  modifier: number;
+  capped: boolean;
+}
+export interface PnlStatementResponse {
+  from: string;
+  to: string;
+  periodKey: string;
+  rows: PnlRow[];
+  bonus: PnlBonus | null;
+}
+export const getPnlStatement = (from: string, to: string) =>
+  request<PnlStatementResponse>(`/api/reports/pnl?from=${from}&to=${to}`);
+
 // ── Beverage Cost ──────────────────────────────────────────────────────────────
 
 export interface BevCostItem {
