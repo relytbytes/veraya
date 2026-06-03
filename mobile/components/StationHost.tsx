@@ -104,6 +104,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
           if (t.status === "AVAILABLE") { setWName(""); setWParty("2"); setWalkIn({ table: t }); }
           else if (t.status === "OCCUPIED") { Alert.alert(`Table ${t.number}`, `${t.guestName ?? "Seated"} · party of ${t.partySize ?? "?"}`); }
         }}
+        onLayoutSaved={refetchAll}
         onRefresh={refetchAll}
         isRefreshing={tablesQ.isFetching}
         todayReservations={resQ.data ?? []}

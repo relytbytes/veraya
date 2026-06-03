@@ -121,6 +121,10 @@ export function TableCanvas({
   const [originPos, setOriginPos] = useState<LocalPos[]>([]);
   const [layoutDirty, setLayoutDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  // After a successful save we keep the just-saved positions on screen and skip
+  // the next "exit edit mode" recompute, which would otherwise snap the layout
+  // back to the still-stale `tables` prop until the next poll catches up.
+  const skipNextResetRef = useRef(false);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
 
   // Sections
@@ -184,6 +188,9 @@ export function TableCanvas({
 
   useEffect(() => {
     if (!editMode && canvasW > 0) {
+      // Don't clobber freshly-saved positions with the stale `tables` prop —
+      // hold them until the parent's refetch lands with the new floorX/floorY.
+      if (skipNextResetRef.current) { skipNextResetRef.current = false; return; }
       const pos = computePositions();
       setLocalPos(pos);
       setOriginPos(pos);
@@ -348,6 +355,8 @@ export function TableCanvas({
         shape: p.shape,
       })));
       setLayoutDirty(false);
+      // Keep the saved positions on screen through the exit-edit recompute.
+      skipNextResetRef.current = true;
       exitEdit();
       setSelectedTableId(null);
       setSelectedSectionId(null);
