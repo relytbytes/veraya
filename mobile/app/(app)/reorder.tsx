@@ -27,6 +27,8 @@ type ReorderItem = {
   minThreshold: number;
   qtyNeeded: number;
   costPerUnit: number | null;
+  daysUntilOut?: number | null;   // from the recommend engine (burn-rate based)
+  dailyUsage?: number | null;
 };
 
 const VENDOR_COLORS = [
@@ -183,6 +185,8 @@ export default function ReorderScreen() {
               minThreshold: s.parQty,
               qtyNeeded: s.recommendedOrderQty,
               costPerUnit: s.lastUnitCost,
+              daysUntilOut: s.daysUntilOut,
+              dailyUsage: s.dailyUsage,
             });
           }
         }
@@ -659,6 +663,15 @@ export default function ReorderScreen() {
                             {item.currentStock} {item.unit} on hand
                             {item.costPerUnit ? ` · $${(item.qtyNeeded * item.costPerUnit).toFixed(2)}` : ""}
                           </Text>
+                          {(item.daysUntilOut != null || (item.dailyUsage != null && item.dailyUsage > 0)) && (
+                            <Text className="text-xs mt-0.5" style={{ color: item.daysUntilOut != null && item.daysUntilOut <= 2 ? C.coral : C.smoke }}>
+                              {item.daysUntilOut != null
+                                ? `~${item.daysUntilOut === 0 ? "out today" : `${item.daysUntilOut} day${item.daysUntilOut === 1 ? "" : "s"} left`}`
+                                : ""}
+                              {item.daysUntilOut != null && item.dailyUsage ? " · " : ""}
+                              {item.dailyUsage ? `${item.dailyUsage.toFixed(item.dailyUsage < 10 ? 1 : 0)}/day burn` : ""}
+                            </Text>
+                          )}
                         </View>
 
                         {/* Qty stepper */}
