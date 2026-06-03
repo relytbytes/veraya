@@ -80,6 +80,32 @@ function cleanCategory(tag: string | null): string | null {
   return tag.replace(/^[a-z]{2}:/, "").replace(/-/g, " ").trim() || null;
 }
 
+/** Title-case a string only if it's entirely lower/upper case (crowdsourced
+ *  product names are often "snack mix" or "SNACK MIX"); leave good casing alone. */
+function tidyCase(s: string): string {
+  const t = s.trim();
+  if (t && (t === t.toLowerCase() || t === t.toUpperCase())) {
+    return t.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  }
+  return t;
+}
+
+/**
+ * Build a presentable product name. Crowdsourced sources (Open Food Facts)
+ * frequently store the brand separately and the name generically ("Snack Mix"
+ * with brand "Dot's"), or in odd casing. Prepend the brand when it's missing
+ * from the name, and fix all-caps/all-lowercase.
+ */
+export function composeProductName(name: string, brand: string | null): string {
+  const n = tidyCase(name);
+  if (!brand) return n;
+  const b = tidyCase(brand);
+  if (!b || !n) return n || b;
+  // Avoid duplicating the brand if the name already includes it.
+  if (n.toLowerCase().includes(b.toLowerCase())) return n;
+  return `${b} ${n}`;
+}
+
 // ── Sources ─────────────────────────────────────────────────────────────────
 
 async function fromOpenFoodFacts(barcode: string): Promise<ExternalProduct | null> {

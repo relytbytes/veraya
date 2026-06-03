@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { canonicalBarcode, isValidGtin, isLookupableBarcode, lookupBarcodeSources, type ExternalProduct } from "@/lib/barcode";
+import { canonicalBarcode, isValidGtin, isLookupableBarcode, lookupBarcodeSources, composeProductName, type ExternalProduct } from "@/lib/barcode";
 
 // GET /api/barcode-lookup?barcode=012345678901
 // 1. Local ingredients DB (already-known barcode)
@@ -75,6 +75,10 @@ export async function GET(req: NextRequest) {
       take: 5,
       orderBy: { name: "asc" },
     });
+    // Present a cleaner name: fold the brand in + fix casing ("snack mix" +
+    // brand "Dot's" → "Dot's Snack Mix"). Done after suggestion matching so it
+    // doesn't narrow the search.
+    external.name = composeProductName(external.name, external.brand);
   }
 
   return Response.json({
