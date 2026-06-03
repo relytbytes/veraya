@@ -20,6 +20,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ManualsTab } from "./manuals-tab";
+import { STANDARD_MANUALS } from "@/lib/training-manuals";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,7 +220,7 @@ const STARTER_TEMPLATES: { name: string; role: string | null; items: string[] }[
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TrainingPage() {
-  const [tab, setTab] = useState<"templates" | "assignments">("templates");
+  const [tab, setTab] = useState<"templates" | "assignments" | "manuals">("templates");
   const [templates, setTemplates] = useState<TrainingTemplate[]>([]);
   const [assignments, setAssignments] = useState<TrainingAssignment[]>([]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -301,6 +303,7 @@ export default function TrainingPage() {
           {([
             { key: "templates", label: "Templates", icon: ClipboardList, count: templates.length },
             { key: "assignments", label: "Assignments", icon: Users, count: assignments.length },
+            { key: "manuals", label: "Manuals", icon: BookOpen, count: STANDARD_MANUALS.length },
           ] as const).map(({ key, label, icon: Icon, count }) => (
             <button
               key={key}
@@ -366,7 +369,9 @@ export default function TrainingPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {loading ? (
+        {tab === "manuals" ? (
+          <ManualsTab search={search} />
+        ) : loading ? (
           <div className="flex items-center justify-center h-48">
             <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
           </div>
