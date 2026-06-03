@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { C, T, shadow } from "@/lib/theme";
 import KitchenScreen from "./kitchen";
 import BarScreen from "./bar";
@@ -62,6 +63,15 @@ export default function StationScreen() {
   useFocusEffect(useCallback(() => {
     SecureStore.getItemAsync(STATION_KEY).then((v) => { setDefaultMode((v as StationMode) || null); setLoaded(true); });
   }, []));
+
+  // Active stations run landscape (mounted/wall devices); the picker and the rest
+  // of the app stay portrait. Restore portrait when leaving the station.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(
+      mode ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP,
+    ).catch(() => {});
+    return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
+  }, [mode]);
 
   async function setDefault(m: StationMode | null) {
     if (m) await SecureStore.setItemAsync(STATION_KEY, m);
