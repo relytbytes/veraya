@@ -1,8 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Animated, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+
+// A dedicated station device auto-opens its mode once per app launch.
+let stationLaunched = false;
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -54,6 +58,7 @@ const MODULES: Module[] = [
   { label: "Loyalty",         description: "Points, rewards & history",     icon: "ribbon-outline",         color: C.gold,  href: "/(app)/loyalty" },
   // Config
   { label: "Settings",        description: "Tax, loyalty & notifications",  icon: "settings-outline",       color: C.mist,  href: "/(app)/settings" },
+  { label: "Station Mode",    description: "Host stand · KDS · BDS (kiosk)", icon: "tv-outline",             color: C.gold,  href: "/(app)/station" },
 ];
 
 const SECTIONS = [
@@ -72,6 +77,14 @@ export default function HomeScreen() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const router = useRouter();
   const [handoffOpen, setHandoffOpen] = useState(false);
+
+  // Kiosk: a device with a saved default station opens straight into it (once per launch).
+  useEffect(() => {
+    if (stationLaunched) return;
+    SecureStore.getItemAsync("station_default").then((m) => {
+      if (m && !stationLaunched) { stationLaunched = true; router.replace(`/(app)/station?mode=${m}`); }
+    }).catch(() => {});
+  }, [router]);
 
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ["dashboard"],
