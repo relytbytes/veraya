@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getGuestInsightsBatch, type GuestInsights } from "@/lib/guest-insights";
+import { localDateStr } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 // GET /api/reports/pre-shift?date=YYYY-MM-DD
 // Vera's pre-shift brief: every booking on the books for the date, enriched with
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+  const date = searchParams.get("date") ?? localDateStr(new Date(), await getRestaurantTz());
 
   const reservations = await prisma.reservation.findMany({
     where: { date, status: { in: ["PENDING", "CONFIRMED", "SEATED"] } },

@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams, localDateStr, localDow, nowInTZ } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,11 +12,11 @@ export async function GET(req: NextRequest) {
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const now = new Date();
-  const from = fromParam ? new Date(fromParam + "T00:00:00") : new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // All day boundaries + bucketing happen in the venue timezone so "today" and
+  // the day/hour/dow groupings match the local business day, not the UTC server.
+  const tz = await getRestaurantTz();
+  const defaultFrom = localDateStr(new Date(Date.now() - 29 * 86400_000), tz);
+  const { start: from, end: to } = rangeFromParams(fromParam, toParam, tz, { from: defaultFrom });
 
   const [salesSummary, completedOrders, topItemGroups] = await Promise.all([
     prisma.order.aggregate({
@@ -46,18 +48,19 @@ export async function GET(req: NextRequest) {
 
   for (const order of completedOrders) {
     const d = new Date(order.createdAt);
-    const displayKey = d.toISOString().slice(0, 10);
+    const displayKey = localDateStr(d, tz);      // venue-local calendar day
+    const localHour = nowInTZ(d, tz).getUTCHours();
+    const dow = localDow(d, tz);
     const amount = Number(order.total);
 
     const ex = dayMap.get(displayKey) ?? { total: 0, orders: 0 };
     dayMap.set(displayKey, { total: ex.total + amount, orders: ex.orders + 1 });
 
-    hourly[d.getHours()].total += amount;
-    hourly[d.getHours()].orders += 1;
+    hourly[localHour].total += amount;
+    hourly[localHour].orders += 1;
 
-    const dateStr = d.toISOString().slice(0, 10);
-    const cur = dowDays[d.getDay()].get(dateStr) ?? 0;
-    dowDays[d.getDay()].set(dateStr, cur + amount);
+    const cur = dowDays[dow].get(displayKey) ?? 0;
+    dowDays[dow].set(displayKey, cur + amount);
   }
 
   const dailySales = Array.from(dayMap.entries()).map(([date, v]) => ({

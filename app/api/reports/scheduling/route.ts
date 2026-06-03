@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams, localDateStr, localDow } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 function parseHHMM(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
@@ -16,23 +18,17 @@ export async function GET(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const now = new Date();
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const from = fromParam
-    ? new Date(fromParam + "T00:00:00")
-    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // Venue-timezone day boundaries (default: trailing 30 local days). fromStr/toStr
+  // are the local calendar dates used to match Shift.date (stored as YYYY-MM-DD).
+  const tz = await getRestaurantTz();
+  const defaultFrom = localDateStr(new Date(Date.now() - 30 * 86400_000), tz);
+  const { start: from, end: to, fromStr, toStr } = rangeFromParams(fromParam, toParam, tz, { from: defaultFrom });
 
-  const fromStr = from.toISOString().slice(0, 10);
-  const toStr = to.toISOString().slice(0, 10);
-
-  // 90 days back for DOW analysis
-  const dowFrom = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-  dowFrom.setHours(0, 0, 0, 0);
+  // 90 local days back for DOW analysis
+  const dowFrom = new Date(Date.now() - 90 * 86400_000);
 
   const [shifts, clockEntries, orders, dowOrders] = await Promise.all([
     prisma.shift.findMany({
@@ -118,7 +114,7 @@ export async function GET(req: NextRequest) {
   const dailyActualCostMap = new Map<string, number>();
 
   for (const order of orders) {
-    const day = new Date(order.createdAt).toISOString().slice(0, 10);
+    const day = localDateStr(new Date(order.createdAt), tz);
     dailyRevMap.set(day, (dailyRevMap.get(day) ?? 0) + Number(order.total));
   }
   for (const shift of shifts) {
@@ -128,7 +124,7 @@ export async function GET(req: NextRequest) {
     dailySchedCostMap.set(shift.date, (dailySchedCostMap.get(shift.date) ?? 0) + h * rate);
   }
   for (const entry of clockEntries) {
-    const day = entry.clockIn.toISOString().slice(0, 10);
+    const day = localDateStr(new Date(entry.clockIn), tz);
     const endMs2 = entry.clockOut ? new Date(entry.clockOut).getTime() : nowMs;
     const hours = (endMs2 - new Date(entry.clockIn).getTime()) / (1000 * 60 * 60);
     const rate = entry.user.hourlyRate ? Number(entry.user.hourlyRate) : 0;
@@ -165,20 +161,17 @@ export async function GET(req: NextRequest) {
   const dowRevMap = new Map<number, number[]>(); // 0=Sun ... 6=Sat
   const dowLaborMap = new Map<number, number[]>();
   for (const order of dowOrders) {
-    const dow = new Date(order.createdAt).getDay();
+    const dow = localDow(new Date(order.createdAt), tz);
     if (!dowRevMap.has(dow)) dowRevMap.set(dow, []);
-    // Group by date for averages
-    const day = new Date(order.createdAt).toISOString().slice(0, 10);
     const existing = dowRevMap.get(dow)!;
-    // We'll just accumulate and count days separately
     existing.push(Number(order.total));
   }
 
   // Better DOW: sum revenue per date, then average by dow
   const dowDailyMap = new Map<string, { dow: number; revenue: number }>();
   for (const order of dowOrders) {
-    const day = new Date(order.createdAt).toISOString().slice(0, 10);
-    const dow = new Date(order.createdAt).getDay();
+    const day = localDateStr(new Date(order.createdAt), tz);
+    const dow = localDow(new Date(order.createdAt), tz);
     if (!dowDailyMap.has(day)) dowDailyMap.set(day, { dow, revenue: 0 });
     dowDailyMap.get(day)!.revenue += Number(order.total);
   }

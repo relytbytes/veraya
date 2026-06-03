@@ -1,22 +1,21 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams, localDateStr } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const now = new Date();
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const from = fromParam
-    ? new Date(fromParam + "T00:00:00")
-    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // Venue-timezone day boundaries (default: trailing 30 local days).
+  const tz = await getRestaurantTz();
+  const defaultFrom = localDateStr(new Date(Date.now() - 30 * 86400_000), tz);
+  const { start: from, end: to } = rangeFromParams(fromParam, toParam, tz, { from: defaultFrom });
 
   const profiles = await prisma.beverageProfile.findMany({
     include: {

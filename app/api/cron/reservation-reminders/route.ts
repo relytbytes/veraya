@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendSms, getRestaurantName, reservationReminderMessage } from "@/lib/sms";
+import { localDateStr } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 // POST (or GET) /api/cron/reservation-reminders
 //
@@ -19,8 +21,7 @@ async function handle(req: NextRequest) {
   const authorized = (secret && provided === secret) || !!(await auth());
   if (!authorized) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const today = localDateStr(new Date(), await getRestaurantTz());
 
   const due = await prisma.reservation.findMany({
     where: {

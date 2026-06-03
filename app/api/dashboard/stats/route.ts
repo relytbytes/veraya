@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { dayWindow, startOfLocalDay, endOfLocalDay } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -12,13 +14,14 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Support ?date=YYYY-MM-DD, default to today
+  // Support ?date=YYYY-MM-DD, default to today — boundaries in the venue's
+  // timezone so "today" matches the local business day, not the UTC server day.
   const { searchParams } = new URL(req.url);
   const dateParam = searchParams.get("date");
-  const today = dateParam ? new Date(dateParam) : new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
+  const tz = await getRestaurantTz();
+  const { start: today, end: endOfDay } = dateParam
+    ? { start: startOfLocalDay(dateParam, tz), end: endOfLocalDay(dateParam, tz) }
+    : dayWindow(new Date(), tz);
 
   const [todaySales, openOrders, inventoryItems, menuItemCount, recentOrders] =
     await Promise.all([

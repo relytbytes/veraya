@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import OpenAI from "openai";
+import { localDateStr, startOfLocalDay } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 // GET/POST /api/cron/weekly-digest
 //
@@ -10,9 +12,6 @@ import OpenAI from "openai";
 // session (for manual runs). Idempotent — one digest per calendar day.
 
 function fmt(n: number) { return `$${Math.round(n).toLocaleString("en-US")}`; }
-function localISO(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 async function handle(req: NextRequest) {
   const url = new URL(req.url);
@@ -23,10 +22,11 @@ async function handle(req: NextRequest) {
   if (!authorized) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    const tz = await getRestaurantTz();
     const now = new Date();
     const weekStart = new Date(now.getTime() - 7 * 86400_000);
     const priorStart = new Date(now.getTime() - 14 * 86400_000);
-    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfLocalDay(localDateStr(now, tz), tz);
 
     // Idempotency — don't double-post on the same day.
     const existing = await prisma.managerLogEntry.findFirst({
@@ -78,7 +78,7 @@ async function handle(req: NextRequest) {
     const itemQty = new Map<string, number>();
     const dayRev = new Map<string, number>();
     for (const o of orders) {
-      const d = localISO(new Date(o.createdAt));
+      const d = localDateStr(new Date(o.createdAt), tz);
       dayRev.set(d, (dayRev.get(d) ?? 0) + Number(o.total));
       for (const it of o.items) itemQty.set(it.menuItem.name, (itemQty.get(it.menuItem.name) ?? 0) + it.quantity);
     }
@@ -88,7 +88,7 @@ async function handle(req: NextRequest) {
     const voidTotal = voidComp.filter(l => l.action === "VOID").reduce((s, l) => s + Number(l.amount ?? 0), 0);
     const compTotal = voidComp.filter(l => l.action === "COMP").reduce((s, l) => s + Number(l.amount ?? 0), 0);
 
-    const range = `${localISO(weekStart)} to ${localISO(now)}`;
+    const range = `${localDateStr(weekStart, tz)} to ${localDateStr(now, tz)}`;
 
     const context = [
       `Week: ${range}`,

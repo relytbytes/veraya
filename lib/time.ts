@@ -58,3 +58,30 @@ export function localHourFloat(at: Date = new Date(), tz: string = RESTAURANT_TZ
 export function localDow(at: Date = new Date(), tz: string = RESTAURANT_TZ): number {
   return nowInTZ(at, tz).getUTCDay();
 }
+
+/** UTC instant of local midnight beginning calendar date "YYYY-MM-DD" in `tz`. */
+export function startOfLocalDay(dateStr: string, tz: string = RESTAURANT_TZ): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const guess = Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0);
+  const off = tzOffsetMs(tz, new Date(guess)); // re-derive at that date for DST safety
+  return new Date(guess - off);
+}
+
+/** UTC instant ending the local calendar date "YYYY-MM-DD" (23:59:59.999). */
+export function endOfLocalDay(dateStr: string, tz: string = RESTAURANT_TZ): Date {
+  return new Date(startOfLocalDay(dateStr, tz).getTime() + 24 * 3600 * 1000 - 1);
+}
+
+/** Resolve a {from,to}=YYYY-MM-DD pair into the UTC window spanning those local
+ *  days (inclusive). Either side may be null to fall back to `defaults` (else
+ *  today). Also returns the normalized YYYY-MM-DD strings actually used. */
+export function rangeFromParams(
+  from: string | null | undefined,
+  to: string | null | undefined,
+  tz: string = RESTAURANT_TZ,
+  defaults?: { from?: string; to?: string },
+): { start: Date; end: Date; fromStr: string; toStr: string } {
+  const fromStr = (from && from.trim()) || defaults?.from || localDateStr(new Date(), tz);
+  const toStr = (to && to.trim()) || defaults?.to || fromStr;
+  return { start: startOfLocalDay(fromStr, tz), end: endOfLocalDay(toStr, tz), fromStr, toStr };
+}

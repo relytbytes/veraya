@@ -1,12 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams, localDateStr } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 function dateRange(from: Date, to: Date) {
   return { gte: from, lte: to };
 }
 
-async function fetchPeriodData(from: Date, to: Date) {
+async function fetchPeriodData(from: Date, to: Date, tz: string) {
   const [orders, purchaseOrders, clockEntries, salariedStaff] = await Promise.all([
     prisma.order.findMany({
       where: { status: "COMPLETED", createdAt: dateRange(from, to) },
@@ -117,7 +119,7 @@ async function fetchPeriodData(from: Date, to: Date) {
     { revenue: number; cogs: number; laborCost: number }
   >();
   for (const order of orders) {
-    const day = new Date(order.createdAt).toISOString().slice(0, 10);
+    const day = localDateStr(new Date(order.createdAt), tz);
     if (!dailyMap.has(day)) dailyMap.set(day, { revenue: 0, cogs: 0, laborCost: 0 });
     const d = dailyMap.get(day)!;
     d.revenue += Number(order.total);
@@ -129,7 +131,7 @@ async function fetchPeriodData(from: Date, to: Date) {
   }
   for (const entry of clockEntries) {
     if (!entry.clockOut) continue;
-    const day = new Date(entry.clockOut).toISOString().slice(0, 10);
+    const day = localDateStr(new Date(entry.clockOut), tz);
     if (!dailyMap.has(day)) dailyMap.set(day, { revenue: 0, cogs: 0, laborCost: 0 });
     const hours =
       (new Date(entry.clockOut).getTime() - new Date(entry.clockIn).getTime()) /
@@ -170,26 +172,22 @@ export async function GET(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const now = new Date();
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const from = fromParam
-    ? new Date(fromParam + "T00:00:00")
-    : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // Venue-timezone day boundaries (default: trailing 30 local days). The prior
+  // comparison period is the same length immediately before `from`.
+  const tz = await getRestaurantTz();
+  const defaultFrom = localDateStr(new Date(Date.now() - 30 * 86400_000), tz);
+  const { start: from, end: to } = rangeFromParams(fromParam, toParam, tz, { from: defaultFrom });
 
-  const rangeDays = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+  const rangeMs = to.getTime() - from.getTime();
   const prevTo = new Date(from.getTime() - 1);
-  const prevFrom = new Date(prevTo.getTime() - rangeDays * 24 * 60 * 60 * 1000);
-  prevFrom.setHours(0, 0, 0, 0);
-  prevTo.setHours(23, 59, 59, 999);
+  const prevFrom = new Date(prevTo.getTime() - rangeMs);
 
   const [current, prev] = await Promise.all([
-    fetchPeriodData(from, to),
-    fetchPeriodData(prevFrom, prevTo),
+    fetchPeriodData(from, to, tz),
+    fetchPeriodData(prevFrom, prevTo, tz),
   ]);
 
   return Response.json({

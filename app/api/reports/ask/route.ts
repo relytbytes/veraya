@@ -2,10 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import OpenAI from "openai";
-
-function localISO(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+import { startOfLocalDay, endOfLocalDay, localDateStr } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 function fmt(n: number) { return `$${n.toFixed(2)}`; }
 function fmtPct(n: number) { return `${n.toFixed(1)}%`; }
@@ -23,8 +21,9 @@ export async function POST(req: NextRequest) {
 
   if (!question?.trim()) return Response.json({ error: "Question is required" }, { status: 400 });
 
-  const fromDate = new Date(from + "T00:00:00");
-  const toDate   = new Date(to   + "T23:59:59");
+  const tz = await getRestaurantTz();
+  const fromDate = startOfLocalDay(from, tz);
+  const toDate   = endOfLocalDay(to, tz);
 
   // Comparison period (same length, immediately before)
   const dayCount = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1;
@@ -198,7 +197,7 @@ export async function POST(req: NextRequest) {
   // Daily breakdown for trends
   const dailyMap = new Map<string, number>();
   for (const o of orders) {
-    const d = localISO(new Date(o.createdAt));
+    const d = localDateStr(new Date(o.createdAt), tz);
     dailyMap.set(d, (dailyMap.get(d) ?? 0) + Number(o.total));
   }
   const dailySales = Array.from(dailyMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
@@ -209,7 +208,7 @@ export async function POST(req: NextRequest) {
 
   const contextBlock = [
     `REPORT PERIOD: ${from} to ${to} (${dayCount} days)`,
-    `COMPARISON PERIOD: ${localISO(prevFromDate)} to ${localISO(prevToDate)} (previous ${dayCount} days)`,
+    `COMPARISON PERIOD: ${localDateStr(prevFromDate, tz)} to ${localDateStr(prevToDate, tz)} (previous ${dayCount} days)`,
     ``,
     `REVENUE & ORDERS:`,
     `  Total revenue: ${fmt(totalRevenue)} (${orders.length} completed orders)`,

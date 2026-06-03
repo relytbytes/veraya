@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { buildDiagnosis } from "@/lib/vera-health";
 import { getBaselines, expectedRevenueForDow } from "@/lib/vera-baselines";
+import { startOfLocalDay, endOfLocalDay, localDateStr, localDow } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 // POST/GET /api/cron/vera-snapshot
 //
@@ -14,9 +16,7 @@ import { getBaselines, expectedRevenueForDow } from "@/lib/vera-baselines";
 // Idempotent — upserts by date. ?date=YYYY-MM-DD to backfill a specific day.
 
 const OPEN_HOUR = 11, CLOSE_HOUR = 22;
-function localDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 async function handle(req: NextRequest) {
   const url = new URL(req.url);
@@ -25,12 +25,14 @@ async function handle(req: NextRequest) {
   const authorized = (secret && provided === secret) || !!(await auth());
   if (!authorized) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Snapshot a venue-local business day. Default to "today" in the restaurant's
+  // timezone so the nightly run records the day that just closed, not the UTC day.
+  const tz = await getRestaurantTz();
   const dateParam = url.searchParams.get("date");
-  const target = dateParam ? new Date(dateParam + "T12:00:00") : new Date();
-  const dateStr = localDateStr(target);
-  const dayStart = new Date(target); dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(target); dayEnd.setHours(23, 59, 59, 999);
-  const dow = target.getDay();
+  const dateStr = dateParam || localDateStr(new Date(), tz);
+  const dayStart = startOfLocalDay(dateStr, tz);
+  const dayEnd = endOfLocalDay(dateStr, tz);
+  const dow = localDow(dayStart, tz);
 
   const [sales, clock, audit, inv, e86] = await Promise.all([
     prisma.order.aggregate({ where: { status: "COMPLETED", createdAt: { gte: dayStart, lte: dayEnd } }, _sum: { total: true }, _count: true }),
@@ -52,7 +54,7 @@ async function handle(req: NextRequest) {
   const low = inv.filter((i) => Number(i.quantity) <= Number(i.minThreshold) && Number(i.quantity) > 0).length;
   const oos = inv.filter((i) => Number(i.quantity) <= 0).length;
 
-  const baselines = await getBaselines(target);
+  const baselines = await getBaselines(dayStart, tz);
   const cfg = Object.fromEntries((await prisma.restaurantSettings.findMany({ where: { key: { in: ["fixedMonthlyCost", "targetFoodCostPct"] } } })).map((s) => [s.key, s.value]));
   const fixedMonthly = Number(cfg.fixedMonthlyCost);
   const foodPct = Number(cfg.targetFoodCostPct);
@@ -71,7 +73,7 @@ async function handle(req: NextRequest) {
     cogsTargetPct: foodPct > 0 ? foodPct / 100 : null,
     avgCheckToday: sales._count > 0 ? salesToday / sales._count : null,
     avgCheckMean: baselines.avgCheckMean, avgCheckStdev: baselines.avgCheckStdev,
-    dowLabel: target.toLocaleDateString("en-US", { weekday: "long" }),
+    dowLabel: DOW_NAMES[dow],
   });
 
   const scores = Object.fromEntries(diag.dimensions.map((d) => [d.key, d.score]));

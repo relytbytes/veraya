@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams, localDateStr, nowInTZ } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,13 +12,9 @@ export async function GET(req: NextRequest) {
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const now = new Date();
-  const from = fromParam
-    ? new Date(fromParam + "T00:00:00")
-    : new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // Venue-timezone day boundaries + day/hour bucketing.
+  const tz = await getRestaurantTz();
+  const { start: from, end: to } = rangeFromParams(fromParam, toParam, tz);
 
   // Pull all completed orders with items + payments in range
   const orders = await prisma.order.findMany({
@@ -46,7 +44,7 @@ export async function GET(req: NextRequest) {
   // ── Revenue by day ─────────────────────────────────────────────────────────
   const dayMap = new Map<string, { revenue: number; orders: number }>();
   for (const order of orders) {
-    const key = new Date(order.createdAt).toISOString().slice(0, 10);
+    const key = localDateStr(new Date(order.createdAt), tz);
     const ex = dayMap.get(key) ?? { revenue: 0, orders: 0 };
     dayMap.set(key, { revenue: ex.revenue + Number(order.total), orders: ex.orders + 1 });
   }
@@ -62,7 +60,7 @@ export async function GET(req: NextRequest) {
     orders: 0,
   }));
   for (const order of orders) {
-    const h = new Date(order.createdAt).getHours();
+    const h = nowInTZ(new Date(order.createdAt), tz).getUTCHours();
     hourArr[h].revenue += Number(order.total);
     hourArr[h].orders += 1;
   }

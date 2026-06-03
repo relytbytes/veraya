@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -14,8 +16,8 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "from and to date params required" }, { status: 400 });
   }
 
-  const fromDate = new Date(from); fromDate.setHours(0, 0, 0, 0);
-  const toDate   = new Date(to);   toDate.setHours(23, 59, 59, 999);
+  const tz = await getRestaurantTz();
+  const { start: fromDate, end: toDate } = rangeFromParams(from, to, tz);
 
   // ── Fetch all data in parallel ─────────────────────────────────────────────
 

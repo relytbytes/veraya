@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { rangeFromParams } from "@/lib/time";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -10,13 +12,9 @@ export async function GET(req: NextRequest) {
   const fromParam = searchParams.get("from");
   const toParam = searchParams.get("to");
 
-  const now = new Date();
-  const from = fromParam
-    ? new Date(fromParam + "T00:00:00")
-    : new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  from.setHours(0, 0, 0, 0);
-  const to = toParam ? new Date(toParam + "T23:59:59") : new Date(now);
-  to.setHours(23, 59, 59, 999);
+  // Venue-timezone day boundaries (default: today).
+  const tz = await getRestaurantTz();
+  const { start: from, end: to } = rangeFromParams(fromParam, toParam, tz);
 
   const [transactions, salesAgg] = await Promise.all([
     prisma.inventoryTransaction.findMany({
