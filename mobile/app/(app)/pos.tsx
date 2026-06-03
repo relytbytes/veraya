@@ -627,7 +627,7 @@ export default function POSScreen() {
         if (opt) {
           notesParts.push(opt.name);
           optionIds.push(opt.id);
-          extraPrice += Number(opt.price);
+          extraPrice += Number(opt.priceAdj);
           cartKeyParts.push(optId);
         }
       }
@@ -738,8 +738,8 @@ export default function POSScreen() {
                               {isSelected && <Ionicons name="checkmark" size={12} color={C.void} />}
                             </View>
                             <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: C.pearl }}>{opt.name}</Text>
-                            {Number(opt.price) > 0 && (
-                              <Text style={{ fontSize: 13, fontWeight: "600", color: C.gold }}>+${Number(opt.price).toFixed(2)}</Text>
+                            {Number(opt.priceAdj) > 0 && (
+                              <Text style={{ fontSize: 13, fontWeight: "600", color: C.gold }}>+${Number(opt.priceAdj).toFixed(2)}</Text>
                             )}
                           </TouchableOpacity>
                         );

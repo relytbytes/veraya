@@ -302,7 +302,7 @@ export interface ClockEntryWithUser extends ClockEntry {
 export interface Category { id: string; name: string; station?: "KITCHEN" | "BAR"; _count?: { menuItems: number } }
 
 export interface ModifierOption {
-  id: string; name: string; price: string; sortOrder: number;
+  id: string; name: string; priceAdj: string; sortOrder: number;
 }
 export interface Modifier {
   id: string; name: string; menuItemId: string | null;
@@ -312,6 +312,14 @@ export interface Modifier {
 
 export const getModifiers = (menuItemId: string) =>
   request<Modifier[]>(`/api/modifiers?menuItemId=${menuItemId}`);
+
+export interface ModifierInput { menuItemId?: string | null; name: string; isRequired?: boolean; maxSelect?: number; options: { name: string; priceAdj?: number; sortOrder?: number }[] }
+export const createModifier = (body: ModifierInput) =>
+  request<Modifier>("/api/modifiers", { method: "POST", body: JSON.stringify(body) });
+export const patchModifier = (id: string, body: Partial<ModifierInput>) =>
+  request<Modifier>(`/api/modifiers/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteModifier = (id: string) =>
+  request<void>(`/api/modifiers/${id}`, { method: "DELETE" });
 
 export interface MenuItem {
   id: string; name: string; description: string | null;

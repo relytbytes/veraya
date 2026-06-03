@@ -9,8 +9,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getMenuItems, getCategories, getIngredients, createCategory, patchCategory } from "@/lib/api";
-import type { Category, IngredientFull } from "@/lib/api";
+import { getMenuItems, getCategories, getIngredients, createCategory, patchCategory, getModifiers, createModifier, patchModifier, deleteModifier } from "@/lib/api";
+import type { Category, IngredientFull, Modifier } from "@/lib/api";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { C, T, shadow } from "@/lib/theme";
@@ -81,6 +81,112 @@ function costTintBg(pct: number): string {
   if (pct < 25) return T.jade;
   if (pct < 35) return T.ember;
   return T.coral;
+}
+
+// ── Modifier (option group) management ─────────────────────────────────────────
+type OptDraft = { name: string; priceAdj: string };
+
+function GroupEditor({ group, menuItemId, onSaved, onDeleted }: {
+  group: Modifier | null; menuItemId: string; onSaved: () => void; onDeleted?: () => void;
+}) {
+  const [name, setName] = useState(group?.name ?? "");
+  const [required, setRequired] = useState(group?.isRequired ?? false);
+  const [maxSelect, setMaxSelect] = useState(group?.maxSelect ?? 1);
+  const [opts, setOpts] = useState<OptDraft[]>(
+    group ? group.options.map((o) => ({ name: o.name, priceAdj: String(Number(o.priceAdj)) })) : [{ name: "", priceAdj: "0" }]
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    const cleanOpts = opts.filter((o) => o.name.trim()).map((o, i) => ({ name: o.name.trim(), priceAdj: Number(o.priceAdj) || 0, sortOrder: i }));
+    if (!name.trim()) { Alert.alert("Required", "Group name is required."); return; }
+    if (!cleanOpts.length) { Alert.alert("Required", "Add at least one option."); return; }
+    setBusy(true);
+    try {
+      const body = { name: name.trim(), isRequired: required, maxSelect, options: cleanOpts };
+      if (group) await patchModifier(group.id, body);
+      else { await createModifier({ menuItemId, ...body }); setName(""); setRequired(false); setMaxSelect(1); setOpts([{ name: "", priceAdj: "0" }]); }
+      onSaved();
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!group) return;
+    Alert.alert("Delete group", `Remove "${group.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => { try { await deleteModifier(group.id); onDeleted?.(); } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); } } },
+    ]);
+  }
+
+  const fieldStyle = { backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, color: C.pearl } as const;
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: group ? C.rim : C.gold, borderRadius: 12, padding: 12, gap: 10, backgroundColor: C.surface }}>
+      <TextInput value={name} onChangeText={setName} placeholder="Group name (e.g. Cooking Temp)" placeholderTextColor={C.smoke} style={fieldStyle} />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <TouchableOpacity onPress={() => setRequired((r) => !r)} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Ionicons name={required ? "checkbox" : "square-outline"} size={18} color={required ? C.gold : C.smoke} />
+          <Text style={{ fontSize: 13, color: C.pearl }}>Required</Text>
+        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ fontSize: 12, color: C.smoke }}>Max select</Text>
+          <TouchableOpacity onPress={() => setMaxSelect((m) => Math.max(1, m - 1))} style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}><Text style={{ color: C.pearl, fontSize: 16 }}>−</Text></TouchableOpacity>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: C.pearl, minWidth: 16, textAlign: "center" }}>{maxSelect}</Text>
+          <TouchableOpacity onPress={() => setMaxSelect((m) => m + 1)} style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}><Text style={{ color: C.pearl, fontSize: 16 }}>+</Text></TouchableOpacity>
+        </View>
+      </View>
+      {opts.map((o, i) => (
+        <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TextInput value={o.name} onChangeText={(v) => setOpts((p) => p.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Option" placeholderTextColor={C.smoke} style={[fieldStyle, { flex: 1 }]} />
+          <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 8, width: 92 }}>
+            <Text style={{ color: C.smoke, fontSize: 13 }}>+$</Text>
+            <TextInput value={o.priceAdj} onChangeText={(v) => setOpts((p) => p.map((x, j) => j === i ? { ...x, priceAdj: v } : x))} placeholder="0" placeholderTextColor={C.smoke} keyboardType="decimal-pad" style={{ flex: 1, paddingVertical: 9, fontSize: 14, color: C.pearl }} />
+          </View>
+          {opts.length > 1 && <TouchableOpacity onPress={() => setOpts((p) => p.filter((_, j) => j !== i))}><Ionicons name="close-circle" size={20} color={C.smoke} /></TouchableOpacity>}
+        </View>
+      ))}
+      <TouchableOpacity onPress={() => setOpts((p) => [...p, { name: "", priceAdj: "0" }])} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Ionicons name="add" size={16} color={C.gold} /><Text style={{ fontSize: 12, color: C.gold, fontWeight: "600" }}>Add option</Text>
+      </TouchableOpacity>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {group && <TouchableOpacity onPress={remove} style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: C.coral }}><Text style={{ color: C.coral, fontSize: 13, fontWeight: "600" }}>Delete</Text></TouchableOpacity>}
+        <TouchableOpacity onPress={save} disabled={busy} style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: C.gold, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
+          <Text style={{ color: C.void, fontSize: 13, fontWeight: "700" }}>{busy ? "Saving…" : group ? "Save group" : "Add group"}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function ModifierManager({ menuItemId, itemName, onClose }: { menuItemId: string; itemName: string; onClose: () => void }) {
+  const { data: groups = [], refetch, isLoading } = useQuery({ queryKey: ["modifiers", menuItemId], queryFn: () => getModifiers(menuItemId) });
+  // Only groups specific to this item are editable here (global modifiers are shown read-only-ish).
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "88%", paddingBottom: 28 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 17, fontWeight: "800", color: C.pearl }}>Modifiers</Text>
+              <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }} numberOfLines={1}>{itemName}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
+          </View>
+          {isLoading ? (
+            <View style={{ alignItems: "center", paddingVertical: 40 }}><ActivityIndicator color={C.gold} /></View>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
+              {groups.map((g) => (
+                <GroupEditor key={g.id} group={g} menuItemId={menuItemId} onSaved={refetch} onDeleted={refetch} />
+              ))}
+              <Text style={{ fontSize: 11, fontWeight: "700", color: C.smoke, textTransform: "uppercase", letterSpacing: 1, marginTop: 4 }}>New group</Text>
+              <GroupEditor group={null} menuItemId={menuItemId} onSaved={refetch} />
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 // ── Category management + station routing ──────────────────────────────────────
@@ -174,6 +280,7 @@ export default function MenuScreen() {
   const [selectedItem, setSelectedItem] = useState<MenuItemFull | null>(null);
   const [addVisible, setAddVisible] = useState(false);
   const [catMgmtOpen, setCatMgmtOpen] = useState(false);
+  const [modItem, setModItem] = useState<{ id: string; name: string } | null>(null);
 
   // Edit state for selected item
   const [editName, setEditName] = useState("");
@@ -413,6 +520,18 @@ export default function MenuScreen() {
                   />
                 </View>
 
+                {/* Modifiers */}
+                <TouchableOpacity
+                  onPress={() => setModItem({ id: selectedItem.id, name: selectedItem.name })}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="options-outline" size={16} color={C.gold} />
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: C.pearl }}>Modifiers &amp; options</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={C.smoke} />
+                </TouchableOpacity>
+
                 {/* Recipe / ingredients */}
                 <View>
                   <View className="flex-row items-center justify-between" style={{ marginBottom: 10 }}>
@@ -651,6 +770,7 @@ export default function MenuScreen() {
         }
       />
       {catMgmtOpen && <CategoryManager categories={categories} onClose={() => setCatMgmtOpen(false)} onChanged={() => qc.invalidateQueries({ queryKey: ["categories"] })} />}
+      {modItem && <ModifierManager menuItemId={modItem.id} itemName={modItem.name} onClose={() => setModItem(null)} />}
       {/* Search bar + category tabs */}
       <View style={{ backgroundColor: C.surface, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
         <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 12, gap: 8, marginBottom: 14 }}>
