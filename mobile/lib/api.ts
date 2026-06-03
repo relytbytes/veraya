@@ -159,6 +159,32 @@ export const createIngredient = (body: {
 export const createPurchaseOrder = (body: object) =>
   request<PurchaseOrder>("/api/purchase-orders", { method: "POST", body: JSON.stringify(body) });
 
+// ── Beverage program (profiles, scan-label, BIN auto-assign) ───────────────────
+export interface BeverageProfile {
+  id: string; ingredientId: string; category: string;
+  bottleSizeMl: number; pourSizeMl: number;
+  producer: string | null; vintage: string | null; abv: number | null;
+  binNumber: string | null; offerGlass: boolean; offerBottle: boolean;
+  ingredient: { id: string; name: string; unit: string; costPerUnit?: string; inventoryItem?: { quantity: string | number } | null };
+}
+export interface BeverageProfileInput {
+  ingredientId?: string; category: string; bottleSizeMl: number; pourSizeMl: number;
+  producer?: string | null; vintage?: string | null; abv?: number | null;
+  binNumber?: string | null; offerGlass: boolean; offerBottle: boolean;
+}
+export const getBeverageProfiles = () => request<BeverageProfile[]>("/api/beverage-profiles");
+export const createBeverageProfile = (body: BeverageProfileInput) =>
+  request<BeverageProfile>("/api/beverage-profiles", { method: "POST", body: JSON.stringify(body) });
+export const patchBeverageProfile = (id: string, body: Partial<BeverageProfileInput>) =>
+  request<BeverageProfile>(`/api/beverage-profiles/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteBeverageProfile = (id: string) =>
+  request<void>(`/api/beverage-profiles/${id}`, { method: "DELETE" });
+export interface BevScanResult { name: string; category: string; producer: string | null; vintage: string | null; abv: number | null; bottleSizeMl: number | null; pourSizeMl: number | null }
+export const scanBeverageLabel = (image: string) =>
+  request<BevScanResult>("/api/beverage-profiles/scan-label", { method: "POST", body: JSON.stringify({ image }) });
+export const assignBeverageBins = () =>
+  request<{ ok: boolean; assigned?: number }>("/api/beverage-profiles/assign-bins", { method: "POST" });
+
 // Customers
 export const searchCustomers = (q: string) =>
   request<Customer[]>(`/api/customers?q=${encodeURIComponent(q)}`);
