@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { type BonusConfig, DEFAULT_BONUS_CONFIG, parseBonusConfig } from "@/lib/bonus";
+import { type FiscalConfig, DEFAULT_FISCAL_CONFIG, parseFiscalConfig, WEEKDAY_NAMES, fiscalYearStart, fmtShort } from "@/lib/fiscal";
 
 interface TableRow {
   id: string;
@@ -47,6 +48,9 @@ export default function SettingsPage() {
   const [bonus, setBonus] = useState<BonusConfig>(DEFAULT_BONUS_CONFIG);
   const [bonusSaving, setBonusSaving] = useState(false);
   const [bonusSaved, setBonusSaved] = useState(false);
+  const [fiscal, setFiscal] = useState<FiscalConfig>(DEFAULT_FISCAL_CONFIG);
+  const [fiscalSaving, setFiscalSaving] = useState(false);
+  const [fiscalSaved, setFiscalSaved] = useState(false);
 
   // Card policy state
   const [cardPolicy, setCardPolicy] = useState({
@@ -127,7 +131,20 @@ export default function SettingsPage() {
         try { setCardPolicy(JSON.parse(data.reservationCardPolicy)); } catch { /* ignore */ }
       }
       if (data.managerBonus) setBonus(parseBonusConfig(data.managerBonus));
+      if (data.fiscalCalendar) setFiscal(parseFiscalConfig(data.fiscalCalendar));
     }
+  }
+
+  async function saveFiscal() {
+    setFiscalSaving(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fiscalCalendar: JSON.stringify(fiscal) }),
+    });
+    setFiscalSaving(false);
+    setFiscalSaved(true);
+    setTimeout(() => setFiscalSaved(false), 2000);
   }
 
   async function saveBonus() {
@@ -158,9 +175,9 @@ export default function SettingsPage() {
     setSettingsSaving(true);
     // Strip the JSON blobs that have their own dedicated savers — otherwise this
     // would re-write a stale copy carried in settings state and clobber them.
-    const { managerBonus: _mb, reservationCardPolicy: _cp, ...economics } =
-      settings as typeof settings & { managerBonus?: string; reservationCardPolicy?: string };
-    void _mb; void _cp;
+    const { managerBonus: _mb, reservationCardPolicy: _cp, fiscalCalendar: _fc, ...economics } =
+      settings as typeof settings & { managerBonus?: string; reservationCardPolicy?: string; fiscalCalendar?: string };
+    void _mb; void _cp; void _fc;
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -496,6 +513,54 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <Button onClick={saveBonus} disabled={bonusSaving}>
                 {bonusSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : bonusSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Bonus Settings</>)}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fiscal Calendar — 5-4-4 period close */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-teal-600" /> Fiscal Calendar
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Drives true period-close reporting. Each quarter is 13 weeks split 5 + 4 + 4, giving 12 fiscal
+              periods a year that always start and end on a week boundary.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Week starts on</Label>
+                <select
+                  value={fiscal.weekStart}
+                  onChange={(e) => setFiscal({ ...fiscal, weekStart: Number(e.target.value) })}
+                  className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  {WEEKDAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+                <p className="text-[11px] text-gray-400">Every period boundary lands on this day.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Period 1 begins</Label>
+                <select
+                  value={fiscal.anchor}
+                  onChange={(e) => setFiscal({ ...fiscal, anchor: e.target.value as FiscalConfig["anchor"] })}
+                  className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="week-of-jan1">Week containing January 1</option>
+                  <option value="first-weekday">First {WEEKDAY_NAMES[fiscal.weekStart]} of January</option>
+                </select>
+                <p className="text-[11px] text-gray-400">Where the fiscal year is anchored.</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-md px-3 py-2">
+              This year, Period 1 starts <b className="text-gray-900">{fmtShort(fiscalYearStart(new Date().getFullYear(), fiscal))}, {fiscalYearStart(new Date().getFullYear(), fiscal).getFullYear()}</b>.
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={saveFiscal} disabled={fiscalSaving}>
+                {fiscalSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : fiscalSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Fiscal Calendar</>)}
               </Button>
             </div>
           </CardContent>

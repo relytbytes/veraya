@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DEFAULT_BONUS_CONFIG } from "@/lib/bonus";
+import { DEFAULT_FISCAL_CONFIG } from "@/lib/fiscal";
 
 const SETTING_DEFAULTS: Record<string, string> = {
   reservationCardPolicy: JSON.stringify({
@@ -12,6 +13,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
     cancelHours: 24,
   }),
   managerBonus: JSON.stringify(DEFAULT_BONUS_CONFIG),
+  fiscalCalendar: JSON.stringify(DEFAULT_FISCAL_CONFIG),
 };
 
 export async function GET() {

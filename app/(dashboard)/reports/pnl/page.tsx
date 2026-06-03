@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { PnlStatement } from "./pnl-statement";
 import {
-  getFiscalPeriods, getFiscalQuarters, getFiscalYearRange, findFiscalPeriod, fmtShort, toISODate,
+  getFiscalPeriods, getFiscalQuarters, getFiscalYearRange, findFiscalPeriod, fmtShort,
+  parseFiscalConfig, DEFAULT_FISCAL_CONFIG, type FiscalConfig,
 } from "@/lib/fiscal";
 
 function todayISO() {
@@ -14,7 +15,8 @@ function todayISO() {
 
 export default function PnlPage() {
   const today = useMemo(() => new Date(), []);
-  const currentPeriod = useMemo(() => findFiscalPeriod(today), [today]);
+  const [cfg, setCfg] = useState<FiscalConfig>(DEFAULT_FISCAL_CONFIG);
+  const currentPeriod = useMemo(() => findFiscalPeriod(today, cfg), [today, cfg]);
   const currentFy = currentPeriod?.year ?? today.getFullYear();
 
   const [fy, setFy] = useState(currentFy);
@@ -23,8 +25,21 @@ export default function PnlPage() {
   const [customFrom, setCustomFrom] = useState(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`);
   const [customTo, setCustomTo] = useState(todayISO());
 
-  const periods = useMemo(() => getFiscalPeriods(fy), [fy]);
-  const quarters = useMemo(() => getFiscalQuarters(fy), [fy]);
+  // Load the venue's fiscal-calendar config; re-anchor the default selection to it.
+  useEffect(() => {
+    let active = true;
+    fetch("/api/settings").then((r) => r.ok ? r.json() : null).then((d) => {
+      if (!active || !d?.fiscalCalendar) return;
+      const c = parseFiscalConfig(d.fiscalCalendar);
+      setCfg(c);
+      const cur = findFiscalPeriod(new Date(), c);
+      if (cur) { setFy(cur.year); setSel(`P${cur.n}`); }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const periods = useMemo(() => getFiscalPeriods(fy, cfg), [fy, cfg]);
+  const quarters = useMemo(() => getFiscalQuarters(fy, cfg), [fy, cfg]);
 
   const yearOptions = [currentFy + 1, currentFy, currentFy - 1, currentFy - 2, currentFy - 3];
 
@@ -32,7 +47,7 @@ export default function PnlPage() {
   const range = useMemo(() => {
     if (sel === "CUSTOM") return { from: customFrom, to: customTo, label: "Custom range", weeks: null as number | null };
     if (sel === "YEAR") {
-      const y = getFiscalYearRange(fy);
+      const y = getFiscalYearRange(fy, cfg);
       return { from: y.from, to: y.to, label: `Full Year FY${fy}`, weeks: 52 };
     }
     if (sel.startsWith("Q")) {
@@ -41,7 +56,7 @@ export default function PnlPage() {
     }
     const p = periods.find((x) => x.label === sel) ?? periods[0];
     return { from: p.from, to: p.to, label: `${p.label} FY${fy}`, weeks: p.weeks };
-  }, [sel, fy, periods, quarters, customFrom, customTo]);
+  }, [sel, fy, cfg, periods, quarters, customFrom, customTo]);
 
   const closed = range.to < todayISO();
   const fmtRange = (fromISO: string, toISO: string) => {

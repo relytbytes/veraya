@@ -1,14 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "expo-router";
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated, Modal } from "react-native";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  getSalesReport, getLaborReport, getFoodCostReport, getCogsReport, getBevCostReport, getPriceHistory, getVarianceReport,
+  getSalesReport, getLaborReport, getFoodCostReport, getCogsReport, getBevCostReport, getPriceHistory, getVarianceReport, getSettings,
   type SalesReport, type LaborReport, type FoodCostReport, type CogsReport, type BevCostItem, type PriceHistoryReport, type VarianceReport,
 } from "@/lib/api";
+import {
+  getFiscalPeriods, getFiscalQuarters, getFiscalYearRange, findFiscalPeriod, fmtShort,
+  parseFiscalConfig, DEFAULT_FISCAL_CONFIG, type FiscalConfig,
+} from "@/lib/fiscal";
 import { C, shadow } from "@/lib/theme";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
@@ -683,7 +687,20 @@ export default function ReportsScreen() {
   const { refreshing, run } = useManualRefresh();
   const [rangeKey, setRangeKey] = useState<RangeKey>("week");
   const [tab, setTab] = useState<"sales" | "labor" | "foodcost" | "cogs" | "bev" | "prices" | "variance">("sales");
-  const range = useMemo(() => getRange(rangeKey), [rangeKey]);
+
+  // Fiscal-period selection (overrides the quick range chips when set).
+  const [fiscalSel, setFiscalSel] = useState<{ from: string; to: string; label: string } | null>(null);
+  const [periodOpen, setPeriodOpen] = useState(false);
+  const settingsQ = useQuery({ queryKey: ["settings", "fiscal"], queryFn: getSettings, staleTime: 5 * 60_000 });
+  const fiscalCfg: FiscalConfig = useMemo(
+    () => parseFiscalConfig(settingsQ.data?.fiscalCalendar),
+    [settingsQ.data],
+  );
+  const currentPeriod = useMemo(() => findFiscalPeriod(new Date(), fiscalCfg), [fiscalCfg]);
+  const [pickerFy, setPickerFy] = useState<number>(() => new Date().getFullYear());
+  useEffect(() => { if (currentPeriod) setPickerFy(currentPeriod.year); }, [currentPeriod]);
+
+  const range = useMemo(() => fiscalSel ?? getRange(rangeKey), [fiscalSel, rangeKey]);
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
@@ -710,11 +727,11 @@ export default function ReportsScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={{ flexDirection: "row", gap: 8 }}>
             {RANGE_KEYS.map((k) => {
-              const active = k === rangeKey;
+              const active = !fiscalSel && k === rangeKey;
               return (
                 <TouchableOpacity
                   key={k}
-                  onPress={() => setRangeKey(k)}
+                  onPress={() => { setFiscalSel(null); setRangeKey(k); }}
                   style={{
                     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
                     backgroundColor: active ? C.gold : C.surfaceHi,
@@ -727,6 +744,21 @@ export default function ReportsScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* Fiscal period picker */}
+            <TouchableOpacity
+              onPress={() => setPeriodOpen(true)}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 4,
+                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+                backgroundColor: fiscalSel ? C.gold : C.surfaceHi,
+                borderWidth: 1, borderColor: fiscalSel ? C.gold : C.rim,
+              }}
+            >
+              <Ionicons name="calendar-outline" size={13} color={fiscalSel ? C.void : C.mist} />
+              <Text style={{ fontSize: 12, fontWeight: "600", color: fiscalSel ? C.void : C.mist }}>
+                {fiscalSel ? fiscalSel.label : "Period"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
@@ -769,6 +801,59 @@ export default function ReportsScreen() {
         {tab === "prices"   && <PriceHistoryTab data={pricesQ.data}    isLoading={pricesQ.isLoading} />}
         {tab === "variance" && <VarianceTab     data={varianceQ.data} isLoading={varianceQ.isLoading} />}
       </Animated.ScrollView>
+
+      {/* Fiscal period picker modal */}
+      <Modal visible={periodOpen} transparent animationType="slide" onRequestClose={() => setPeriodOpen(false)}>
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" }}>
+          <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", paddingBottom: 28 }}>
+            {/* Year nav */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
+              <TouchableOpacity onPress={() => setPickerFy((y) => y - 1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="chevron-back" size={22} color={C.gold} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: C.pearl }}>Fiscal Year {pickerFy}</Text>
+              <TouchableOpacity onPress={() => setPickerFy((y) => y + 1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="chevron-forward" size={22} color={C.gold} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 12, gap: 6 }}>
+              {(() => {
+                const todayIso = toYMD(new Date());
+                const rows: { label: string; sub: string; from: string; to: string; closed: boolean }[] = [];
+                rows.push((() => { const y = getFiscalYearRange(pickerFy, fiscalCfg); return { label: `Full Year FY${pickerFy}`, sub: `${fmtShort(y.fromDate)} – ${fmtShort(y.toDate)}`, from: y.from, to: y.to, closed: y.to < todayIso }; })());
+                for (const q of getFiscalQuarters(pickerFy, fiscalCfg)) rows.push({ label: `${q.label} (P${q.periods[0]}–P${q.periods[2]})`, sub: `${fmtShort(q.fromDate)} – ${fmtShort(q.toDate)} · 13 wk`, from: q.from, to: q.to, closed: q.to < todayIso });
+                for (const p of getFiscalPeriods(pickerFy, fiscalCfg)) rows.push({ label: `${p.label} · Q${p.quarter}`, sub: `${fmtShort(p.fromDate)} – ${fmtShort(p.toDate)} · ${p.weeks} wk`, from: p.from, to: p.to, closed: p.to < todayIso });
+                return rows.map((r) => {
+                  const selected = fiscalSel?.from === r.from && fiscalSel?.to === r.to;
+                  return (
+                    <TouchableOpacity
+                      key={r.label}
+                      onPress={() => { setFiscalSel({ from: r.from, to: r.to, label: r.label.split(" ·")[0].replace(/ \(.*\)/, "") }); setPeriodOpen(false); }}
+                      style={{
+                        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                        paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12,
+                        backgroundColor: selected ? `${C.gold}1A` : C.surfaceHi,
+                        borderWidth: 1, borderColor: selected ? C.gold : C.rim,
+                      }}
+                    >
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: C.pearl }}>{r.label}</Text>
+                        <Text style={{ fontSize: 11, color: C.smoke, marginTop: 2 }}>{r.sub}</Text>
+                      </View>
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: r.closed ? `${C.jade}1A` : `${C.ember}1A` }}>
+                        <Text style={{ fontSize: 10, fontWeight: "600", color: r.closed ? C.jade : C.ember }}>{r.closed ? "Closed" : "Open"}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setPeriodOpen(false)} style={{ marginHorizontal: 16, marginTop: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: C.surfaceHi, alignItems: "center" }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: C.mist }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
