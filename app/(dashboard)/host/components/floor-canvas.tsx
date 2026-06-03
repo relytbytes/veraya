@@ -86,7 +86,7 @@ export function FloorCanvas({
     const name = staff.find((s) => s.id === t.serverId)?.name ?? "?";
     return (
       <span
-        className="absolute top-0.5 right-0.5 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[7px] font-bold text-white ring-1 ring-white/60"
+        className="absolute top-1 right-1 z-10 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[7px] font-bold text-white ring-1 ring-white/60"
         style={{ background: serverColor(t.serverId) }}
         title={`Server: ${name}`}
       >
@@ -103,14 +103,15 @@ export function FloorCanvas({
     const name = seated?.name ?? t.guestName;
 
     if (occupied) {
+      // Centered stack only — no corner-anchored labels (they clip on round tables).
       return (
         <>
-          <span className="absolute top-1 left-1.5 text-[8px] font-bold opacity-60 leading-none">T{t.number}</span>
-          <span className="text-[11px] font-bold text-center truncate px-1 w-full leading-tight mt-1">
+          <span className="text-[11px] font-bold text-center truncate px-1.5 w-full leading-tight">
             {name ? name.split(" ")[0] : `T${t.number}`}
           </span>
-          <div className="flex items-center gap-1 text-[8px] opacity-90 leading-none mt-0.5">
-            <span>{t.partySize ?? seated?.partySize ?? ""}p</span>
+          <div className="flex items-center justify-center gap-1 text-[8px] opacity-90 leading-none mt-0.5">
+            <span className="font-semibold">T{t.number}</span>
+            <span>· {t.partySize ?? seated?.partySize ?? ""}p</span>
             {t.seatedAt && <span>· {fmtElapsed(t.seatedAt)}</span>}
           </div>
         </>
@@ -228,7 +229,7 @@ export function FloorCanvas({
               style={{
                 ...visualFor(t).style,
                 left: `${t.floorX}%`, top: `${t.floorY}%`,
-                width: isRect ? "78px" : "66px", height: "66px",
+                width: isRect ? "78px" : "76px", height: isRect ? "66px" : "76px",
                 transform: `translate(-50%, -50%) rotate(${t.rotation}deg)`,
                 zIndex: 1,
                 position: "absolute",
