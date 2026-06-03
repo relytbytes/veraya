@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { useAuthStore } from "@/store/auth";
 
 // Single production backend. `extra.apiUrl` (app.json) is the only override —
 // EXPO_PUBLIC_API_URL was removed because stale baked values (a dead localtunnel)
@@ -30,6 +31,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: { ...headers, ...(options?.headers ?? {}) },
   });
+  if (res.status === 401) {
+    // Session expired/invalid. If this was an authenticated request, self-heal:
+    // clear auth so the AuthGuard bounces to the login screen instead of leaving
+    // every screen stuck on an error. (A login attempt sends no cookie, so a 401
+    // there is just bad credentials — don't clear/redirect, just surface it.)
+    if (headers["Cookie"]) {
+      await useAuthStore.getState().clearAuth().catch(() => {});
+      throw new Error("Your session expired. Please sign in again.");
+    }
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(err.error ?? `HTTP ${res.status}`);

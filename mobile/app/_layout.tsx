@@ -12,7 +12,17 @@ import "../global.css";
 // React screen from flashing before the login redirect fires.
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      // Don't retry an expired/invalid session — it can't succeed and only
+      // delays the bounce to login. Retry other transient failures once.
+      retry: (failureCount, error) =>
+        !(error instanceof Error && /session expired|HTTP 401/i.test(error.message)) && failureCount < 1,
+    },
+  },
+});
 
 // Bridge React Query's focus tracking to React Native AppState so queries
 // refetch the moment the app returns to the foreground — this (plus the SSE
