@@ -37,9 +37,14 @@ export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => vo
     let es: EventSource<"change"> | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
+    let openedAt = 0;
     let appActive = AppState.currentState === "active";
     let disposed = false;
     let stoppedFor401 = false;
+    // A connection must stay open this long to count as "healthy" and reset the
+    // backoff. On serverless (Vercel) the stream is short-lived, so without this
+    // the socket flaps open→close and reconnects every ~1s.
+    const STABLE_MS = 20_000;
     // Generation guard: getHeaders() is async, so a teardown mid-await must not
     // leave a stray connection behind.
     let generation = 0;
@@ -78,7 +83,7 @@ export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => vo
         pollingInterval: 0,
       });
 
-      es.addEventListener("open", () => { attempts = 0; });
+      es.addEventListener("open", () => { openedAt = Date.now(); });
 
       es.addEventListener("change", (event) => {
         if (!event.data) return;
@@ -97,6 +102,10 @@ export function useRealtime(enabled: boolean, onChange: (e: RealtimeEvent) => vo
           return;
         }
         // Any other drop: close this socket and back off before retrying.
+        // Only reset the backoff if the connection was healthy (stayed open a
+        // while); a quick flap keeps backing off so we don't reconnect-storm.
+        if (openedAt && Date.now() - openedAt >= STABLE_MS) attempts = 0;
+        openedAt = 0;
         if (es) { es.removeAllEventListeners(); es.close(); es = null; }
         scheduleReconnect();
       });
