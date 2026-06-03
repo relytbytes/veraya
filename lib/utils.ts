@@ -7,9 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatCurrency(value: number | string | null | undefined): string {
   const num = typeof value === "string" ? parseFloat(value) : (value ?? 0);
+  // Standard accounting format: negatives render in parentheses, e.g. ($505.00).
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
+    currencySign: "accounting",
   }).format(num);
 }
 

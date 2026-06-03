@@ -74,7 +74,11 @@ interface VeraData {
   };
 }
 
-const dol = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+// Accounting format: negatives in parentheses, e.g. ($505).
+const dol = (n: number) => {
+  const v = `$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+  return n < 0 ? `(${v})` : v;
+};
 const pctTxt = (n: number) => `${Math.round(n)}%`;
 
 function dimColor(status: Status) {

@@ -57,7 +57,9 @@ function linkToRoute(link: string): string {
 }
 
 function fmt(n: number) {
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  // Accounting format: negatives in parentheses, e.g. ($505).
+  const v = "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return n < 0 ? `(${v})` : v;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

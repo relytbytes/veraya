@@ -144,7 +144,7 @@ export function PnlStatement({ from, to }: { from: string; to: string }) {
                     <tr key={r.key} className={cn("border-b border-gray-50", isSub && "bg-gray-50/60")}>
                       <td className={cn("px-4 py-1.5", r.indent === 1 && "pl-8", r.indent === 2 && "pl-12",
                         isSub && "font-bold text-gray-900", r.emphasize && "text-[15px]")}>{r.label}</td>
-                      <td className={cn("px-4 py-1.5 text-right tabular-nums", isSub ? "font-bold text-gray-900" : "text-gray-700")}>
+                      <td className={cn("px-4 py-1.5 text-right tabular-nums", isSub ? "font-bold text-gray-900" : "text-gray-700", r.value < 0 && "text-red-600")}>
                         {r.input === "manual" ? (
                           <span className="inline-flex items-center gap-1">
                             {savingKey === r.key && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
