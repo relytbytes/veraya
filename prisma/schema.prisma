@@ -537,6 +537,7 @@ model Customer {
   events              Event[]
   orders              Order[]
   tables              Table[]
+  eventOrders         EventOrder[]
 }
 
 // ─── Reservations ─────────────────────────────────────────────────────────────
@@ -704,7 +705,76 @@ model Event {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id])
+  // ── Ticketing (Tock/Eventbrite-style) ──
+  ticketingEnabled Boolean @default(false)
+  // TICKET = guest pays the full ticket price now; DEPOSIT = guest pays a deposit
+  // per seat now and settles the balance on the POS at the event.
+  ticketMode       String  @default("TICKET")
+
+  customer    Customer?          @relation(fields: [customerId], references: [id])
+  ticketTiers EventTicketTier[]
+  ticketOrders EventOrder[]
+}
+
+// ─── Event ticketing ─────────────────────────────────────────────────────────
+
+model EventTicketTier {
+  id           String   @id @default(cuid())
+  eventId      String
+  name         String   // "General Admission", "VIP Table"
+  description  String?
+  priceCents   Int      // full ticket price
+  depositCents Int?     // amount charged now in DEPOSIT mode (else full price)
+  capacity     Int      // seats available in this tier
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  event      Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderItems EventOrderItem[]
+
+  @@index([eventId])
+}
+
+model EventOrder {
+  id                    String    @id @default(cuid())
+  eventId               String
+  confirmationCode      String    @unique
+  name                  String
+  email                 String
+  phone                 String?
+  customerId            String?
+  // PENDING (checkout started, seats held) | PAID | CHECKED_IN | REFUNDED | CANCELLED
+  status                String    @default("PENDING")
+  amountPaidCents       Int       @default(0)
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  checkedInAt           DateTime?
+  expiresAt             DateTime? // PENDING hold expiry — seats release if not paid
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  event    Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  customer Customer?        @relation(fields: [customerId], references: [id])
+  items    EventOrderItem[]
+
+  @@index([eventId])
+  @@index([status])
+}
+
+model EventOrderItem {
+  id             String @id @default(cuid())
+  orderId        String
+  tierId         String
+  quantity       Int
+  unitPriceCents Int    // snapshot of what was charged per seat
+  tierName       String // snapshot so display survives tier edits/deletes
+
+  order EventOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tier  EventTicketTier @relation(fields: [tierId], references: [id])
+
+  @@index([orderId])
+  @@index([tierId])
 }
 
 // ─── Tip Distribution ────────────────────────────────────────────────────────

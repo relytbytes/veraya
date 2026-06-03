@@ -62,5 +62,36 @@ export async function POST(req: NextRequest) {
     console.warn("Payment failed for PI", pi.id);
   }
 
+  // ── Event ticket purchases (Stripe Checkout) ──
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.kind === "event_order" && session.metadata.orderId) {
+      const eo = await prisma.eventOrder.findUnique({ where: { id: session.metadata.orderId } });
+      // Idempotent — only promote a PENDING order.
+      if (eo && eo.status === "PENDING") {
+        await prisma.eventOrder.update({
+          where: { id: eo.id },
+          data: {
+            status: "PAID",
+            amountPaidCents: session.amount_total ?? eo.amountPaidCents,
+            stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+            expiresAt: null,
+          },
+        });
+      }
+    }
+  }
+
+  if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.kind === "event_order" && session.metadata.orderId) {
+      // Buyer abandoned checkout — release the held seats.
+      await prisma.eventOrder.updateMany({
+        where: { id: session.metadata.orderId, status: "PENDING" },
+        data: { status: "CANCELLED", expiresAt: new Date() },
+      });
+    }
+  }
+
   return Response.json({ received: true });
 }
