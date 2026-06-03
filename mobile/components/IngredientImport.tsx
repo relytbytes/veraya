@@ -60,6 +60,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [barcodeAiFallback, setBarcodeAiFallback] = useState(false);
   const [barcodeScanned, setBarcodeScanned] = useState("");
+  const [barcodeMeta, setBarcodeMeta] = useState<{ brand: string | null; quantity: string | null; category: string | null } | null>(null);
   const [barcodeForm, setBarcodeForm] = useState({
     name: "", unit: "unit", costPerUnit: "", minThreshold: "",
   });
@@ -71,7 +72,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   function reset() {
     setMode("choose");
     setPhotoLoading(false); setPhotoError(null); setImportRows([]);
-    setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned(""); setBarcodeAiFallback(false);
+    setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned(""); setBarcodeAiFallback(false); setBarcodeMeta(null);
     setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "" });
     setSuggestions([]);
   }
@@ -137,6 +138,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
         setBarcodeError(`"${result.local.name}" is already in your ingredient library.`);
       } else if (result.external) {
         setBarcodeForm(f => ({ ...f, name: result.external!.name }));
+        setBarcodeMeta({ brand: result.external.brand, quantity: result.external.quantity, category: result.external.category });
       } else {
         // Valid barcode that no UPC database knew → offer AI photo identification.
         setBarcodeError(result.valid === false ? "That doesn't look like a valid barcode." : "Not in any product database — identify it with a photo.");
@@ -484,6 +486,20 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
                     <Text style={{ fontSize: 12, fontWeight: "600", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>
                       Confirm & Add
                     </Text>
+
+                    {/* Source detail — brand · size · category — so a wrong/generic
+                        auto-name is quick to correct before saving. */}
+                    {barcodeMeta && (barcodeMeta.brand || barcodeMeta.quantity || barcodeMeta.category) && (
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -4 }}>
+                        {[barcodeMeta.brand, barcodeMeta.quantity, barcodeMeta.category]
+                          .filter(Boolean)
+                          .map((v, i) => (
+                            <View key={i} style={{ backgroundColor: C.surfaceHi, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: C.rim }}>
+                              <Text style={{ fontSize: 11, color: C.mist, fontWeight: "600" }}>{v}</Text>
+                            </View>
+                          ))}
+                      </View>
+                    )}
 
                     {[
                       { label: "Name *", key: "name" as const, placeholder: "Ingredient name", multiline: false },
