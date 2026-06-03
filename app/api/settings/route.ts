@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { DEFAULT_BONUS_CONFIG } from "@/lib/bonus";
 
 const SETTING_DEFAULTS: Record<string, string> = {
   reservationCardPolicy: JSON.stringify({
@@ -10,6 +11,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
     refundOnCancel: true,
     cancelHours: 24,
   }),
+  managerBonus: JSON.stringify(DEFAULT_BONUS_CONFIG),
 };
 
 export async function GET() {

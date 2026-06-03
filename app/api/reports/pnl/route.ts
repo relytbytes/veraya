@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { rangeFromParams } from "@/lib/time";
 import { getRestaurantTz } from "@/lib/restaurant-tz";
 import { buildStatement, MANUAL_KEYS } from "@/lib/pnl";
+import { parseBonusConfig, computeBonus } from "@/lib/bonus";
 
 const SETTINGS_KEY = "pnlEntries";
 const SERVICE_ROLES = new Set(["SERVER", "HOST", "SERVER_ASSISTANT"]);
@@ -129,9 +130,33 @@ export async function GET(req: NextRequest) {
   values["m_laborHours"] = Math.round(laborHours * 10) / 10;
   values["m_ppa"] = guestCounts > 0 ? Math.round((netSales / guestCounts) * 100) / 100 : 0;
 
-  // Re-resolve metrics into the row list.
+  // Manager bonus — profit-share on Performance Earnings BEFORE the bonus itself
+  // (this first build has bonus = 0), gated at a monthly target, with a quality
+  // scorecard modifier. Auto-fills the Management Bonus line.
+  const bonusCfgRow = await prisma.restaurantSettings.findUnique({ where: { key: "managerBonus" } });
+  const bonusConfig = parseBonusConfig(bonusCfgRow?.value);
+  const val = (k: string) => rows.find((r) => r.key === k)?.value ?? 0;
+  const peBeforeBonus = val("performanceEarnings");
+  const costOfSales = val("costOfSales");
+  const directLabor = val("totalDirectLabor");
+  const grossSales = val("totalGrossSales");
+  const monthlySalaryTotal = salariedStaff.reduce((s, u) => s + Number(u.annualSalary ?? 0) / 12, 0);
+  const bonus = computeBonus({
+    peBeforeBonus,
+    periodDays,
+    monthlySalaryTotal,
+    metrics: {
+      laborPct: netSales > 0 ? (directLabor / netSales) * 100 : 0,
+      primePct: netSales > 0 ? ((costOfSales + directLabor) / netSales) * 100 : 0,
+      compVoidPct: grossSales > 0 ? ((auto.comps + auto.voids) / grossSales) * 100 : 0,
+    },
+    config: bonusConfig,
+  });
+  values["bonus"] = bonus.bonus;
+
+  // Re-resolve metrics + the bonus line into the row list.
   const final = buildStatement(values);
-  return Response.json({ from: fromStr, to: toStr, periodKey, rows: final });
+  return Response.json({ from: fromStr, to: toStr, periodKey, rows: final, bonus });
 }
 
 // POST { from, to, lineKey, amount } — save one manual line for the period.

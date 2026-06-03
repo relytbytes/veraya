@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { PnlResolvedRow } from "@/lib/pnl";
+import type { BonusResult } from "@/lib/bonus";
 
 const pctTxt = (p: number | null) => (p == null ? "" : `${(p * 100).toFixed(1)}%`);
 
@@ -30,11 +31,12 @@ export function PnlStatement({ from, to }: { from: string; to: string }) {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [bonus, setBonus] = useState<BonusResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/reports/pnl?from=${from}&to=${to}`);
-    if (res.ok) { const d = await res.json(); setRows(d.rows); }
+    if (res.ok) { const d = await res.json(); setRows(d.rows); setBonus(d.bonus ?? null); }
     setLoading(false);
   }, [from, to]);
   useEffect(() => { load(); }, [load]);
@@ -101,6 +103,28 @@ export function PnlStatement({ from, to }: { from: string; to: string }) {
           <div className="p-6 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
         ) : (
           <>
+            {bonus?.enabled && (
+              <div className="border-b border-gray-100 bg-teal-50/60 px-4 py-3">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-teal-700">Manager Bonus Pool — earned this period</p>
+                  <p className="text-lg font-bold text-teal-700">{formatCurrency(bonus.bonus)}</p>
+                </div>
+                {bonus.bonus > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-gray-600">
+                    <span>Profit over target: <b className="text-gray-900">{formatCurrency(bonus.overage)}</b></span>
+                    <span>Base share: <b className="text-gray-900">{formatCurrency(bonus.rawBonus)}</b></span>
+                    {bonus.modifier !== 1 && (
+                      <span>Scorecard: <b className={cn(bonus.modifier >= 1 ? "text-emerald-600" : "text-orange-600")}>×{bonus.modifier.toFixed(2)}</b></span>
+                    )}
+                    {bonus.capped && <span className="text-orange-600">capped</span>}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Performance Earnings ({formatCurrency(bonus.peBeforeBonus)}) are below the {formatCurrency(bonus.target)} target — no bonus accrued yet.
+                  </p>
+                )}
+              </div>
+            )}
             {metrics.length > 0 && (
               <div className="grid grid-cols-3 gap-px bg-gray-100 border-b border-gray-100">
                 {metrics.map((m) => (

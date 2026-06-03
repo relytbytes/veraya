@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { type BonusConfig, DEFAULT_BONUS_CONFIG, parseBonusConfig } from "@/lib/bonus";
 
 interface TableRow {
   id: string;
@@ -43,6 +44,9 @@ export default function SettingsPage() {
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [bonus, setBonus] = useState<BonusConfig>(DEFAULT_BONUS_CONFIG);
+  const [bonusSaving, setBonusSaving] = useState(false);
+  const [bonusSaved, setBonusSaved] = useState(false);
 
   // Card policy state
   const [cardPolicy, setCardPolicy] = useState({
@@ -122,7 +126,20 @@ export default function SettingsPage() {
       if (data.reservationCardPolicy) {
         try { setCardPolicy(JSON.parse(data.reservationCardPolicy)); } catch { /* ignore */ }
       }
+      if (data.managerBonus) setBonus(parseBonusConfig(data.managerBonus));
     }
+  }
+
+  async function saveBonus() {
+    setBonusSaving(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ managerBonus: JSON.stringify(bonus) }),
+    });
+    setBonusSaving(false);
+    setBonusSaved(true);
+    setTimeout(() => setBonusSaved(false), 2000);
   }
 
   async function saveCardPolicy() {
@@ -354,6 +371,126 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <Button onClick={saveSettings} disabled={settingsSaving}>
                 {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : settingsSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Settings</>)}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Manager Bonus — profit-share over budget, with a quality scorecard */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-teal-600" /> Manager Bonus
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <p className="text-xs text-gray-500">
+              A monthly profit-share on Performance Earnings above a target, with accelerator tiers and a
+              quality scorecard. Auto-fills the Management Bonus line on the P&amp;L. Computed on profit
+              <em> before</em> the bonus itself.
+            </p>
+
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-900">
+              <input
+                type="checkbox"
+                checked={bonus.enabled}
+                onChange={(e) => setBonus({ ...bonus, enabled: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+              />
+              Enable manager bonus
+            </label>
+
+            <div className={`space-y-5 ${bonus.enabled ? "" : "opacity-50 pointer-events-none"}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Monthly target — Performance Earnings ($)</Label>
+                  <Input type="number" value={bonus.monthlyTarget || ""}
+                    onChange={(e) => setBonus({ ...bonus, monthlyTarget: Number(e.target.value) || 0 })}
+                    placeholder="budgeted monthly profit" />
+                  <p className="text-[11px] text-gray-400">Bonus only accrues on profit above this.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cap (% of management salary)</Label>
+                  <Input type="number" value={bonus.capPctOfSalary || ""}
+                    onChange={(e) => setBonus({ ...bonus, capPctOfSalary: Number(e.target.value) || 0 })}
+                    placeholder="30" />
+                  <p className="text-[11px] text-gray-400">0 = uncapped. Caps the monthly payout.</p>
+                </div>
+              </div>
+
+              {/* Accelerator tiers */}
+              <div className="space-y-2">
+                <Label>Profit-share tiers</Label>
+                <p className="text-[11px] text-gray-400 -mt-1">Marginal share of the overage. Each tier applies above its monthly $ threshold.</p>
+                <div className="space-y-2">
+                  {bonus.tiers.map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-20">over $</span>
+                      <Input type="number" className="w-32" value={t.over || (i === 0 ? 0 : "")}
+                        onChange={(e) => {
+                          const tiers = bonus.tiers.map((x, j) => j === i ? { ...x, over: Number(e.target.value) || 0 } : x);
+                          setBonus({ ...bonus, tiers });
+                        }} />
+                      <span className="text-xs text-gray-500">→</span>
+                      <Input type="number" className="w-24" value={t.pct || ""}
+                        onChange={(e) => {
+                          const tiers = bonus.tiers.map((x, j) => j === i ? { ...x, pct: Number(e.target.value) || 0 } : x);
+                          setBonus({ ...bonus, tiers });
+                        }} />
+                      <span className="text-xs text-gray-500">%</span>
+                      {bonus.tiers.length > 1 && (
+                        <button type="button" className="text-gray-400 hover:text-red-600"
+                          onClick={() => setBonus({ ...bonus, tiers: bonus.tiers.filter((_, j) => j !== i) })}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm"
+                  onClick={() => setBonus({ ...bonus, tiers: [...bonus.tiers, { over: 0, pct: 0 }] })}>
+                  <Plus className="h-3.5 w-3.5" /> Add tier
+                </Button>
+              </div>
+
+              {/* Quality scorecard */}
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                  <input
+                    type="checkbox"
+                    checked={bonus.scorecard.enabled}
+                    onChange={(e) => setBonus({ ...bonus, scorecard: { ...bonus.scorecard, enabled: e.target.checked } })}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  Quality scorecard modifier (×0.8–1.2)
+                </label>
+                <p className="text-[11px] text-gray-400 -mt-1">
+                  Scales the payout by how well targets were hit — so profit can&apos;t be gamed by cutting corners.
+                </p>
+                <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 ${bonus.scorecard.enabled ? "" : "opacity-50 pointer-events-none"}`}>
+                  {([
+                    ["laborTargetPct", "Labor target (%)", "labor"],
+                    ["primeTargetPct", "Prime cost target (%)", "prime"],
+                    ["compVoidMaxPct", "Comps+voids max (%)", "compVoid"],
+                  ] as const).map(([key, label, wkey]) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-xs">{label}</Label>
+                      <Input type="number" value={(bonus.scorecard[key] as number) || ""}
+                        onChange={(e) => setBonus({ ...bonus, scorecard: { ...bonus.scorecard, [key]: Number(e.target.value) || 0 } })} />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-400">weight</span>
+                        <Input type="number" className="h-7 text-xs" value={bonus.scorecard.weights[wkey] || ""}
+                          onChange={(e) => setBonus({ ...bonus, scorecard: { ...bonus.scorecard, weights: { ...bonus.scorecard.weights, [wkey]: Number(e.target.value) || 0 } } })} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={saveBonus} disabled={bonusSaving}>
+                {bonusSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : bonusSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Bonus Settings</>)}
               </Button>
             </div>
           </CardContent>
