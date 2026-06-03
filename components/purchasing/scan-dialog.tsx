@@ -59,7 +59,8 @@ interface Props {
 type ScanTab = "barcode" | "photo";
 
 export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode = "select" }: Props) {
-  const [tab, setTab] = useState<ScanTab>("barcode");
+  // AI photo is the primary, more reliable path; barcode is the secondary tab.
+  const [tab, setTab] = useState<ScanTab>("photo");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);

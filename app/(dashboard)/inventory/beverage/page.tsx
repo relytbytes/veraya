@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { CameraCapture } from "@/components/camera-capture";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
@@ -160,7 +161,7 @@ export default function BeveragePage() {
   // Label scan (photo → AI prefill)
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const scanInputRef = useRef<HTMLInputElement>(null);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const loadProfiles = useCallback(async () => {
     setLoadingProfiles(true);
@@ -192,6 +193,7 @@ export default function BeveragePage() {
     setForm(EMPTY_FORM);
     setFormError("");
     setScanNote("");
+    setScanOpen(false);
     setAddOpen(true);
   }
 
@@ -214,21 +216,16 @@ export default function BeveragePage() {
     });
     setFormError("");
     setScanNote("");
+    setScanOpen(false);
     setEditProfile(profile);
   }
 
-  async function onScanFile(file: File | null) {
-    if (!file) return;
+  async function scanImage(image: string) {
+    if (!image) return;
     setScanning(true);
     setScanNote("");
     setFormError("");
     try {
-      const image: string = await new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result as string);
-        fr.onerror = reject;
-        fr.readAsDataURL(file);
-      });
       const res = await fetch("/api/beverage-profiles/scan-label", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image }),
@@ -282,11 +279,11 @@ export default function BeveragePage() {
         pourSizeCustom: !pourPreset && d.pourSizeMl != null ? String(d.pourSizeMl) : f.pourSizeCustom,
       }));
       setScanNote(`Filled from label. ${note} Review the fields, then Add.`.trim());
+      setScanOpen(false);
     } catch {
       setFormError("Could not read that image. Try again or enter details manually.");
     } finally {
       setScanning(false);
-      if (scanInputRef.current) scanInputRef.current.value = "";
     }
   }
 
@@ -837,27 +834,28 @@ export default function BeveragePage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            {/* Scan label (photo AI) */}
+            {/* Scan label (live camera + AI photo identifier) */}
             <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-3">
-              <input
-                ref={scanInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => onScanFile(e.target.files?.[0] ?? null)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full border-amber-400 text-amber-800 hover:bg-amber-100"
-                onClick={() => scanInputRef.current?.click()}
-                disabled={scanning}
-              >
-                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-                {scanning ? "Reading label…" : "Scan bottle label with photo"}
-              </Button>
+              {scanOpen ? (
+                <CameraCapture
+                  busy={scanning}
+                  hint="Point at the bottle label"
+                  onCapture={scanImage}
+                  onCancel={() => setScanOpen(false)}
+                />
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-amber-400 text-amber-800 hover:bg-amber-100"
+                  onClick={() => { setScanNote(""); setScanOpen(true); }}
+                  disabled={scanning}
+                >
+                  {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
+                  {scanning ? "Reading label…" : "Scan bottle label with camera"}
+                </Button>
+              )}
               {scanNote && (
                 <p className="mt-2 flex items-start gap-1 text-xs text-amber-800">
                   <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" /> {scanNote}
