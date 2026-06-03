@@ -10,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getSettings, saveSettings } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
+import { parseFiscalConfig, WEEKDAY_NAMES, fiscalYearStart, fmtShort } from "@/lib/fiscal";
+import { parseBonusConfig } from "@/lib/bonus";
 
 function strToBool(v: string | undefined) { return v === "true"; }
 function boolToStr(v: boolean) { return v ? "true" : "false"; }
@@ -213,6 +215,57 @@ export default function SettingsScreen() {
             <SegmentRow label="Slot interval" options={SLOT_OPTIONS} value={get("reservations.slotMinutes", "30")} onChange={(v) => set("reservations.slotMinutes", v)} />
             <TextRow label="Cancel policy" value={get("reservations.cancelPolicy")} onChange={(v) => set("reservations.cancelPolicy", v)} placeholder="Cancel 24 hours in advance to avoid fees." multiline last />
           </CardWrap>
+
+          {/* ── Vera Economics — drives the live P&L + break-even ── */}
+          <SectionHeader label="Vera Economics" />
+          <CardWrap>
+            <TextRow label="Fixed monthly $" value={get("fixedMonthlyCost")} onChange={(v) => set("fixedMonthlyCost", v)} placeholder="rent + utilities + insurance" keyboardType="numeric" />
+            <TextRow label="Target food %" value={get("targetFoodCostPct")} onChange={(v) => set("targetFoodCostPct", v)} placeholder="30" keyboardType="decimal-pad" />
+            <TextRow label="Open time" value={get("serviceOpen")} onChange={(v) => set("serviceOpen", v)} placeholder="11:00" />
+            <TextRow label="Close time" value={get("serviceClose")} onChange={(v) => set("serviceClose", v)} placeholder="22:00" last />
+          </CardWrap>
+
+          {/* ── Manager Bonus — profit-share over budget ── */}
+          {(() => {
+            const b = parseBonusConfig(get("managerBonus") || undefined);
+            const writeB = (next: typeof b) => set("managerBonus", JSON.stringify(next));
+            const baseShare = b.tiers[0]?.pct ?? 15;
+            return (<>
+              <SectionHeader label="Manager Bonus" />
+              <CardWrap>
+                <ToggleRow label="Enable bonus" value={b.enabled} onChange={(v) => writeB({ ...b, enabled: v })} info="Profit-share on Performance Earnings above target." />
+                {b.enabled && <>
+                  <TextRow label="Monthly target $" value={b.monthlyTarget ? String(b.monthlyTarget) : ""} onChange={(v) => writeB({ ...b, monthlyTarget: Number(v) || 0 })} placeholder="budgeted profit" keyboardType="numeric" />
+                  <TextRow label="Base share %" value={String(baseShare)} onChange={(v) => writeB({ ...b, tiers: b.tiers.length ? [{ ...b.tiers[0], pct: Number(v) || 0 }, ...b.tiers.slice(1)] : [{ over: 0, pct: Number(v) || 0 }] })} placeholder="15" keyboardType="numeric" />
+                  <TextRow label="Cap % of salary" value={String(b.capPctOfSalary)} onChange={(v) => writeB({ ...b, capPctOfSalary: Number(v) || 0 })} placeholder="30" keyboardType="numeric" />
+                  <ToggleRow label="Quality scorecard" value={b.scorecard.enabled} onChange={(v) => writeB({ ...b, scorecard: { ...b.scorecard, enabled: v } })} info="Scales payout 0.8–1.2× on labor, prime cost & comps targets." />
+                  {b.scorecard.enabled && <>
+                    <TextRow label="Labor target %" value={String(b.scorecard.laborTargetPct)} onChange={(v) => writeB({ ...b, scorecard: { ...b.scorecard, laborTargetPct: Number(v) || 0 } })} placeholder="30" keyboardType="decimal-pad" />
+                    <TextRow label="Prime target %" value={String(b.scorecard.primeTargetPct)} onChange={(v) => writeB({ ...b, scorecard: { ...b.scorecard, primeTargetPct: Number(v) || 0 } })} placeholder="60" keyboardType="decimal-pad" />
+                    <TextRow label="Comps+voids max %" value={String(b.scorecard.compVoidMaxPct)} onChange={(v) => writeB({ ...b, scorecard: { ...b.scorecard, compVoidMaxPct: Number(v) || 0 } })} placeholder="3" keyboardType="decimal-pad" last />
+                  </>}
+                </>}
+              </CardWrap>
+              {b.enabled && b.tiers.length > 1 && (
+                <Text style={{ fontSize: 11, color: C.smoke, paddingHorizontal: 8, marginTop: 4 }}>Accelerator tiers ({b.tiers.length}) are configured on the web app.</Text>
+              )}
+            </>);
+          })()}
+
+          {/* ── Fiscal Calendar — 5-4-4 period close ── */}
+          {(() => {
+            const f = parseFiscalConfig(get("fiscalCalendar") || undefined);
+            const writeF = (next: typeof f) => set("fiscalCalendar", JSON.stringify(next));
+            const start = fiscalYearStart(new Date().getFullYear(), f);
+            return (<>
+              <SectionHeader label="Fiscal Calendar" />
+              <CardWrap>
+                <SegmentRow label="Week starts" options={[{ label: "Mon", value: "1" }, { label: "Sun", value: "0" }, { label: "Wed", value: "3" }]} value={String(f.weekStart)} onChange={(v) => writeF({ ...f, weekStart: Number(v) })} />
+                <SegmentRow label="P1 begins" options={[{ label: "Wk of Jan 1", value: "week-of-jan1" }, { label: `1st ${WEEKDAY_NAMES[f.weekStart].slice(0, 3)}`, value: "first-weekday" }]} value={f.anchor} onChange={(v) => writeF({ ...f, anchor: v as typeof f.anchor })} last />
+              </CardWrap>
+              <Text style={{ fontSize: 11, color: C.smoke, paddingHorizontal: 8, marginTop: 4 }}>This year, Period 1 starts {fmtShort(start)}, {start.getFullYear()}. Each quarter = 5+4+4 weeks.</Text>
+            </>);
+          })()}
 
           <SectionHeader label="Loyalty" />
           <CardWrap>
