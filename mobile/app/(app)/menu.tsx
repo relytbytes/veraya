@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getMenuItems, getCategories, getIngredients } from "@/lib/api";
+import { getMenuItems, getCategories, getIngredients, createCategory, patchCategory } from "@/lib/api";
 import type { Category, IngredientFull } from "@/lib/api";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
@@ -83,6 +83,87 @@ function costTintBg(pct: number): string {
   return T.coral;
 }
 
+// ── Category management + station routing ──────────────────────────────────────
+function CategoryManager({ categories, onClose, onChanged }: { categories: Category[]; onClose: () => void; onChanged: () => void }) {
+  const [newName, setNewName] = useState("");
+  const [newStation, setNewStation] = useState<"KITCHEN" | "BAR">("KITCHEN");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function setStation(id: string, station: "KITCHEN" | "BAR") {
+    setBusy(id);
+    try { await patchCategory(id, { station }); onChanged(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(null); }
+  }
+  async function add() {
+    if (!newName.trim()) return;
+    setBusy("new");
+    try { await createCategory({ name: newName.trim(), station: newStation }); setNewName(""); setNewStation("KITCHEN"); onChanged(); }
+    catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+    finally { setBusy(null); }
+  }
+
+  const StationToggle = ({ value, onChange, disabled }: { value: "KITCHEN" | "BAR"; onChange: (s: "KITCHEN" | "BAR") => void; disabled?: boolean }) => (
+    <View style={{ flexDirection: "row", gap: 6, opacity: disabled ? 0.5 : 1 }}>
+      {(["KITCHEN", "BAR"] as const).map((s) => {
+        const sel = value === s;
+        const col = s === "BAR" ? C.ember : C.jade;
+        return (
+          <TouchableOpacity key={s} disabled={disabled} onPress={() => onChange(s)} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: sel ? `${col}1A` : C.surfaceHi, borderColor: sel ? col : C.rim }}>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: sel ? col : C.smoke }}>{s === "BAR" ? "Bar" : "Kitchen"}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "85%", paddingBottom: 28 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
+            <View>
+              <Text style={{ fontSize: 17, fontWeight: "800", color: C.pearl }}>Categories</Text>
+              <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }}>Station routes items to the Kitchen or Bar display.</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 12, gap: 8 }}>
+            {categories.map((c) => (
+              <View key={c.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.surfaceHi }}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: C.pearl }}>{c.name}</Text>
+                  {c._count && <Text style={{ fontSize: 11, color: C.smoke }}>{c._count.menuItems} item{c._count.menuItems === 1 ? "" : "s"}</Text>}
+                </View>
+                <StationToggle value={(c.station as "KITCHEN" | "BAR") ?? "KITCHEN"} onChange={(s) => setStation(c.id, s)} disabled={busy === c.id} />
+              </View>
+            ))}
+
+            {/* Add new category */}
+            <View style={{ marginTop: 8, borderWidth: 1, borderColor: C.rim, borderRadius: 12, padding: 12, gap: 10, backgroundColor: C.surface }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>New Category</Text>
+              <TextInput
+                value={newName}
+                onChangeText={setNewName}
+                placeholder="Category name"
+                placeholderTextColor={C.smoke}
+                style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.pearl }}
+              />
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <StationToggle value={newStation} onChange={setNewStation} />
+                <TouchableOpacity onPress={add} disabled={!newName.trim() || busy === "new"} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: newName.trim() ? C.gold : C.surfaceHi }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: newName.trim() ? C.void : C.smoke }}>{busy === "new" ? "Adding…" : "Add"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function MenuScreen() {
   const { refreshing, run } = useManualRefresh();
   const router = useRouter();
@@ -92,6 +173,7 @@ export default function MenuScreen() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<MenuItemFull | null>(null);
   const [addVisible, setAddVisible] = useState(false);
+  const [catMgmtOpen, setCatMgmtOpen] = useState(false);
 
   // Edit state for selected item
   const [editName, setEditName] = useState("");
@@ -558,11 +640,17 @@ export default function MenuScreen() {
           </TouchableOpacity>
         }
         right={
-          <TouchableOpacity onPress={() => setAddVisible(true)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="add-circle-outline" size={24} color={C.gold} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
+            <TouchableOpacity onPress={() => setCatMgmtOpen(true)} hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
+              <Ionicons name="pricetags-outline" size={21} color={C.gold} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setAddVisible(true)} hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}>
+              <Ionicons name="add-circle-outline" size={24} color={C.gold} />
+            </TouchableOpacity>
+          </View>
         }
       />
+      {catMgmtOpen && <CategoryManager categories={categories} onClose={() => setCatMgmtOpen(false)} onChanged={() => qc.invalidateQueries({ queryKey: ["categories"] })} />}
       {/* Search bar + category tabs */}
       <View style={{ backgroundColor: C.surface, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
         <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 12, gap: 8, marginBottom: 14 }}>
