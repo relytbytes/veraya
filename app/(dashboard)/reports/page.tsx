@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { VeraMenuMoves } from "@/components/vera-menu-moves";
 import { VeraLaborPlan } from "@/components/vera-labor-plan";
+import { PnlStatement } from "./pnl/pnl-statement";
 import {
   RevenueChart, OrdersChart, CategoryPieChart, TopItemsChart, HourlyChart, DowChart,
 } from "./charts";
@@ -667,7 +668,11 @@ export default function ReportsPage() {
 
         {/* ── P&L TAB ─────────────────────────────────────────────────────────── */}
         {activeTab === "pl" && (
-          <PLTab data={cogsData} loading={cogsLoading} />
+          <div className="space-y-6">
+            <PLTab data={cogsData} loading={cogsLoading} />
+            {/* Full line-item operating statement, below the charts */}
+            <PnlStatement from={range.from} to={range.to} />
+          </div>
         )}
 
         {/* ── SCHEDULING TAB ──────────────────────────────────────────────────── */}
