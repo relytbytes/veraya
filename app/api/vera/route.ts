@@ -5,7 +5,7 @@ import { veraComplete, aiEnabled } from "@/lib/openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 import { getLearnedWeights } from "@/lib/vera-weights";
-import { localDateStr, dayWindow, localHourFloat, localDow } from "@/lib/time";
+import { localDateStr, dayWindow, localHourFloat, localDow, resolveTz } from "@/lib/time";
 
 // Operating window (estimate until per-restaurant hours are wired in).
 const OPEN_HOUR = 11;
@@ -39,15 +39,17 @@ export async function GET(req: NextRequest) {
   try {
   const now = new Date();
   // All day boundaries + current hour are computed in the restaurant's local
-  // timezone (lib/time), not the UTC server clock — otherwise dinner service at
-  // 7pm Central looks like "tomorrow, 0 sales" to Vercel.
-  const todayStr = localDateStr(now);
-  const { start: todayStart, end: todayEnd } = dayWindow(now);
+  // timezone (configured in Settings → resolveTz), not the UTC server clock —
+  // otherwise dinner service at 7pm Central looks like "tomorrow, 0 sales".
+  const tzRow = await prisma.restaurantSettings.findUnique({ where: { key: "timezone" } });
+  const tz = resolveTz(tzRow?.value);
+  const todayStr = localDateStr(now, tz);
+  const { start: todayStart, end: todayEnd } = dayWindow(now, tz);
   const elapsedMs = now.getTime() - todayStart.getTime(); // wall-clock elapsed since local midnight
 
   // Reference windows for pacing: same elapsed slice of yesterday + last week.
-  const { start: yestStart } = dayWindow(new Date(now.getTime() - 24 * 3600 * 1000));
-  const { start: lwStart }   = dayWindow(new Date(now.getTime() - 7 * 24 * 3600 * 1000));
+  const { start: yestStart } = dayWindow(new Date(now.getTime() - 24 * 3600 * 1000), tz);
+  const { start: lwStart }   = dayWindow(new Date(now.getTime() - 7 * 24 * 3600 * 1000), tz);
   const yestHourEnd = new Date(yestStart.getTime() + elapsedMs);
   const lwHourEnd   = new Date(lwStart.getTime() + elapsedMs);
 
@@ -174,7 +176,7 @@ export async function GET(req: NextRequest) {
     laborSoFar += hours * Number(c.user.hourlyRate ?? 0);
   }
   // Project for full day: hours so far / fraction of day elapsed
-  const dayFraction = localHourFloat(now) / 24;
+  const dayFraction = localHourFloat(now, tz) / 24;
   const projectedLaborCost = dayFraction > 0.05 ? laborSoFar / dayFraction : null;
   const projectedLaborPct = (projectedLaborCost !== null && salesToday > 0)
     ? (projectedLaborCost / (salesToday / dayFraction)) * 100
@@ -281,9 +283,9 @@ export async function GET(req: NextRequest) {
 
   // Learned baselines: this restaurant's own normal for the day-of-week + the
   // intraday revenue curve (how the day fills in hour by hour).
-  const dow = localDow(now);
-  const nowFloat = localHourFloat(now);
-  const baselines = await getBaselines(now);
+  const dow = localDow(now, tz);
+  const nowFloat = localHourFloat(now, tz);
+  const baselines = await getBaselines(now, tz);
   const expectedRevenue = expectedRevenueForDow(baselines, dow);
   const expectedByNowFraction = expectedFractionByNow(baselines, dow, nowFloat);
   const avgCheckToday = todaySales._count > 0 ? salesToday / todaySales._count : null;
@@ -331,7 +333,7 @@ export async function GET(req: NextRequest) {
 
   // ── Economics-grounded diagnosis ─────────────────────────────────────────────
   const diag = buildDiagnosis({
-    nowHour: localHourFloat(now), openHour, closeHour,
+    nowHour: localHourFloat(now, tz), openHour, closeHour,
     salesToday, ordersToday: todaySales._count,
     expectedRevenue,
     laborSoFar,

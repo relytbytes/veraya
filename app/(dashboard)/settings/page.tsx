@@ -39,6 +39,7 @@ export default function SettingsPage() {
     targetFoodCostPct: "30",
     serviceOpen: "11:00",
     serviceClose: "22:00",
+    timezone: "",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -113,7 +114,11 @@ export default function SettingsPage() {
     const res = await fetch("/api/settings");
     if (res.ok) {
       const data = await res.json();
-      setSettings((prev) => ({ ...prev, ...data }));
+      // Auto-detect the venue timezone from this browser on first setup; once
+      // saved, the stored value is authoritative (the books shouldn't shift if
+      // someone opens the dashboard from another timezone).
+      const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago";
+      setSettings((prev) => ({ ...prev, ...data, timezone: data.timezone || prev.timezone || detectedTz }));
       if (data.reservationCardPolicy) {
         try { setCardPolicy(JSON.parse(data.reservationCardPolicy)); } catch { /* ignore */ }
       }
@@ -329,6 +334,22 @@ export default function SettingsPage() {
                   onChange={(e) => setSettings({ ...settings, serviceClose: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Timezone</Label>
+              <select
+                value={settings.timezone}
+                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                {(() => {
+                  const supported = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+                  const zones = supported ? supported("timeZone") : ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Phoenix", "America/Anchorage", "Pacific/Honolulu"];
+                  const list = settings.timezone && !zones.includes(settings.timezone) ? [settings.timezone, ...zones] : zones;
+                  return list.map((z) => <option key={z} value={z}>{z}</option>);
+                })()}
+              </select>
+              <p className="text-[11px] text-gray-400">Detected from your browser. Vera, reports, and service hours use the venue&apos;s local time. Set this to where the restaurant operates.</p>
             </div>
             <div className="flex justify-end">
               <Button onClick={saveSettings} disabled={settingsSaving}>

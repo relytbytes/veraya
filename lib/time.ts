@@ -7,6 +7,12 @@
 
 export const RESTAURANT_TZ = process.env.RESTAURANT_TZ || "America/Chicago";
 
+/** Resolve the venue timezone: the saved Settings value wins, then the env
+ *  default, then US Central. Pass the `timezone` setting in from the caller. */
+export function resolveTz(saved?: string | null): string {
+  return (saved && saved.trim()) || RESTAURANT_TZ;
+}
+
 /** Milliseconds to add to a UTC instant to get wall-clock time in `tz`. */
 function tzOffsetMs(tz: string, at: Date): number {
   const dtf = new Intl.DateTimeFormat("en-US", {

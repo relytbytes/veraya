@@ -33,7 +33,7 @@ export interface Baselines {
   avgCheckStdev: number | null;
 }
 
-const localDateStr = (d: Date) => tzDateStr(d); // restaurant-local calendar day
+const localDateStr = (d: Date, tz?: string) => tzDateStr(d, tz); // restaurant-local calendar day
 function mean(xs: number[]) { return xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0; }
 function stdev(xs: number[]) {
   if (xs.length < 2) return 0;
@@ -44,19 +44,19 @@ function stdev(xs: number[]) {
 type Cache = { at: number; dayKey: string; data: Baselines };
 const g = globalThis as unknown as { __veraBaselines?: Cache };
 
-export async function getBaselines(now: Date = new Date()): Promise<Baselines> {
-  const dayKey = localDateStr(now);
+export async function getBaselines(now: Date = new Date(), tz?: string): Promise<Baselines> {
+  const dayKey = localDateStr(now, tz);
   const cached = g.__veraBaselines;
   if (cached && cached.dayKey === dayKey && Date.now() - cached.at < TTL_MS) return cached.data;
 
-  const data = await computeBaselines(now);
+  const data = await computeBaselines(now, tz);
   g.__veraBaselines = { at: Date.now(), dayKey, data };
   return data;
 }
 
-async function computeBaselines(now: Date): Promise<Baselines> {
-  const { start: todayStart } = dayWindow(now); // local midnight today
-  const { start } = dayWindow(new Date(now.getTime() - WINDOW_DAYS * 86400_000));
+async function computeBaselines(now: Date, tz?: string): Promise<Baselines> {
+  const { start: todayStart } = dayWindow(now, tz); // local midnight today
+  const { start } = dayWindow(new Date(now.getTime() - WINDOW_DAYS * 86400_000), tz);
 
   const orders = await prisma.order.findMany({
     where: { status: "COMPLETED", createdAt: { gte: start, lt: todayStart } },
@@ -69,10 +69,10 @@ async function computeBaselines(now: Date): Promise<Baselines> {
   const days = new Map<string, Day>();
   for (const o of orders) {
     const d = new Date(o.createdAt);
-    const local = nowInTZ(d); // read local wall-clock fields via getUTC*
-    const key = localDateStr(d);
+    const local = nowInTZ(d, tz); // read local wall-clock fields via getUTC*
+    const key = localDateStr(d, tz);
     let day = days.get(key);
-    if (!day) { day = { dow: localDow(d), revenue: 0, orders: 0, byHour: new Array(24).fill(0) }; days.set(key, day); }
+    if (!day) { day = { dow: localDow(d, tz), revenue: 0, orders: 0, byHour: new Array(24).fill(0) }; days.set(key, day); }
     const t = Number(o.total);
     day.revenue += t;
     day.orders += 1;
