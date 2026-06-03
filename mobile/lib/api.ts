@@ -245,6 +245,7 @@ export interface Reservation {
 export interface StaffMember {
   id: string; name: string; email: string; role: string; isActive: boolean;
   hourlyRate: string | null; createdAt: string;
+  employmentType?: string; annualSalary?: string | null; hasManagerPin?: boolean;
 }
 
 export interface Shift {

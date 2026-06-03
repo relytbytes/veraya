@@ -291,14 +291,21 @@ function StaffCard({
                 {clockedIn ? "Clocked In" : "Off Clock"}
               </Text>
             </View>
-            {member.hourlyRate && (
+            {member.employmentType === "SALARY" && member.annualSalary != null ? (
+              <View style={{ gap: 2 }}>
+                <Text style={{ fontSize: 11, color: C.smoke }}>Annual Salary</Text>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: C.jade }}>
+                  ${Number(member.annualSalary).toLocaleString("en-US")}/yr
+                </Text>
+              </View>
+            ) : member.hourlyRate ? (
               <View style={{ gap: 2 }}>
                 <Text style={{ fontSize: 11, color: C.smoke }}>Hourly Rate</Text>
                 <Text style={{ fontSize: 13, fontWeight: "700", color: C.jade }}>
-                  ${Number(member.hourlyRate).toFixed(2)}
+                  ${Number(member.hourlyRate).toFixed(2)}/hr
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
           <TouchableOpacity
             onPress={onEdit}
@@ -339,6 +346,11 @@ function EditStaffSheet({
   const [hourlyRate, setHourlyRate] = useState(
     member.hourlyRate ? String(Number(member.hourlyRate)) : ""
   );
+  const [employmentType, setEmploymentType] = useState(member.employmentType ?? "HOURLY");
+  const [annualSalary, setAnnualSalary] = useState(
+    member.annualSalary ? String(Number(member.annualSalary)) : ""
+  );
+  const [managerPin, setManagerPin] = useState("");
   const [isActive, setIsActive] = useState(member.isActive);
   const [saving, setSaving] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -389,7 +401,10 @@ function EditStaffSheet({
         name: name.trim(),
         role,
         isActive,
-        hourlyRate: hourlyRate.trim() ? Number(hourlyRate) : null,
+        employmentType,
+        hourlyRate: employmentType === "HOURLY" && hourlyRate.trim() ? Number(hourlyRate) : null,
+        annualSalary: employmentType === "SALARY" && annualSalary.trim() ? Number(annualSalary) : null,
+        ...(managerPin.trim() ? { managerPin: managerPin.trim() } : {}),
       });
       onSaved();
     } catch (e: unknown) {
@@ -453,30 +468,77 @@ function EditStaffSheet({
           </View>
         </View>
 
-        {/* Hourly rate */}
+        {/* Employment type */}
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Hourly Rate</Text>
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: C.surfaceHi,
-            borderWidth: 1,
-            borderColor: C.rim,
-            borderRadius: 12,
-            overflow: "hidden",
-          }}>
-            <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
-            <TextInput
-              style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
-              value={hourlyRate}
-              onChangeText={setHourlyRate}
-              placeholder="0.00"
-              placeholderTextColor={C.smoke}
-              keyboardType="decimal-pad"
-            />
-            <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/hr</Text>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Employment Type</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(["HOURLY", "SALARY"] as const).map((t) => {
+              const sel = employmentType === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setEmploymentType(t)}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: sel ? T.gold : C.surfaceHi, borderWidth: 1, borderColor: sel ? C.gold : C.rim }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: sel ? C.gold : C.mist }}>{t === "HOURLY" ? "Hourly" : "Salary"}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
+
+        {/* Pay rate — hourly or salary depending on type */}
+        {employmentType === "HOURLY" ? (
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Hourly Rate</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, overflow: "hidden" }}>
+              <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
+              <TextInput
+                style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
+                value={hourlyRate}
+                onChangeText={setHourlyRate}
+                placeholder="0.00"
+                placeholderTextColor={C.smoke}
+                keyboardType="decimal-pad"
+              />
+              <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/hr</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Annual Salary</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, overflow: "hidden" }}>
+              <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
+              <TextInput
+                style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
+                value={annualSalary}
+                onChangeText={setAnnualSalary}
+                placeholder="0"
+                placeholderTextColor={C.smoke}
+                keyboardType="number-pad"
+              />
+              <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/yr</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: C.smoke }}>Salaried staff are excluded from hourly labor and counted as fixed cost in the P&L.</Text>
+          </View>
+        )}
+
+        {/* Manager PIN — only relevant for manager/admin POS access */}
+        {(role === "MANAGER" || role === "ADMIN") && (
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Manager PIN</Text>
+            <TextInput
+              style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: C.pearl, letterSpacing: 4 }}
+              value={managerPin}
+              onChangeText={(t) => setManagerPin(t.replace(/[^0-9]/g, "").slice(0, 6))}
+              placeholder={member.hasManagerPin ? "•••• (set — type to change)" : "Set a 4–6 digit PIN"}
+              placeholderTextColor={C.smoke}
+              keyboardType="number-pad"
+              secureTextEntry
+            />
+            <Text style={{ fontSize: 11, color: C.smoke }}>Used to approve comps, voids, and check reopens on the POS.</Text>
+          </View>
+        )}
 
         {/* Active toggle */}
         <View style={{
@@ -630,6 +692,8 @@ function AddStaffSheet({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("SERVER");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [employmentType, setEmploymentType] = useState("HOURLY");
+  const [annualSalary, setAnnualSalary] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -644,7 +708,9 @@ function AddStaffSheet({
         email: email.trim().toLowerCase(),
         password,
         role,
-        hourlyRate: hourlyRate.trim() ? Number(hourlyRate) : undefined,
+        employmentType,
+        hourlyRate: employmentType === "HOURLY" && hourlyRate.trim() ? Number(hourlyRate) : undefined,
+        annualSalary: employmentType === "SALARY" && annualSalary.trim() ? Number(annualSalary) : undefined,
       });
       onSaved();
     } catch (e: unknown) {
@@ -746,30 +812,59 @@ function AddStaffSheet({
           </View>
         </View>
 
-        {/* Hourly rate */}
+        {/* Employment type */}
         <View style={{ gap: 6 }}>
-          <Text style={labelStyle}>Hourly Rate</Text>
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: C.surfaceHi,
-            borderWidth: 1,
-            borderColor: C.rim,
-            borderRadius: 12,
-            overflow: "hidden",
-          }}>
-            <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
-            <TextInput
-              style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
-              value={hourlyRate}
-              onChangeText={setHourlyRate}
-              placeholder="0.00"
-              placeholderTextColor={C.smoke}
-              keyboardType="decimal-pad"
-            />
-            <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/hr</Text>
+          <Text style={labelStyle}>Employment Type</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(["HOURLY", "SALARY"] as const).map((t) => {
+              const sel = employmentType === t;
+              return (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setEmploymentType(t)}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: sel ? T.gold : C.surfaceHi, borderWidth: 1, borderColor: sel ? C.gold : C.rim }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: sel ? C.gold : C.mist }}>{t === "HOURLY" ? "Hourly" : "Salary"}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
+
+        {/* Pay rate */}
+        {employmentType === "HOURLY" ? (
+          <View style={{ gap: 6 }}>
+            <Text style={labelStyle}>Hourly Rate</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, overflow: "hidden" }}>
+              <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
+              <TextInput
+                style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
+                value={hourlyRate}
+                onChangeText={setHourlyRate}
+                placeholder="0.00"
+                placeholderTextColor={C.smoke}
+                keyboardType="decimal-pad"
+              />
+              <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/hr</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={{ gap: 6 }}>
+            <Text style={labelStyle}>Annual Salary</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, overflow: "hidden" }}>
+              <Text style={{ paddingLeft: 16, color: C.jade, fontWeight: "700" }}>$</Text>
+              <TextInput
+                style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 12, fontSize: 15, color: C.pearl }}
+                value={annualSalary}
+                onChangeText={setAnnualSalary}
+                placeholder="0"
+                placeholderTextColor={C.smoke}
+                keyboardType="number-pad"
+              />
+              <Text style={{ paddingRight: 16, fontSize: 13, color: C.mist }}>/yr</Text>
+            </View>
+          </View>
+        )}
 
         {/* Save */}
         <TouchableOpacity
