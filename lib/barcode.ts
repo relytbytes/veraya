@@ -147,10 +147,14 @@ async function fromGoUpc(barcode: string): Promise<ExternalProduct | null> {
  * that resolved it, or null if every source missed.
  */
 export async function lookupBarcodeSources(barcode: string): Promise<{ product: ExternalProduct; source: string } | null> {
+  // Order: Open Food Facts (free, food/beverage) → Go-UPC (keyed, broad retail)
+  // → UPCItemDB (keyed prod, or rate-limited trial as a last resort). Go-UPC is
+  // ahead of the trial so a keyed lookup resolves fast instead of waiting on the
+  // trial's frequent timeouts/429s.
   const chain: [string, (b: string) => Promise<ExternalProduct | null>][] = [
     ["off", fromOpenFoodFacts],
-    ["upcitemdb", fromUpcItemDb],
     ["go-upc", fromGoUpc],
+    ["upcitemdb", fromUpcItemDb],
   ];
   for (const [source, fn] of chain) {
     try {
