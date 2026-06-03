@@ -41,11 +41,12 @@ function timerColor(seatedAt: string, _tick: number, amberAt = 60, redAt = 90) {
 }
 
 // Floor status → mobile palette (mirrors the web FLOOR_STATUS semantics).
+// Aligned to the web floor plan: open = gray, seated = jade, reserved = teal, dirty = coral.
 const FLOOR_STATUS_M: Record<string, { color: string; bg: string; label: string }> = {
-  AVAILABLE: { color: C.jade,  bg: "rgba(30,122,69,0.07)",   label: "Open" },
-  OCCUPIED:  { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Seated" },
-  RESERVED:  { color: C.ember, bg: "rgba(224,168,46,0.10)",   label: "Reserved" },
-  DIRTY:     { color: C.smoke, bg: "rgba(138,151,166,0.10)", label: "Cleaning" },
+  AVAILABLE: { color: C.smoke, bg: "rgba(138,151,166,0.08)", label: "Open" },
+  OCCUPIED:  { color: C.jade,  bg: "rgba(30,122,69,0.07)",   label: "Seated" },
+  RESERVED:  { color: C.gold,  bg: "rgba(33,160,144,0.08)",  label: "Reserved" },
+  DIRTY:     { color: C.coral, bg: "rgba(212,64,48,0.06)",   label: "Cleaning" },
 };
 
 const TIP_OPTIONS = [
@@ -55,14 +56,15 @@ const TIP_OPTIONS = [
   { label: "22%",    value: 22 },
 ];
 
+// Service-stage colors — must match the web floor plan / host stand exactly.
 const SERVICE_STAGES: { key: string; abbrev: string; label: string; color: string; bg: string }[] = [
-  { key: "SEATED",        abbrev: "STD", label: "Seated",  color: "#A8401C", bg: "#FDF0EC" },
-  { key: "APPS",          abbrev: "APP", label: "Apps",    color: "#C27D1A", bg: "#FEF3E2" },
-  { key: "ENTREES",       abbrev: "ENT", label: "Entrées", color: "#B35A00", bg: "#FFF0E6" },
-  { key: "DESSERT",       abbrev: "DST", label: "Dessert", color: "#8B3D7A", bg: "#F9EDF7" },
-  { key: "CHECK_DROPPED", abbrev: "CHK", label: "Check",   color: "#1A6DB3", bg: "#E8F2FB" },
-  { key: "CHECK_PAID",    abbrev: "PD",  label: "Paid",    color: "#1A7A4A", bg: "#E8F6EF" },
-  { key: "BUSSING",       abbrev: "BUS", label: "Bussing", color: "#6B7280", bg: "#F3F4F6" },
+  { key: "SEATED",        abbrev: "STD", label: "Seated",  color: "#1E7A45", bg: "#1E7A451A" },
+  { key: "APPS",          abbrev: "APP", label: "Apps",    color: "#2BB39B", bg: "#2BB39B1A" },
+  { key: "ENTREES",       abbrev: "ENT", label: "Entrées", color: "#E0A82E", bg: "#E0A82E1A" },
+  { key: "DESSERT",       abbrev: "DST", label: "Dessert", color: "#7C5CBF", bg: "#7C5CBF1A" },
+  { key: "CHECK_DROPPED", abbrev: "CHK", label: "Check",   color: "#2E6EB0", bg: "#2E6EB01A" },
+  { key: "CHECK_PAID",    abbrev: "PD",  label: "Paid",    color: "#2E6EB0", bg: "#2E6EB01A" },
+  { key: "BUSSING",       abbrev: "BUS", label: "Bussing", color: "#D44030", bg: "#D440301A" },
 ];
 
 // ─── Client-side stage inference (mirrors lib/stage-inference.ts) ────────────

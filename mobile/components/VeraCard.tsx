@@ -156,7 +156,7 @@ export function VeraCard() {
             <Text style={{ fontSize: 16, fontWeight: "800", color: C.pearl, letterSpacing: -0.2 }}>Vera</Text>
             <Ionicons name="sparkles" size={11} color={C.ember} />
             <Text style={{ fontSize: 9, fontWeight: "700", color: C.gold, letterSpacing: 1.2, textTransform: "uppercase" }}>
-              Always Working
+              Right Now
             </Text>
           </View>
           <Text style={{ fontSize: 13, color: C.mist, lineHeight: 19 }}>
@@ -187,8 +187,8 @@ export function VeraCard() {
       {data.projection && (
         <View style={{ flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.rim }}>
           {[
-            { label: "On pace", value: fmt(data.projection.projectedRevenue), color: C.pearl },
-            { label: "Net", value: fmt(data.projection.projectedNet), color: data.projection.projectedNet >= 0 ? C.jade : C.coral },
+            { label: "On pace for", value: fmt(data.projection.projectedRevenue), color: C.pearl },
+            { label: "Projected net", value: fmt(data.projection.projectedNet), color: data.projection.projectedNet >= 0 ? C.jade : C.coral },
             { label: "Break-even", value: fmt(data.projection.breakEvenRevenue), color: C.pearl },
           ].map((cell, i) => (
             <View key={i} style={{ flex: 1, alignItems: "center", paddingVertical: 10, borderLeftWidth: i ? 1 : 0, borderColor: C.rim }}>
@@ -310,9 +310,9 @@ export function VeraCard() {
         <Text style={{ fontSize: 10, color: C.smoke, flex: 1 }} numberOfLines={1}>
           {data.learning
             ? data.learning.learning
-              ? `Learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
-              : `Tuned to you · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive profit`
-            : "Vera · always watching your live data"}
+              ? `Vera is learning your patterns · ${data.learning.daysObserved}/${data.learning.minDays} days`
+              : `Tuned to your data · ${data.learning.topDrivers.slice(0, 2).map((t) => t.label).join(" + ")} drive your profit most`
+            : "Vera · always watching your restaurant's live data"}
         </Text>
         <TouchableOpacity
           onPress={() => refetch()}

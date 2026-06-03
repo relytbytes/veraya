@@ -58,21 +58,23 @@ function chipDims(shape: string, sz: number) {
   return { w: sz, h: Math.round(sz * 0.9), r: 12 };
 }
 
+// Table-status colors — aligned to the web floor plan (reserved = teal, dirty = coral).
 function statusStyle(status: string): { borderColor: string; borderWidth: number; bg: string } {
   if (status === "OCCUPIED") return { borderColor: C.jade,  borderWidth: 3,   bg: C.surfaceHi };
-  if (status === "RESERVED") return { borderColor: C.sky,   borderWidth: 2,   bg: "rgba(46,110,176,0.04)" };
-  if (status === "DIRTY")    return { borderColor: C.ember, borderWidth: 2,   bg: "rgba(224,168,46,0.06)" };
+  if (status === "RESERVED") return { borderColor: C.gold,  borderWidth: 2,   bg: "rgba(33,160,144,0.06)" };
+  if (status === "DIRTY")    return { borderColor: C.coral, borderWidth: 2,   bg: "rgba(212,64,48,0.06)" };
   return                             { borderColor: C.rim,  borderWidth: 1.5, bg: C.surface };
 }
 
+// Service-stage colors — must match the web floor plan / host stand exactly.
 const STAGE_CHIP_COLOR: Record<string, string> = {
-  SEATED:        "#A8401C",
-  APPS:          "#C27D1A",
-  ENTREES:       "#B35A00",
-  DESSERT:       "#8B3D7A",
-  CHECK_DROPPED: "#1A6DB3",
-  CHECK_PAID:    "#1A7A4A",
-  BUSSING:       "#6B7280",
+  SEATED:        "#1E7A45",
+  APPS:          "#2BB39B",
+  ENTREES:       "#E0A82E",
+  DESSERT:       "#7C5CBF",
+  CHECK_DROPPED: "#2E6EB0",
+  CHECK_PAID:    "#2E6EB0",
+  BUSSING:       "#D44030",
 };
 
 const STAGE_ABBREV: Record<string, string> = {

@@ -76,14 +76,15 @@ function isArrivingSoon(resTime: string, now: Date): boolean {
   return diff >= -10 && diff <= 20;
 }
 
+// Service-stage colors — must match the web floor plan / host stand exactly.
 const STAGE_COLOR: Record<string, string> = {
-  SEATED:        "#A8401C",
-  APPS:          "#C27D1A",
-  ENTREES:       "#B35A00",
-  DESSERT:       "#8B3D7A",
-  CHECK_DROPPED: "#1A6DB3",
-  CHECK_PAID:    "#1A7A4A",
-  BUSSING:       "#6B7280",
+  SEATED:        "#1E7A45",
+  APPS:          "#2BB39B",
+  ENTREES:       "#E0A82E",
+  DESSERT:       "#7C5CBF",
+  CHECK_DROPPED: "#2E6EB0",
+  CHECK_PAID:    "#2E6EB0",
+  BUSSING:       "#D44030",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

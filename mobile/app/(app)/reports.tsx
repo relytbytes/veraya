@@ -299,14 +299,14 @@ function CogsTab({ data, isLoading }: { data: CogsReport | undefined; isLoading:
           <DeltaBadge curr={grossMgn} prev={prevGrossMgn} />
         </View>
         <View style={{ flex: 1, backgroundColor: opColor + "18", borderRadius: 16, padding: 14, gap: 4, borderWidth: 1, borderColor: opColor + "33" }}>
-          <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Op. Margin</Text>
+          <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Operating Margin</Text>
           <Text style={{ fontSize: 22, fontWeight: "700", color: opColor }}>{fmtPct(opMgn)}</Text>
           <DeltaBadge curr={opMgn} prev={prevOpMgn} />
         </View>
       </View>
       <View style={{ flexDirection: "row", gap: 10 }}>
         <StatCard label="Gross Profit" value={fmtK(grossProfit)} />
-        <StatCard label="Op. Income" value={fmtK(opIncome)} />
+        <StatCard label="Operating Income" value={fmtK(opIncome)} />
       </View>
 
       {/* Category breakdown */}
