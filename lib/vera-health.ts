@@ -15,7 +15,7 @@ const OTHER_OPEX_PCT = 0.12;    // other variable opex (supplies, marketing, fee
 const OCCUPANCY_PCT = 0.09;     // rent + utilities + insurance as a share of a NORMAL day
 const DEFAULT_FIXED_DAILY = 250; // fallback daily fixed overhead when there's no history
 const TARGET_MARGIN = 0.10;     // healthy net margin
-const LABOR_TARGET_PCT = 30;    // labor as a share of revenue
+const LABOR_TARGET_PCT = 20;    // labor as a share of revenue (NC fine-dining target ceiling)
 
 export type Status = "excellent" | "good" | "fair" | "strained" | "critical";
 
@@ -319,11 +319,11 @@ function labor(i: HealthInput, p: Projection): Dimension {
   const laborPct = p.projectedRevenue > 0 ? (p.projectedLabor / p.projectedRevenue) * 100 : (p.projectedLabor > 0 ? 999 : 0);
   const assessable = p.projectedRevenue > 0 || i.activeStaff > 0;
 
-  // Score off labor % vs target. 25%→100, 30%→80, 40%→40, ≥50%→low.
+  // Score off labor % vs a 20% target. ≤20%→100, 25%→80, 30%→60, 40%→20.
   let score: number;
   if (!assessable) score = 70;
   else if (laborPct >= 999) score = 5;
-  else score = clamp(Math.round(100 - Math.max(0, laborPct - 25) * 4), 0, 100);
+  else score = clamp(Math.round(100 - Math.max(0, laborPct - LABOR_TARGET_PCT) * 4), 0, 100);
 
   const metrics: HealthMetric[] = [
     { label: "Labor %", value: laborPct >= 999 ? "—" : pct(laborPct), target: `${LABOR_TARGET_PCT}%`, status: statusFromScore(score) },
@@ -333,8 +333,8 @@ function labor(i: HealthInput, p: Projection): Dimension {
 
   if (laborPct >= 999) {
     issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `Burning ${money(p.projectedLabor)} against ${money(p.projectedRevenue)}`, action: "Send staff home or drive covers", link: "/timeclock" });
-  } else if (laborPct > 38) {
-    issues.push({ severity: laborPct > 50 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Cut a position or extend only if covers justify it", link: "/staff" });
+  } else if (laborPct > LABOR_TARGET_PCT + 8) {
+    issues.push({ severity: laborPct > LABOR_TARGET_PCT + 18 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Cut a position or extend only if covers justify it", link: "/staff" });
   } else if (assessable && laborPct <= LABOR_TARGET_PCT) {
     wins.push(`Labor on target at ${pct(laborPct)}`);
   }

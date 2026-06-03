@@ -98,11 +98,11 @@ const DIM_ICON: Record<string, ReactNode> = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function healthColor(score: number) {
-  if (score >= 90) return { ring: "ring-emerald-400/50", text: "text-emerald-600", badge: "bg-emerald-50 border-emerald-200", label: "Excellent", labelColor: "text-emerald-600" };
-  if (score >= 75) return { ring: "ring-teal-400/50",    text: "text-teal-600",    badge: "bg-teal-50 border-teal-200",     label: "Good",      labelColor: "text-teal-600"    };
-  if (score >= 60) return { ring: "ring-warning-400/50",   text: "text-warning-600",   badge: "bg-warning-50 border-warning-200",   label: "Fair",      labelColor: "text-warning-600"   };
-  if (score >= 45) return { ring: "ring-orange-400/50",  text: "text-orange-600",  badge: "bg-orange-50 border-orange-200", label: "Strained",  labelColor: "text-orange-600"  };
-  return                   { ring: "ring-red-400/50",    text: "text-red-600",     badge: "bg-red-50 border-red-200",       label: "Critical",  labelColor: "text-red-600"     };
+  if (score >= 90) return { ring: "ring-emerald-400/50", text: "text-emerald-600", badge: "bg-emerald-50 border-emerald-200", border: "border-emerald-300", accent: "#10b981", label: "Excellent", labelColor: "text-emerald-600" };
+  if (score >= 75) return { ring: "ring-teal-400/50",    text: "text-teal-600",    badge: "bg-teal-50 border-teal-200",     border: "border-teal-300",    accent: "#14b8a6", label: "Good",      labelColor: "text-teal-600"    };
+  if (score >= 60) return { ring: "ring-warning-400/50",   text: "text-warning-600",   badge: "bg-warning-50 border-warning-200",   border: "border-warning-300", accent: "#f59e0b", label: "Fair",      labelColor: "text-warning-600"   };
+  if (score >= 45) return { ring: "ring-orange-400/50",  text: "text-orange-600",  badge: "bg-orange-50 border-orange-200", border: "border-orange-300",  accent: "#f97316", label: "Strained",  labelColor: "text-orange-600"  };
+  return                   { ring: "ring-red-400/50",    text: "text-red-600",     badge: "bg-red-50 border-red-200",       border: "border-red-300",     accent: "#ef4444", label: "Critical",  labelColor: "text-red-600"     };
 }
 
 function severityConfig(severity: string) {
@@ -302,7 +302,9 @@ export function VeraPanel() {
   }
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-200 overflow-hidden shadow-sm">
+    <div className={cn("rounded-2xl bg-white border-2 overflow-hidden shadow-sm transition-colors", health!.border)}>
+      {/* Health accent strip — the panel outline + this bar track the score color (green→amber→red) */}
+      <div className="h-1.5 w-full transition-colors" style={{ background: health!.accent }} />
       {/* Vera header band */}
       <div className="flex items-start gap-4 p-5 pb-4 bg-white">
         {/* Vera mark */}

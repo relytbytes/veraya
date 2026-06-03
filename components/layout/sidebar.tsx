@@ -37,19 +37,14 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
     <aside className="flex h-screen w-56 flex-col bg-gray-900 text-white">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-6 border-b border-gray-700">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-md shrink-0">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden shrink-0">
+          {/* Bare circle-V mark (clipped to a circle so it reads as the logo, not an app tile) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-512.png?v=2" alt="Veraya" width={44} height={44} className="rounded-xl" />
+          <img src="/veraya-icon.png" alt="Veraya" width={44} height={44} className="rounded-full" />
         </div>
         <span
           className="text-3xl font-extrabold tracking-tight leading-none"
-          style={{
-            backgroundImage: "linear-gradient(120deg, #2BB39B 0%, #21A090 40%, #E0A82E 100%)",
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            color: "transparent",
-          }}
+          style={{ color: "#E7B23E" }}
         >
           Veraya
         </span>
