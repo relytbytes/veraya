@@ -32,6 +32,12 @@ export function StationHost({ onExit }: { onExit: () => void }) {
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 30_000); return () => clearInterval(t); }, []);
 
+  // Navigating away from inside a fullscreen <Modal> doesn't reliably dismiss it,
+  // so the host stand could stay on screen and the X / switch looked dead. Hide
+  // the modal first, then navigate.
+  const [visible, setVisible] = useState(true);
+  const leave = (go: () => void) => { setVisible(false); go(); };
+
   const tablesQ = useQuery({ queryKey: ["tables"], queryFn: getTables, refetchInterval: 120_000 });
   const ordersQ = useQuery({ queryKey: ["openOrders"], queryFn: getOpenOrders, refetchInterval: 120_000 });
   const resQ = useQuery({ queryKey: ["reservations", today], queryFn: () => getReservations(today), refetchInterval: 120_000 });
@@ -138,11 +144,11 @@ export function StationHost({ onExit }: { onExit: () => void }) {
   return (
     <View style={{ flex: 1, backgroundColor: C.void }}>
       <HostStandMode
-        visible
-        onClose={onExit}
+        visible={visible}
+        onClose={() => leave(onExit)}
         topInset={insets.top}
         bottomInset={insets.bottom}
-        onSwitchStation={() => router.replace("/(app)/station")}
+        onSwitchStation={() => leave(() => router.replace("/(app)/station"))}
         tables={tables}
         openOrders={(ordersQ.data ?? []).map((o) => ({ id: o.id, tableId: (o as { tableId?: string | null }).tableId ?? null, total: o.total }))}
         tableSize={64}
