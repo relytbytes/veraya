@@ -26,8 +26,10 @@ import {
   patchReservation,
   deleteReservation,
   searchCustomers,
+  getTables,
   type Reservation,
   type Customer,
+  type Table,
 } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
@@ -475,6 +477,7 @@ function DetailSheet({
   const [email, setEmail] = useState(reservation.email ?? "");
   const [notes, setNotes] = useState(reservation.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [seating, setSeating] = useState(false);
 
   // Customer lookup (edit mode)
   const [customerQuery, setCustomerQuery] = useState("");
@@ -523,6 +526,20 @@ function DetailSheet({
       setSaving(false);
     }
   }
+
+  // Seat the party — optionally assign a table (sets it OCCUPIED on the floor).
+  async function handleSeat(tableId?: string) {
+    setSaving(true);
+    try {
+      const updated = await patchReservation(reservation.id, { status: "SEATED", ...(tableId ? { tableId } : {}) });
+      onUpdated(updated);
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to seat");
+    } finally {
+      setSaving(false);
+    }
+  }
+  const tablesQ = useQuery({ queryKey: ["tables"], queryFn: getTables, enabled: seating });
 
   async function handleSave() {
     if (!name.trim()) { Alert.alert("Required", "Name is required."); return; }
@@ -746,12 +763,47 @@ function DetailSheet({
                         <StatusActionButton label="Cancel" icon="close-circle-outline" color={C.coral} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
                       </>
                     )}
-                    {reservation.status === "CONFIRMED" && (
+                    {reservation.status === "CONFIRMED" && !seating && (
                       <>
-                        <StatusActionButton label="Seat Guests" icon="restaurant-outline" color={C.sky} onPress={() => handleStatusAction("SEATED")} loading={saving} />
+                        <StatusActionButton label="Seat Guests" icon="restaurant-outline" color={C.sky} onPress={() => setSeating(true)} loading={saving} />
                         <StatusActionButton label="No Show" icon="person-remove-outline" color={C.ember} onPress={() => handleStatusAction("NO_SHOW")} loading={saving} />
                         <StatusActionButton label="Cancel" icon="close-circle-outline" color={C.coral} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
                       </>
+                    )}
+                    {reservation.status === "CONFIRMED" && seating && (
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>Pick a table for {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}</Text>
+                          <TouchableOpacity onPress={() => setSeating(false)}><Text style={{ fontSize: 12, color: C.smoke }}>Cancel</Text></TouchableOpacity>
+                        </View>
+                        {tablesQ.isLoading ? (
+                          <ActivityIndicator color={C.gold} style={{ paddingVertical: 12 }} />
+                        ) : (
+                          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                            {(tablesQ.data ?? [])
+                              .filter((t) => t.status === "AVAILABLE")
+                              .sort((a, b) => a.number - b.number)
+                              .map((t) => {
+                                const fits = t.capacity >= reservation.partySize;
+                                return (
+                                  <TouchableOpacity
+                                    key={t.id}
+                                    onPress={() => handleSeat(t.id)}
+                                    disabled={saving}
+                                    style={{ width: "30%", flexGrow: 1, borderWidth: 1, borderColor: fits ? C.jade : C.rim, borderRadius: 12, paddingVertical: 12, alignItems: "center", backgroundColor: fits ? `${C.jade}0F` : C.surfaceHi }}
+                                  >
+                                    <Text style={{ fontSize: 15, fontWeight: "800", color: C.pearl }}>{t.number}</Text>
+                                    <Text style={{ fontSize: 10, color: fits ? C.jade : C.smoke }}>{t.capacity} seats</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            {(tablesQ.data ?? []).filter((t) => t.status === "AVAILABLE").length === 0 && (
+                              <Text style={{ fontSize: 12, color: C.smoke, paddingVertical: 8 }}>No open tables right now.</Text>
+                            )}
+                          </View>
+                        )}
+                        <StatusActionButton label="Seat without a table" icon="restaurant-outline" color={C.sky} onPress={() => handleSeat()} loading={saving} />
+                      </View>
                     )}
                     {reservation.status === "SEATED" && (
                       <StatusActionButton label="Mark Complete" icon="checkmark-done-circle-outline" color={C.smoke} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
