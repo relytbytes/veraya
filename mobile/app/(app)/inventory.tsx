@@ -16,6 +16,12 @@ import { IngredientImport } from "@/components/IngredientImport";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
 
+// Stock quantities are floats from recipe depletion — show at most 2 decimals,
+// trailing zeros stripped (14.198952793 → 14.2, 44 → 44).
+function fmtQty(n: number): string {
+  return Number(n.toFixed(2)).toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
 export default function InventoryScreen() {
   const { scrollY, scrollHandler } = useCollapsingHeader();
   const qc = useQueryClient();
@@ -280,7 +286,7 @@ export default function InventoryScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: C.pearl, fontSize: 18, fontWeight: "700" }}>{editItem.ingredient.name}</Text>
                     <Text style={{ color: C.mist, fontSize: 13, marginTop: 2 }}>
-                      Current stock: {Number(editItem.quantity)} {editItem.ingredient.unit}
+                      Current stock: {fmtQty(Number(editItem.quantity))} {editItem.ingredient.unit}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -734,7 +740,7 @@ function StockRow({ item, last, low, onEdit }: { item: InventoryItem; last: bool
         </Text>
         <View className="flex-row items-center gap-2">
           <Text style={{ fontSize: 14, fontWeight: "700", color: low ? C.coral : C.jade }}>
-            {Number(item.quantity)}{" "}
+            {fmtQty(Number(item.quantity))}{" "}
             <Text style={{ color: C.mist, fontWeight: "400" }}>{item.ingredient.unit}</Text>
           </Text>
           <Ionicons name="create-outline" size={14} color={C.smoke} />
