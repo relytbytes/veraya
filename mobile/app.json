@@ -7,7 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -28,7 +30,10 @@
         "backgroundColor": "#FEFAF4"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "package": "com.restaurantops.app"
     },
@@ -45,10 +50,18 @@
     ],
     "scheme": "restaurantops",
     "extra": {
-      "apiUrl": "https://veraya.vercel.app"
+      "apiUrl": "https://veraya.vercel.app",
+      "router": {},
+      "eas": {
+        "projectId": "25044141-03b9-47a7-8671-8a2f4c1f0646"
+      }
     },
     "experiments": {
       "typedRoutes": true
+    },
+    "owner": "tyshelton",
+    "updates": {
+      "url": "https://u.expo.dev/25044141-03b9-47a7-8671-8a2f4c1f0646"
     }
   }
 }
