@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { normalizeBarcode, isValidGtin, lookupBarcodeSources, type ExternalProduct } from "@/lib/barcode";
+import { canonicalBarcode, isValidGtin, isLookupableBarcode, lookupBarcodeSources, type ExternalProduct } from "@/lib/barcode";
 
 // GET /api/barcode-lookup?barcode=012345678901
 // 1. Local ingredients DB (already-known barcode)
@@ -19,18 +19,24 @@ export async function GET(req: NextRequest) {
   const raw = new URL(req.url).searchParams.get("barcode");
   if (!raw) return Response.json({ error: "barcode param required" }, { status: 400 });
 
-  const barcode = normalizeBarcode(raw);
+  // Canonicalize: strip to digits + expand UPC-E (small-item compressed codes)
+  // to full UPC-A so they aren't wrongly rejected as "invalid".
+  const barcode = canonicalBarcode(raw);
   const valid = isValidGtin(barcode);
 
-  // 1 ── Local DB (a barcode already attached to one of our ingredients)
+  // 1 ── Local DB (a barcode already attached to one of our ingredients).
+  // Match either the canonical form or exactly what was scanned.
   const local = await prisma.ingredient.findFirst({
-    where: { barcode, isActive: true },
+    where: { barcode: { in: [barcode, raw.replace(/\D/g, "")] }, isActive: true },
     include: { supplier: true, inventoryItem: true },
   });
   if (local) return Response.json({ barcode, valid, local, external: null, source: "local", suggestions: [] });
 
-  // Don't waste source calls on a malformed scan.
-  if (!valid) {
+  // Only bail on input that can't possibly be a product barcode (e.g. a QR
+  // payload or a too-short fragment). A plausible numeric code still gets a
+  // database lookup even if its check digit doesn't validate — being too strict
+  // here is exactly what made real items read as "not a valid barcode".
+  if (!isLookupableBarcode(barcode)) {
     return Response.json({ barcode, valid: false, local: null, external: null, source: null, suggestions: [], aiFallback: true });
   }
 

@@ -14,19 +14,65 @@ export function normalizeBarcode(raw: string): string {
   return (raw ?? "").replace(/\D/g, "");
 }
 
+/** GTIN check digit for a body of data digits (no check digit included). */
+function gtinCheckDigit(body: string): number {
+  let sum = 0;
+  for (let i = body.length - 1, w = 3; i >= 0; i--, w = w === 3 ? 1 : 3) {
+    sum += Number(body[i]) * w;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+
 /** Validate a GTIN-8/12/13/14 by length + check digit. */
 export function isValidGtin(code: string): boolean {
   if (!/^\d+$/.test(code)) return false;
   if (![8, 12, 13, 14].includes(code.length)) return false;
-  const digits = code.split("").map(Number);
-  const check = digits.pop()!;
-  // From the rightmost data digit, weights alternate 3,1,3,1…
-  let sum = 0;
-  for (let i = digits.length - 1, w = 3; i >= 0; i--, w = w === 3 ? 1 : 3) {
-    sum += digits[i] * w;
+  const body = code.slice(0, -1);
+  return gtinCheckDigit(body) === Number(code.slice(-1));
+}
+
+/**
+ * Expand a UPC-E (compressed) barcode to its 12-digit UPC-A form. Small retail
+ * items (spice jars, small bottles) use UPC-E, and scanners return the short
+ * code — which fails plain GTIN validation. Accepts 6/7/8-digit UPC-E forms.
+ * Returns null if it isn't a UPC-E we can expand.
+ */
+export function upcEToUpcA(code: string): string | null {
+  let s = code;
+  if (s.length === 8) s = s.slice(1, 7);        // strip number-system + check digit
+  else if (s.length === 7) s = s.slice(1);      // strip number-system
+  else if (s.length !== 6) return null;
+  if (!/^\d{6}$/.test(s)) return null;
+  const [a, b, c, d, e, f] = s.split("");
+  let mid: string;
+  switch (f) {
+    case "0": case "1": case "2": mid = `${a}${b}${f}0000${c}${d}${e}`; break;
+    case "3": mid = `${a}${b}${c}00000${d}${e}`; break;
+    case "4": mid = `${a}${b}${c}${d}00000${e}`; break;
+    default:  mid = `${a}${b}${c}${d}${e}0000${f}`; break; // 5–9
   }
-  const expected = (10 - (sum % 10)) % 10;
-  return expected === check;
+  const body = `0${mid}`;                        // number system 0 + 10 digits = 11
+  return body + gtinCheckDigit(body);
+}
+
+/**
+ * Best-effort canonical barcode for lookup: strip to digits, and if it looks
+ * like a UPC-E that doesn't already validate as a GTIN, expand it to UPC-A.
+ */
+export function canonicalBarcode(raw: string): string {
+  const digits = normalizeBarcode(raw);
+  if (isValidGtin(digits)) return digits;
+  // 8-digit could be EAN-8 (already handled above) or UPC-E; 6/7 are UPC-E-ish.
+  if ([6, 7, 8].includes(digits.length)) {
+    const expanded = upcEToUpcA(digits);
+    if (expanded && isValidGtin(expanded)) return expanded;
+  }
+  return digits;
+}
+
+/** Plausible enough to bother hitting the product databases. */
+export function isLookupableBarcode(code: string): boolean {
+  return /^\d{8,14}$/.test(code);
 }
 
 function cleanCategory(tag: string | null): string | null {
