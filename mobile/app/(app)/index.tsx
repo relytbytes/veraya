@@ -62,8 +62,9 @@ const MODULES: Module[] = [
 ];
 
 const SECTIONS = [
-  { title: "Front of House", keys: ["Reservations", "Customers", "Events", "Gift Cards"] },
-  { title: "Operations",     keys: ["Menu", "Purchase Orders", "Reorder List", "86 List", "Prep List", "Manager Log"] },
+  { title: "Stations",       keys: ["Station Mode"] },
+  { title: "Front of House", keys: ["Reservations", "Customers", "Events", "Gift Cards", "Pre-Shift Brief"] },
+  { title: "Operations",     keys: ["Menu", "Beverages", "Purchase Orders", "Reorder List", "86 List", "Prep List", "Manager Log"] },
   { title: "Analytics",      keys: ["Reports", "Prime Cost"] },
   { title: "Staff",          keys: ["Staff", "Schedule", "Time Clock", "Training", "Loyalty"] },
   { title: "Config",         keys: ["Settings"] },
