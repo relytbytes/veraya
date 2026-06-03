@@ -101,7 +101,11 @@ export interface HealthInput {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+// Standard accounting format: negatives in parentheses, e.g. ($505).
+const money = (n: number) => {
+  const v = `$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+  return n < 0 ? `(${v})` : v;
+};
 const pct = (n: number) => `${Math.round(n)}%`;
 
 function statusFromScore(s: number): Status {
@@ -218,7 +222,7 @@ function profitability(i: HealthInput, p: Projection): Dimension {
   if (p.projectedNet < 0) {
     issues.push({
       severity: "HIGH",
-      message: `Projected to lose ${money(p.projectedNet)} today`,
+      message: `Projected to lose ${money(Math.abs(p.projectedNet))} today`,
       impact: `Break-even needs ${money(p.breakEvenRevenue)}; on pace for ${money(p.projectedRevenue)}`,
       action: i.activeStaff > 0 && p.projectedRevenue < p.breakEvenRevenue * 0.6
         ? "Cut labor toward break-even staffing — you're well under"

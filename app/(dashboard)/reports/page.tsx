@@ -133,7 +133,11 @@ function printSummary(
   const rangeLabel = range.from === range.to ? range.from : range.from + " – " + range.to;
   const printedAt = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 
-  const fmt = (n: number) => "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  // Standard accounting format: negatives in parentheses, e.g. ($505.00).
+  const fmt = (n: number) => {
+    const v = "$" + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return n < 0 ? `(${v})` : v;
+  };
 
   const topItems = reportData.enrichedTopItems.slice(0, 5);
   const topItemRows = topItems.map((item, i) =>

@@ -34,6 +34,12 @@ export async function POST(req: NextRequest) {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [{ wch: 42 }, { wch: 16 }, { wch: 14 }];
+  // Standard accounting format on the Amount column (B): negatives in red parentheses.
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const cell = ws[XLSX.utils.encode_cell({ r, c: 1 })];
+    if (cell && cell.t === "n") cell.z = '$#,##0.00;[Red]($#,##0.00)';
+  }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "P&L");
   const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
