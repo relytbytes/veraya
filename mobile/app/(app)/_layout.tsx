@@ -126,6 +126,7 @@ export default function AppLayout() {
       <Tabs.Screen name="settings"     options={{ href: null }} />
       <Tabs.Screen name="eightysix"    options={{ href: null }} />
       <Tabs.Screen name="preplist"     options={{ href: null }} />
+      <Tabs.Screen name="preshift"     options={{ href: null }} />
       <Tabs.Screen name="managerlog"   options={{ href: null }} />
       <Tabs.Screen name="training"     options={{ href: null }} />
       <Tabs.Screen name="primecost"    options={{ href: null }} />

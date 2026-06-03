@@ -40,6 +40,7 @@ const MODULES: Module[] = [
   { label: "Reorder List",    description: "Build need-to-order by vendor", icon: "list-outline",           color: C.ember, href: "/(app)/reorder" },
   { label: "86 List",         description: "Flag unavailable menu items",   icon: "close-circle-outline",   color: C.coral, href: "/(app)/eightysix" },
   { label: "Prep List",       description: "Forecasted prep for tomorrow",  icon: "cut-outline",            color: C.jade,  href: "/(app)/preplist" },
+  { label: "Pre-Shift Brief", description: "Who's coming & what to watch",  icon: "clipboard-outline",      color: C.gold,  href: "/(app)/preshift" },
   { label: "Manager Log",     description: "Incidents, cash & notes",       icon: "document-text-outline",  color: C.sky,   href: "/(app)/managerlog" },
   // Analytics
   { label: "Reports",         description: "Sales, labor & food cost",      icon: "bar-chart-outline",      color: C.gold,  href: "/(app)/reports" },

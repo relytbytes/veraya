@@ -201,6 +201,26 @@ export const clockAction = (body: { userId: string; action: "IN" | "OUT"; notes?
   request<ClockEntry>("/api/timeclock", { method: "POST", body: JSON.stringify(body) });
 export const getClockHistory = (userId: string, from: string, to: string) =>
   request<ClockEntry[]>(`/api/timeclock/history?userId=${userId}&from=${from}&to=${to}`);
+
+// ── Pre-shift briefing (mirrors web Reports → Pre-Shift) ───────────────────────
+export interface PreShiftFlag { label: string; kind: "positive" | "watch" | "info" }
+export interface PreShiftInsights {
+  visits: number; lastVisitAt: string | null; avgCheckCents: number;
+  avgDwellMins: number | null; favoriteItems: { name: string; count: number }[];
+  avgTipPct: number | null; tippedOrders: number;
+}
+export interface PreShiftEntry {
+  id: string; time: string; name: string; partySize: number;
+  tableNumber: number | null; status: string; notes: string | null;
+  guestNotes: string | null; insights: PreShiftInsights | null; flags: PreShiftFlag[];
+}
+export interface PreShift {
+  date: string;
+  summary: { parties: number; covers: number; vip: number; watch: number; ppx: number };
+  entries: PreShiftEntry[];
+}
+export const getPreShift = (date: string) =>
+  request<PreShift>(`/api/reports/pre-shift?date=${date}`);
 // Manager/admin punch edit — a non-empty reason is mandatory and audited.
 export const editClockEntry = (id: string, body: { clockIn?: string; clockOut?: string | null; reason: string }) =>
   request<ClockEntry>(`/api/timeclock/${id}`, { method: "PATCH", body: JSON.stringify(body) });
