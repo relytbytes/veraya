@@ -14,6 +14,7 @@ import {
   ChevronUp,
   Phone,
   Mail,
+  Ticket,
   FileText,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
@@ -38,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, formatTime12 } from "@/lib/utils";
+import { EventTicketingDialog } from "./event-ticketing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +145,7 @@ interface EventRowProps {
 
 function EventRow({ event, onRefresh }: EventRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [ticketsOpen, setTicketsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [edit, setEdit] = useState({
     status: event.status,
@@ -402,6 +405,11 @@ function EventRow({ event, onRefresh }: EventRowProps) {
               {saving ? "Saving…" : "Save Changes"}
             </Button>
             {isPublic && <ShareLinkButton eventId={event.id} />}
+            {isPublic && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setTicketsOpen(true)}>
+                <Ticket className="h-3.5 w-3.5" /> Tickets
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -411,6 +419,7 @@ function EventRow({ event, onRefresh }: EventRowProps) {
               Delete
             </Button>
           </div>
+          <EventTicketingDialog eventId={event.id} eventName={event.name} open={ticketsOpen} onClose={() => { setTicketsOpen(false); onRefresh(); }} />
 
           {isPublic && (
             <p className="text-xs text-gray-400 flex items-center gap-1">
