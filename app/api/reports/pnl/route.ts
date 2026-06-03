@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const { start, end, fromStr, toStr } = rangeFromParams(searchParams.get("from"), searchParams.get("to"), tz);
   const periodKey = `${fromStr}_${toStr}`;
 
-  const [orders, clock] = await Promise.all([
+  const [orders, clock, salariedStaff] = await Promise.all([
     prisma.order.findMany({
       where: { status: "COMPLETED", createdAt: { gte: start, lte: end } },
       select: {
@@ -67,12 +67,16 @@ export async function GET(req: NextRequest) {
       where: { clockIn: { gte: start, lte: end } },
       select: { clockIn: true, clockOut: true, user: { select: { role: true, hourlyRate: true } } },
     }),
+    prisma.user.findMany({
+      where: { isActive: true, employmentType: "SALARY", annualSalary: { not: null } },
+      select: { annualSalary: true },
+    }),
   ]);
 
   const auto: Record<string, number> = {
     food: 0, appetizers: 0, desserts: 0, liquor: 0, beer: 0, wine: 0, naBev: 0,
     comps: 0, voids: 0, foodCost: 0, bevCost: 0,
-    laborService: 0, laborBar: 0, laborKitchen: 0,
+    laborService: 0, laborBar: 0, laborKitchen: 0, salary: 0,
   };
   let guestCounts = 0;
 
@@ -105,8 +109,15 @@ export async function GET(req: NextRequest) {
     if (r === "BARTENDER") auto.laborBar += cost;
     else if (r === "KITCHEN") auto.laborKitchen += cost;
     else if (SERVICE_ROLES.has(r)) auto.laborService += cost;
-    // MANAGER/ADMIN labor is indirect — left to the manual Salary line.
+    // MANAGER/ADMIN clock punches are POS-access only — not hourly labor. Their
+    // pay is captured below as Management Salary (indirect, fixed).
   }
+
+  // Management Salary — prorated from each salaried employee's annual pay across
+  // the days in this period. Auto-derived so it never has to be typed in.
+  const periodDays = Math.max(1, (end.getTime() - start.getTime()) / 86_400_000);
+  auto.salary = salariedStaff.reduce(
+    (sum, s) => sum + (Number(s.annualSalary ?? 0) / 365) * periodDays, 0);
 
   const manual = await loadManual(periodKey);
   const values: Record<string, number> = { ...auto };

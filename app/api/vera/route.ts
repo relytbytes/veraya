@@ -87,6 +87,8 @@ export async function GET(req: NextRequest) {
     recentPOs,
     // Top-selling items by order count last 14 days (for 86-risk context)
     recentOrderItems,
+    // Active salaried staff (managers/admins) — fixed daily cost, not hourly labor
+    salariedStaff,
   ] = await Promise.all([
     prisma.order.aggregate({
       where: { status: "COMPLETED", createdAt: { gte: todayStart, lte: now } },
@@ -108,7 +110,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.clockEntry.findMany({
       where: { OR: [{ clockOut: null }, { clockIn: { gte: todayStart } }] },
-      include: { user: { select: { name: true, role: true, hourlyRate: true } } },
+      include: { user: { select: { name: true, role: true, hourlyRate: true, employmentType: true } } },
     }),
     prisma.shift.findMany({
       where: { date: todayStr },
@@ -141,6 +143,10 @@ export async function GET(req: NextRequest) {
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 20,
+    }),
+    prisma.user.findMany({
+      where: { isActive: true, employmentType: "SALARY", annualSalary: { not: null } },
+      select: { annualSalary: true },
     }),
   ]);
 
@@ -183,16 +189,25 @@ export async function GET(req: NextRequest) {
   }
   const compVoidReasons = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).map(([r, c]) => `${r} (${c})`);
 
-  // Labor so far today: count every clock entry that touched today (still open
-  // OR clocked out today), measuring only the portion within today × rate.
-  const activeClock = clockEntries.filter((c) => !c.clockOut);
+  // Managers and admins clock in only to unlock POS functions — they're salaried,
+  // not "on the clock" in the labor sense. They never count toward the active-staff
+  // headcount or the hourly labor cost; their pay is a fixed daily salary (below).
+  const isSalariedMgmt = (u: { role: string; employmentType: string }) =>
+    u.employmentType === "SALARY" || u.role === "ADMIN" || u.role === "MANAGER";
+
+  // Labor so far today: count every hourly clock entry that touched today (still
+  // open OR clocked out today), measuring only the portion within today × rate.
+  const activeClock = clockEntries.filter((c) => !c.clockOut && !isSalariedMgmt(c.user));
   let laborSoFar = 0;
   for (const c of clockEntries) {
+    if (isSalariedMgmt(c.user)) continue;
     const start = Math.max(new Date(c.clockIn).getTime(), todayStart.getTime());
     const end = c.clockOut ? new Date(c.clockOut).getTime() : now.getTime();
     const hours = Math.max(0, (end - start) / (1000 * 60 * 60));
     laborSoFar += hours * Number(c.user.hourlyRate ?? 0);
   }
+  // Management salary as a fixed daily cost (annual / 365), folded into overhead.
+  const dailySalaryCost = salariedStaff.reduce((s, u) => s + Number(u.annualSalary ?? 0) / 365, 0);
   // Project for full day: hours so far / fraction of day elapsed
   const dayFraction = localHourFloat(now, tz) / 24;
   const projectedLaborCost = dayFraction > 0.05 ? laborSoFar / dayFraction : null;
@@ -343,7 +358,11 @@ export async function GET(req: NextRequest) {
     return isNaN(h) ? fallback : h + (m || 0) / 60;
   };
   const fixedMonthly = Number(cfgMap.fixedMonthlyCost);
-  const fixedDailyOverride = fixedMonthly > 0 ? fixedMonthly / 30.4 : null;
+  // Daily fixed cost = configured monthly overhead (prorated) + management salary.
+  // Either source alone is enough to ground break-even; null only when both blank.
+  const fixedFromConfig = fixedMonthly > 0 ? fixedMonthly / 30.4 : 0;
+  const fixedDailyOverride =
+    fixedFromConfig + dailySalaryCost > 0 ? fixedFromConfig + dailySalaryCost : null;
   const foodPct = Number(cfgMap.targetFoodCostPct);
   const cogsTargetPct = foodPct > 0 ? foodPct / 100 : null;
   const openHour = parseHour(cfgMap.serviceOpen, OPEN_HOUR);

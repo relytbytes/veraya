@@ -96,7 +96,7 @@ export const PNL_ROWS: PnlRowDef[] = [
     sum: ["utilities", "buildingRepairs", "equipmentRepairs", "contractServices", "depreciation"] },
 
   { key: "h_indirect_labor", label: "INDIRECT LABOR", indent: 0, kind: "header" },
-  { key: "salary", label: "Management Salary", indent: 1, kind: "line", input: "manual" },
+  { key: "salary", label: "Management Salary", indent: 1, kind: "line", input: "auto" },
   { key: "bonus", label: "Bonus", indent: 1, kind: "line", input: "manual" },
   { key: "indirectOther", label: "Other (taxes, benefits)", indent: 1, kind: "line", input: "manual" },
   { key: "totalIndirectLabor", label: "TOTAL INDIRECT LABOR", indent: 0, kind: "subtotal",
