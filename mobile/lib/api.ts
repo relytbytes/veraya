@@ -1,10 +1,12 @@
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 
+// Single production backend. `extra.apiUrl` (app.json) is the only override —
+// EXPO_PUBLIC_API_URL was removed because stale baked values (a dead localtunnel)
+// took precedence and caused "Network request failed". Falls back to prod.
 export const BASE_URL =
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-  process.env.EXPO_PUBLIC_API_URL ??
-  "http://localhost:3000";
+  "https://veraya.vercel.app";
 
 export async function getHeaders(): Promise<Record<string, string>> {
   const token = await SecureStore.getItemAsync("session_token");
