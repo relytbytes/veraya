@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { sendSms } from "@/lib/sms";
 
 // Lazily create the Stripe client so a missing key never crashes module load.
 function getStripe(): Stripe | null {
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest) {
             expiresAt: null,
           },
         });
+        // Text the entry code to the guest (best-effort; no-op without Twilio/phone).
+        if (eo.phone) {
+          const ev = await prisma.event.findUnique({ where: { id: eo.eventId }, select: { name: true } });
+          await sendSms(eo.phone, `You're confirmed for ${ev?.name ?? "the event"}! Entry code: ${eo.confirmationCode}. Show this at check-in.`).catch(() => {});
+        }
       }
     }
   }
