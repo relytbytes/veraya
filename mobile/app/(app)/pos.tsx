@@ -13,7 +13,7 @@ import {
   getWaitlist, createWaitlistEntry, patchWaitlistEntry,
   getReservations, createReservation, patchReservation,
   getStaff, searchCustomers, createCustomer, getLoyalty, loyaltyAction,
-  getModifiers,
+  getModifiers, combineTables, splitTables,
 } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { Table, Order, WaitlistEntry, Reservation, StaffMember, Customer, MenuItem, Modifier } from "@/lib/api";
@@ -225,6 +225,29 @@ export default function POSScreen() {
   const [walkInPhone, setWalkInPhone] = useState("");
   const [walkInParty, setWalkInParty] = useState("2");
   const [walkInServerId, setWalkInServerId] = useState("");
+  const [combineSel, setCombineSel] = useState<string[]>([]);
+  const [combining, setCombining] = useState(false);
+
+  async function doCombine(primary: Table) {
+    if (combineSel.length === 0) return;
+    setCombining(true);
+    try {
+      await combineTables(primary.id, combineSel);
+      await refetchTables();
+      setCombineSel([]);
+      qc.invalidateQueries({ queryKey: ["tables"] });
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Could not combine"); }
+    finally { setCombining(false); }
+  }
+  async function doSplit(primaryId: string) {
+    setCombining(true);
+    try {
+      await splitTables(primaryId);
+      await refetchTables();
+      qc.invalidateQueries({ queryKey: ["tables"] });
+    } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Could not split"); }
+    finally { setCombining(false); }
+  }
 
   // Add waitlist form
   const [wlName, setWlName] = useState("");
@@ -775,22 +798,62 @@ export default function POSScreen() {
 
           {/* ── Seat Party Modal ─────────────────────────────────────────── */}
           {seatModal && (
-            <Modal transparent animationType="slide" onRequestClose={() => setSeatModal(null)}>
+            <Modal transparent animationType="slide" onRequestClose={() => { setSeatModal(null); setCombineSel([]); }}>
               <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
-                <SwipeSheet onClose={() => setSeatModal(null)} style={{ paddingHorizontal: 20, paddingTop: 4, maxHeight: "85%" }}>
+                <SwipeSheet onClose={() => { setSeatModal(null); setCombineSel([]); }} style={{ paddingHorizontal: 20, paddingTop: 4, maxHeight: "85%" }}>
                   <View className="flex-row items-center justify-between mb-4">
                     <View>
                       <Text style={{ fontSize: 18, fontWeight: "700", color: C.pearl }}>Seat Table {seatModal.number}</Text>
                       <Text style={{ fontSize: 13, color: C.mist }}>{seatModal.capacity} seat capacity</Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => setSeatModal(null)}
+                      onPress={() => { setSeatModal(null); setCombineSel([]); }}
                       style={{ height: 32, width: 32, borderRadius: 16, backgroundColor: C.surfaceHi, alignItems: "center", justifyContent: "center" }}
                     >
                       <Ionicons name="close" size={16} color={C.mist} />
                     </TouchableOpacity>
                   </View>
                   <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    {/* Combine tables for a large party */}
+                    {(() => {
+                      const members = tables.filter((t) => t.primaryTableId === seatModal.id);
+                      const combinable = tables.filter((t) => t.status === "AVAILABLE" && t.id !== seatModal.id && !t.primaryTableId);
+                      if (members.length > 0) {
+                        const totalCap = seatModal.capacity + members.reduce((s, m) => s + m.capacity, 0);
+                        return (
+                          <View style={{ marginBottom: 16, borderWidth: 1, borderColor: `${C.gold}55`, borderRadius: 12, padding: 12, backgroundColor: `${C.gold}0F` }}>
+                            <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>Combined with {members.map((m) => `T${m.number}`).join(", ")}</Text>
+                            <Text style={{ fontSize: 11, color: C.mist, marginTop: 2 }}>Seats up to {totalCap} as one party.</Text>
+                            <TouchableOpacity onPress={() => doSplit(seatModal.id)} disabled={combining} style={{ marginTop: 8, alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: C.coral }}>
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: C.coral }}>{combining ? "…" : "Split tables"}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }
+                      if (combinable.length === 0) return null;
+                      const selCap = combineSel.reduce((s, id) => s + (tables.find((t) => t.id === id)?.capacity ?? 0), 0);
+                      return (
+                        <View style={{ marginBottom: 16 }}>
+                          <Text style={{ fontSize: 10, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>Combine for a large party</Text>
+                          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                            {combinable.sort((a, b) => a.number - b.number).map((t) => {
+                              const sel = combineSel.includes(t.id);
+                              return (
+                                <TouchableOpacity key={t.id} onPress={() => setCombineSel((p) => sel ? p.filter((x) => x !== t.id) : [...p, t.id])} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, backgroundColor: sel ? `${C.gold}1A` : C.surfaceHi, borderColor: sel ? C.gold : C.rim }}>
+                                  <Text style={{ fontSize: 12, fontWeight: "700", color: sel ? C.gold : C.mist }}>T{t.number} · {t.capacity}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          {combineSel.length > 0 && (
+                            <TouchableOpacity onPress={() => doCombine(seatModal)} disabled={combining} style={{ marginTop: 8, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: C.gold, opacity: combining ? 0.6 : 1 }}>
+                              <Text style={{ fontSize: 13, fontWeight: "700", color: C.void }}>{combining ? "Combining…" : `Combine — seats ${seatModal.capacity + selCap}`}</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })()}
+
                     {/* Waitlist section */}
                     {waitingList.length > 0 && (
                       <View className="mb-4">

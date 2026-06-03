@@ -257,7 +257,13 @@ export interface Table {
   rotation: number; shape: string;
   seatedAt: string | null; guestName: string | null; partySize: number | null;
   serverId: string | null; server: { id: string; name: string } | null;
+  primaryTableId?: string | null;
 }
+// Combine free tables under a primary so they seat as one party; split unlinks all.
+export const combineTables = (primaryTableId: string, tableIds: string[]) =>
+  request<{ ok: boolean }>("/api/host/combine", { method: "POST", body: JSON.stringify({ primaryTableId, tableIds }) });
+export const splitTables = (primaryTableId: string) =>
+  request<{ ok: boolean }>(`/api/host/combine?primaryTableId=${primaryTableId}`, { method: "DELETE" });
 
 export interface Customer {
   id: string; name: string; phone: string | null; email: string | null;
