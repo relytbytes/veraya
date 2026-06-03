@@ -78,6 +78,7 @@ export function VeraCard() {
   const predictions = (predData?.predictions ?? []).filter((p) => p.severity !== "ok").slice(0, 3);
   const anomalies = anomData?.anomalies ?? [];
   const [hiddenInd, setHiddenInd] = useState<Set<string>>(new Set());
+  const [openDim, setOpenDim] = useState<string | null>(null);
 
   function indicatorFeedback(ind: VeraIndicator, action: "dismissed" | "helpful") {
     if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
@@ -223,29 +224,86 @@ export function VeraCard() {
         </View>
       )}
 
-      {/* Dimension chips — tap to jump to the issue */}
+      {/* Dimension chips — tap to expand full detail (metrics / issues / wins) */}
       {data.dimensions && data.dimensions.length > 0 && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 14 }}>
-          {data.dimensions.map((d) => {
-            const dc = d.score >= 75 ? C.jade : d.score >= 60 ? C.gold : d.score >= 45 ? C.ember : C.coral;
-            const topIssue = d.issues[0];
+        <View style={{ padding: 14, gap: 8 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {data.dimensions.map((d) => {
+              const dc = d.score >= 75 ? C.jade : d.score >= 60 ? C.gold : d.score >= 45 ? C.ember : C.coral;
+              const open = openDim === d.key;
+              const topIssue = d.issues[0];
+              return (
+                <TouchableOpacity
+                  key={d.key}
+                  activeOpacity={0.7}
+                  onPress={() => setOpenDim(open ? null : d.key)}
+                  style={{ width: "47%", flexGrow: 1, borderWidth: open ? 1.5 : 1, borderColor: open ? dc : C.rim, borderRadius: 12, padding: 10, backgroundColor: open ? `${dc}0F` : C.surfaceHi }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>{d.label}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "800", color: dc }}>{d.score}</Text>
+                      <Ionicons name={open ? "chevron-up" : "chevron-down"} size={11} color={C.smoke} />
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 10, color: C.mist, marginTop: 3 }} numberOfLines={2}>
+                    {topIssue ? (topIssue.action ?? topIssue.message) : (d.wins[0] ?? d.summary)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Expanded detail for the open dimension */}
+          {(() => {
+            const d = data.dimensions.find((x) => x.key === openDim);
+            if (!d) return null;
+            const sevColor = (s: string) => s === "HIGH" ? C.coral : s === "MEDIUM" ? C.ember : C.sky;
+            const metColor = (s: string) => s === "excellent" || s === "good" ? C.jade : s === "fair" ? C.ember : C.coral;
             return (
-              <TouchableOpacity
-                key={d.key}
-                activeOpacity={0.7}
-                onPress={() => topIssue?.link && router.push(linkToRoute(topIssue.link) as never)}
-                style={{ width: "47%", flexGrow: 1, borderWidth: 1, borderColor: C.rim, borderRadius: 12, padding: 10, backgroundColor: C.surfaceHi }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>{d.label}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: "800", color: dc }}>{d.score}</Text>
-                </View>
-                <Text style={{ fontSize: 10, color: C.mist, marginTop: 3 }} numberOfLines={2}>
-                  {topIssue ? (topIssue.action ?? topIssue.message) : (d.wins[0] ?? d.summary)}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ borderWidth: 1, borderColor: C.rim, borderRadius: 12, padding: 12, backgroundColor: C.surface, gap: 10 }}>
+                <Text style={{ fontSize: 12, color: C.mist, lineHeight: 17 }}>{d.summary}</Text>
+
+                {d.metrics.length > 0 && (
+                  <View style={{ gap: 5 }}>
+                    {d.metrics.map((m, i) => (
+                      <View key={i} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: metColor(m.status) }} />
+                          <Text style={{ fontSize: 12, color: C.mist }}>{m.label}</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: C.pearl }}>
+                          {m.value}{m.target ? <Text style={{ color: C.smoke, fontWeight: "400" }}>{`  / ${m.target}`}</Text> : null}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {d.issues.map((iss, i) => (
+                  <TouchableOpacity
+                    key={`iss-${i}`}
+                    activeOpacity={iss.link ? 0.7 : 1}
+                    onPress={() => iss.link && router.push(linkToRoute(iss.link) as never)}
+                    style={{ flexDirection: "row", gap: 8, borderLeftWidth: 2, borderLeftColor: sevColor(iss.severity), paddingLeft: 8 }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: C.pearl }}>{iss.message}</Text>
+                      {iss.action ? <Text style={{ fontSize: 11, color: C.mist, marginTop: 1 }}>{iss.action}</Text> : null}
+                    </View>
+                    {iss.link ? <Ionicons name="chevron-forward" size={13} color={C.smoke} /> : null}
+                  </TouchableOpacity>
+                ))}
+
+                {d.wins.map((w, i) => (
+                  <View key={`win-${i}`} style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+                    <Ionicons name="checkmark-circle" size={13} color={C.jade} style={{ marginTop: 1 }} />
+                    <Text style={{ fontSize: 12, color: C.mist, flex: 1 }}>{w}</Text>
+                  </View>
+                ))}
+              </View>
             );
-          })}
+          })()}
         </View>
       )}
 
