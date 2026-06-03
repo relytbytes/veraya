@@ -36,6 +36,15 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Vera's read is restaurant-wide and changes over minutes, not seconds. Cache
+  // the whole computed response (incl. the AI narrative) for 90s so navigating
+  // back to the dashboard is instant instead of waiting on queries + the LLM.
+  const vg = globalThis as unknown as { __veraResp?: { bucket: number; body: Record<string, unknown> } };
+  const bucket = Math.floor(Date.now() / 90_000);
+  if (vg.__veraResp && vg.__veraResp.bucket === bucket) {
+    return Response.json(vg.__veraResp.body, { headers: { "Cache-Control": "private, max-age=90", "X-Vera-Cache": "hit" } });
+  }
+
   try {
   const now = new Date();
   // All day boundaries + current hour are computed in the restaurant's local
@@ -366,15 +375,19 @@ export async function GET(req: NextRequest) {
 
   // Optional AI: phrase the deterministic diagnosis into a natural two-sentence
   // read. Falls back to the deterministic headline when no key is configured.
-  const aiNarrative = await veraComplete({
-    system: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings, no em-dashes, no Oxford commas.",
-    user: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}`,
-    maxTokens: 160,
-  });
+  // Bound the LLM call so a slow model can never drag the dashboard — fall back
+  // to the deterministic headline after 1.8s.
+  const aiNarrative = await Promise.race([
+    veraComplete({
+      system: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings, no em-dashes, no Oxford commas.",
+      user: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}`,
+      maxTokens: 160,
+    }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 1800)),
+  ]);
   const narrative = aiNarrative || diag.headline;
 
-  const cacheHeaders = { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=60" } };
-  return Response.json({
+  const body = {
     healthScore: diag.healthScore,
     status: diag.status,
     confidence: diag.confidence,
@@ -387,7 +400,9 @@ export async function GET(req: NextRequest) {
     learning: { daysObserved: learned.daysObserved, minDays: learned.minDays, learning: learned.learning, topDrivers: learned.topDrivers },
     alerts,
     rawSignals,
-  }, cacheHeaders);
+  };
+  vg.__veraResp = { bucket, body };
+  return Response.json(body, { headers: { "Cache-Control": "private, max-age=90", "X-Vera-Cache": "miss" } });
   } catch (err) {
     // Transient failure (e.g. brief SQLite contention) — return a clean 503 the
     // client retries, rather than an unhandled 500 that flashes an error.
