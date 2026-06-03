@@ -33,6 +33,14 @@ if (!url.startsWith("libsql://") && !url.startsWith("http")) {
   process.exit(0);
 }
 
+// Preview deploys share the same (prod) Turso DB, so never apply un-merged
+// migrations from a preview build. Only production builds (or manual runs, where
+// VERCEL_ENV is unset) migrate.
+if (process.env.VERCEL_ENV === "preview") {
+  console.log("[migrate] preview build — skipping migrations (prod DB is shared).");
+  process.exit(0);
+}
+
 const authToken = process.env.DATABASE_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN;
 
 const MIGRATIONS_DIR = join(process.cwd(), "prisma", "migrations");

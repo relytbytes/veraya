@@ -48,11 +48,15 @@ See `.env.example` for the full list.
 No special config needed:
 - `postinstall` runs `prisma generate` (the client lives in the gitignored
   `app/generated/prisma`, so it must be regenerated on every install).
-- Migrations are applied with `npm run db:deploy:turso` (the libSQL runner), run
-  with the prod env after each schema change — see step 1. It is **not** wired
-  into the Vercel build (Prisma's migrate engine can't reach Turso, and prod's
-  migration ledger needs to be reconciled first), so apply migrations before/at
-  deploy time. The runner maps `TURSO_AUTH_TOKEN` → `DATABASE_AUTH_TOKEN`.
+- `build` runs `scripts/migrate-deploy.mjs` (the libSQL runner) **before**
+  `next build`, so **production** deploys apply pending migrations to Turso
+  automatically — idempotent, and it records each in `_prisma_migrations`.
+  Prisma's own `migrate deploy` can't reach Turso (P1013), which is why this
+  custom runner exists. Guards: it **skips on preview builds** (preview shares
+  the prod DB, so un-merged migrations must not apply), maps `TURSO_AUTH_TOKEN`
+  → `DATABASE_AUTH_TOKEN`, and fails the build if a migration errors rather than
+  shipping a half-migrated schema. You can still apply manually any time with
+  `npm run db:deploy:turso` (prod env).
 - `vercel.json` registers the daily reservation-reminder cron.
 
 Point Vercel at the repo and deploy. After the first deploy, set the Stripe
