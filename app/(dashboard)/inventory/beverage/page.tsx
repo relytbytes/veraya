@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Plus, GlassWater, Pencil, Trash2, Loader2, RefreshCw, AlertTriangle, Hash } from "lucide-react";
+import { Plus, GlassWater, Pencil, Trash2, Loader2, RefreshCw, AlertTriangle, Hash, ScanLine, Sparkles } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -151,6 +151,17 @@ export default function BeveragePage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // Role — custom bottle/pour sizing is admin-only.
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    fetch("/api/me").then((r) => r.ok ? r.json() : null).then((m) => setIsAdmin(m?.role === "ADMIN")).catch(() => {});
+  }, []);
+
+  // Label scan (photo → AI prefill)
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState("");
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
   const loadProfiles = useCallback(async () => {
     setLoadingProfiles(true);
     const res = await fetch("/api/beverage-profiles");
@@ -180,6 +191,7 @@ export default function BeveragePage() {
   function openAdd() {
     setForm(EMPTY_FORM);
     setFormError("");
+    setScanNote("");
     setAddOpen(true);
   }
 
@@ -201,12 +213,104 @@ export default function BeveragePage() {
       offerBottle: profile.offerBottle,
     });
     setFormError("");
+    setScanNote("");
     setEditProfile(profile);
+  }
+
+  async function onScanFile(file: File | null) {
+    if (!file) return;
+    setScanning(true);
+    setScanNote("");
+    setFormError("");
+    try {
+      const image: string = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result as string);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+      const res = await fetch("/api/beverage-profiles/scan-label", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) { setFormError(json.error ?? "Scan failed"); return; }
+      const d = json.data as {
+        name: string; category: string; producer: string | null; vintage: string | null;
+        abv: number | null; bottleSizeMl: number | null; pourSizeMl: number | null;
+      };
+
+      // Map AI sizes onto presets; only fall back to a custom value for admins.
+      const bottlePreset = BOTTLE_SIZES.find((b) => b.value === d.bottleSizeMl);
+      const pourPreset = POUR_SIZES.find((p) => p.value === d.pourSizeMl);
+
+      // Link to an existing un-profiled ingredient by name, else create one.
+      let ingredientId = form.ingredientId;
+      let note = "";
+      if (!editProfile && d.name) {
+        const match = availableIngredients.find((i) => i.name.toLowerCase() === d.name.toLowerCase())
+          ?? availableIngredients.find((i) => i.name.toLowerCase().includes(d.name.toLowerCase().slice(0, 12)));
+        if (match) {
+          ingredientId = match.id;
+          note = `Matched existing ingredient "${match.name}".`;
+        } else {
+          const created = await fetch("/api/ingredients", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: d.name, unit: "bottle", costPerUnit: 0 }),
+          });
+          if (created.ok) {
+            const ing = await created.json();
+            ingredientId = ing.id;
+            await loadIngredients();
+            note = `Created new ingredient "${d.name}" — set its bottle cost in Inventory.`;
+          }
+        }
+      }
+
+      setForm((f) => ({
+        ...f,
+        ingredientId,
+        category: CATEGORIES.includes(d.category as typeof CATEGORIES[number]) ? d.category : f.category,
+        producer: d.producer ?? f.producer,
+        vintage: d.vintage ?? f.vintage,
+        abv: d.abv != null ? String(d.abv) : f.abv,
+        bottleSizeMl: bottlePreset ? bottlePreset.value : (isAdmin ? f.bottleSizeMl : 750),
+        useCustomBottle: !bottlePreset && isAdmin && d.bottleSizeMl != null,
+        bottleSizeCustom: !bottlePreset && d.bottleSizeMl != null ? String(d.bottleSizeMl) : f.bottleSizeCustom,
+        pourSizeMl: pourPreset ? pourPreset.value : (isAdmin ? f.pourSizeMl : 44),
+        useCustomPour: !pourPreset && isAdmin && d.pourSizeMl != null,
+        pourSizeCustom: !pourPreset && d.pourSizeMl != null ? String(d.pourSizeMl) : f.pourSizeCustom,
+      }));
+      setScanNote(`Filled from label. ${note} Review the fields, then Add.`.trim());
+    } catch {
+      setFormError("Could not read that image. Try again or enter details manually.");
+    } finally {
+      setScanning(false);
+      if (scanInputRef.current) scanInputRef.current.value = "";
+    }
   }
 
   async function save() {
     setSaving(true);
     setFormError("");
+
+    // Everything except BIN is required.
+    const bottleMl = form.useCustomBottle ? Number(form.bottleSizeCustom) : form.bottleSizeMl;
+    const pourMl = form.useCustomPour ? Number(form.pourSizeCustom) : form.pourSizeMl;
+    const missing: string[] = [];
+    if (!editProfile && !form.ingredientId) missing.push("ingredient");
+    if (!form.category) missing.push("category");
+    if (!bottleMl || bottleMl <= 0) missing.push("bottle size");
+    if (!pourMl || pourMl <= 0) missing.push("pour size");
+    if (!form.producer.trim()) missing.push("producer");
+    if (!form.vintage.trim()) missing.push("vintage");
+    if (form.abv === "" || Number.isNaN(Number(form.abv))) missing.push("ABV");
+    if (!form.offerGlass && !form.offerBottle) missing.push("a service option (glass and/or bottle)");
+    if (missing.length) {
+      setFormError(`Please complete: ${missing.join(", ")}.`);
+      setSaving(false);
+      return;
+    }
     const payload = {
       ingredientId: form.ingredientId,
       category: form.category,
@@ -733,6 +837,34 @@ export default function BeveragePage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {/* Scan label (photo AI) */}
+            <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-3">
+              <input
+                ref={scanInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onScanFile(e.target.files?.[0] ?? null)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-400 text-amber-800 hover:bg-amber-100"
+                onClick={() => scanInputRef.current?.click()}
+                disabled={scanning}
+              >
+                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
+                {scanning ? "Reading label…" : "Scan bottle label with photo"}
+              </Button>
+              {scanNote && (
+                <p className="mt-2 flex items-start gap-1 text-xs text-amber-800">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" /> {scanNote}
+                </p>
+              )}
+            </div>
+
             {/* Ingredient */}
             {!editProfile && (
               <div className="space-y-1.5">
@@ -769,7 +901,7 @@ export default function BeveragePage() {
 
             {/* Bottle size */}
             <div className="space-y-1.5">
-              <Label>Bottle Size</Label>
+              <Label>Bottle Size *</Label>
               {!form.useCustomBottle ? (
                 <div className="flex gap-2">
                   <Select
@@ -783,15 +915,17 @@ export default function BeveragePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    className="shrink-0 text-xs"
-                    onClick={() => setForm({ ...form, useCustomBottle: true, bottleSizeCustom: "" })}
-                  >
-                    Custom
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      className="shrink-0 text-xs"
+                      onClick={() => setForm({ ...form, useCustomBottle: true, bottleSizeCustom: "" })}
+                    >
+                      Custom
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="flex gap-2 items-center">
@@ -818,7 +952,7 @@ export default function BeveragePage() {
 
             {/* Pour size */}
             <div className="space-y-1.5">
-              <Label>Pour Size</Label>
+              <Label>Pour Size *</Label>
               {!form.useCustomPour ? (
                 <div className="flex gap-2">
                   <Select
@@ -832,15 +966,17 @@ export default function BeveragePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    className="shrink-0 text-xs"
-                    onClick={() => setForm({ ...form, useCustomPour: true, pourSizeCustom: "" })}
-                  >
-                    Custom
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      className="shrink-0 text-xs"
+                      onClick={() => setForm({ ...form, useCustomPour: true, pourSizeCustom: "" })}
+                    >
+                      Custom
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="flex gap-2 items-center">
@@ -867,7 +1003,7 @@ export default function BeveragePage() {
 
             {/* Producer */}
             <div className="space-y-1.5">
-              <Label>Producer <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label>Producer *</Label>
               <Input
                 placeholder="e.g. Château Margaux"
                 value={form.producer}
@@ -877,7 +1013,7 @@ export default function BeveragePage() {
 
             {/* Vintage */}
             <div className="space-y-1.5">
-              <Label>Vintage <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label>Vintage * <span className="text-gray-400 text-xs">(use NV for non-vintage)</span></Label>
               <Input
                 placeholder="e.g. 2020"
                 value={form.vintage}
@@ -887,7 +1023,7 @@ export default function BeveragePage() {
 
             {/* ABV */}
             <div className="space-y-1.5">
-              <Label>ABV % <span className="text-gray-400 text-xs">(optional)</span></Label>
+              <Label>ABV % *</Label>
               <Input
                 type="number"
                 step="0.1"
@@ -901,7 +1037,7 @@ export default function BeveragePage() {
 
             {/* Service program (BTG / BTB) */}
             <div className="space-y-1.5">
-              <Label>Service</Label>
+              <Label>Service *</Label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setForm({ ...form, offerGlass: !form.offerGlass })}
                   className={cn("flex-1 rounded-lg border py-2 text-sm font-medium transition-colors",
