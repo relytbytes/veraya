@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { publish } from "@/lib/realtime";
+import { quoteWaitMinutes } from "@/lib/waitlist";
 
 export async function GET() {
   const session = await auth();
@@ -37,5 +38,13 @@ export async function POST(req: NextRequest) {
   });
 
   publish({ scope: "floor", type: "waitlist.created", ids: [entry.id] });
-  return Response.json(entry, { status: 201 });
+
+  // Auto wait-time quote so the host can tell the guest on the spot (#5).
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const position = await prisma.waitlist.count({
+    where: { status: "WAITING", addedAt: { gte: today, lte: entry.addedAt } },
+  });
+  const estWaitMins = await quoteWaitMinutes(entry.partySize, position);
+
+  return Response.json({ ...entry, position, estWaitMins }, { status: 201 });
 }

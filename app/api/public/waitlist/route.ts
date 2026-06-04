@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { publish } from "@/lib/realtime";
 import { sendSms, getRestaurantName } from "@/lib/sms";
-
-const AVG_TURN_MINS = 45;
+import { quoteWaitMinutes } from "@/lib/waitlist";
 
 // GET /api/public/waitlist — whether public self-add is currently open (#6).
 export async function GET() {
@@ -47,8 +46,7 @@ export async function POST(req: NextRequest) {
     const ahead = await prisma.waitlist.count({
       where: { status: "WAITING", addedAt: { gte: today, lte: entry.addedAt } },
     });
-    const fitting = await prisma.table.count({ where: { capacity: { gte: size } } });
-    const estWaitMins = Math.ceil(ahead / Math.max(1, fitting)) * AVG_TURN_MINS;
+    const estWaitMins = await quoteWaitMinutes(size, ahead);
 
     // Best-effort "you're on the list" text.
     if (entry.phone) {
