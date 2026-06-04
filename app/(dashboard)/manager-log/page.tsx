@@ -709,7 +709,7 @@ export default function ManagerLogPage() {
             {/* CASH_LOG-specific fields */}
             {form.type === "CASH_LOG" && (
               <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label>Opening Bank</Label>
                     <div className="relative">

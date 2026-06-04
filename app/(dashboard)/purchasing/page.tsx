@@ -661,7 +661,7 @@ export default function PurchasingPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Purchase Order</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="col-span-2 space-y-1.5">
                 <Label>Supplier *</Label>
                 <Select value={poSupplierId} onValueChange={setPOSupplierId}>
@@ -1035,7 +1035,7 @@ function OrdersTab({
           </div>
 
           {expanded === po.id && (
-            <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <div className="overflow-x-auto border-t border-gray-100 bg-gray-50 px-4 py-3">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-400 uppercase">

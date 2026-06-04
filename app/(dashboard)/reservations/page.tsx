@@ -585,7 +585,7 @@ function EditReservationDialog({ reservation, onClose, onSaved }: {
             <label className="text-xs font-medium text-gray-500">Phone</label>
             <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 123-4567" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="col-span-1">
               <label className="text-xs font-medium text-gray-500">Date</label>
               <input type="date" className={inputCls} value={form.date} onChange={(e) => set("date", e.target.value)} />

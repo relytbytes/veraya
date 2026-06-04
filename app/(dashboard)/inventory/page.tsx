@@ -350,7 +350,7 @@ export default function InventoryPage() {
 
       <div className="p-6 space-y-4">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { label: "Total Items", value: items.length, icon: <Package className="h-5 w-5 text-blue-600" />, bg: "bg-blue-50" },
             { label: "Low Stock",   value: lowCount,     icon: <AlertTriangle className="h-5 w-5 text-red-500" />,  bg: "bg-red-50",   color: "text-red-600" },

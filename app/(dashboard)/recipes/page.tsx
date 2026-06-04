@@ -710,7 +710,7 @@ export default function RecipesPage() {
                     )}
 
                     {/* Cost summary chips */}
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {[
                         { label: "Plate Cost", value: formatCurrency(cost) },
                         { label: "Menu Price", value: formatCurrency(itemPrice) },
