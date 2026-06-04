@@ -153,3 +153,21 @@ export async function reservationEmail(r: {
   `);
   return { subject: `Your reservation at ${restaurant}`, html };
 }
+
+export async function reservationReminderEmail(r: {
+  name: string;
+  time: string;
+  partySize: number;
+}): Promise<{ subject: string; html: string }> {
+  const restaurant = await getRestaurantName();
+  const html = shell(restaurant, `
+    <h1 style="font-size:22px;margin:0 0 4px">See you today${r.name ? `, ${esc(r.name.split(" ")[0])}` : ""}!</h1>
+    <p style="color:#78716c;font-size:14px;margin:0 0 16px">A quick reminder about your reservation.</p>
+    <table style="width:100%;border-top:1px solid #f0eeec;border-bottom:1px solid #f0eeec;font-size:14px;margin:12px 0">
+      <tr><td style="padding:6px 0;color:#78716c">Time</td><td style="padding:6px 0;text-align:right;font-weight:600">${esc(fmtTime12(r.time))}</td></tr>
+      <tr><td style="padding:6px 0;color:#78716c">Party</td><td style="padding:6px 0;text-align:right;font-weight:600">${r.partySize} ${r.partySize === 1 ? "guest" : "guests"}</td></tr>
+    </table>
+    <p style="text-align:center;font-size:12px;color:#a8a29e;margin-top:16px">Plans changed? Reply to this email or give us a call.</p>
+  `);
+  return { subject: `Reminder: your reservation at ${restaurant} today`, html };
+}

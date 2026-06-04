@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { sendSms, getRestaurantName, reservationReminderMessage } from "@/lib/sms";
+import { sendSms, smsConfigured, getRestaurantName, reservationReminderMessage } from "@/lib/sms";
+import { sendEmail, emailConfigured, reservationReminderEmail } from "@/lib/email";
 import { localDateStr } from "@/lib/time";
 import { getRestaurantTz } from "@/lib/restaurant-tz";
 
@@ -28,23 +29,33 @@ async function handle(req: NextRequest) {
       date: today,
       status: { in: ["PENDING", "CONFIRMED"] },
       reminderSentAt: null,
-      phone: { not: null },
+      OR: [{ phone: { not: null } }, { email: { not: null } }],
     },
-    select: { id: true, name: true, time: true, partySize: true, phone: true },
+    select: { id: true, name: true, time: true, partySize: true, phone: true, email: true },
   });
+
+  // Nothing to send through — bail before touching any reservations.
+  if (!smsConfigured() && !emailConfigured()) {
+    return Response.json({ ok: false, reason: "not_configured", candidates: due.length });
+  }
 
   const restaurant = await getRestaurantName();
   let sent = 0, skipped = 0;
   for (const r of due) {
-    const result = await sendSms(r.phone, reservationReminderMessage(r, restaurant));
-    if (result.sent) {
+    let delivered = false;
+    if (r.phone && smsConfigured()) {
+      const res = await sendSms(r.phone, reservationReminderMessage(r, restaurant));
+      if (res.sent) delivered = true;
+    }
+    if (r.email && emailConfigured()) {
+      const { subject, html } = await reservationReminderEmail(r);
+      const res = await sendEmail({ to: r.email, subject, html });
+      if (res.sent) delivered = true;
+    }
+    if (delivered) {
       await prisma.reservation.update({ where: { id: r.id }, data: { reminderSentAt: new Date() } });
       sent++;
     } else {
-      // If SMS isn't configured, stop early — nothing will send.
-      if (result.reason === "not_configured") {
-        return Response.json({ ok: false, reason: "not_configured", candidates: due.length });
-      }
       skipped++;
     }
   }
