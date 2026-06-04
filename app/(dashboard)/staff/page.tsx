@@ -5,7 +5,7 @@ import {
   Plus, Users, Loader2, Clock, LogIn, LogOut, History,
   ChevronLeft, ChevronRight, CalendarDays, Pencil, Trash2, X,
   Send, Copy, CheckCircle2, Eye, EyeOff,
-  MessageSquare, GraduationCap, ChevronDown, ChevronUp, AlertTriangle,
+  MessageSquare, GraduationCap, ChevronDown, ChevronUp, AlertTriangle, Sparkles,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -414,6 +414,29 @@ export default function StaffPage() {
     setPublishing(false);
   }
 
+  const [autoScheduling, setAutoScheduling] = useState(false);
+  async function autoSchedule() {
+    if (!confirm("Auto-fill empty days this week with draft shifts based on forecast and staff? You can edit before publishing.")) return;
+    setAutoScheduling(true);
+    try {
+      const res = await fetch("/api/shifts/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart: toDateStr(weekStart) }),
+      });
+      const data = await res.json();
+      await loadShifts();
+      if (!res.ok) { alert(data.error ?? "Could not auto-schedule"); return; }
+      const parts = [`Added ${data.created} draft shift${data.created === 1 ? "" : "s"}.`];
+      if (data.skippedDays) parts.push(`${data.skippedDays} day${data.skippedDays === 1 ? "" : "s"} already had shifts (left alone).`);
+      if (data.shortfalls?.length) parts.push(`${data.shortfalls.length} slot${data.shortfalls.length === 1 ? "" : "s"} couldn't be filled — not enough staff in those roles.`);
+      if (!data.hasHistory) parts.push("No sales history yet, so a baseline crew was scheduled.");
+      alert(parts.join("\n"));
+    } finally {
+      setAutoScheduling(false);
+    }
+  }
+
   function buildScheduleText(): string {
     const ws = toDateStr(weekStart);
     const we = toDateStr(addDays(weekStart, 6));
@@ -645,6 +668,19 @@ export default function StaffPage() {
                   <Copy className="h-3.5 w-3.5" /> Copy Schedule
                 </Button>
               )}
+
+              {/* Auto-schedule (#13) — fill empty days from forecast + staff */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-teal-200 text-teal-700 hover:bg-teal-50"
+                disabled={autoScheduling}
+                onClick={autoSchedule}
+                title="Forecast staffing need per daypart and assign available staff to empty days"
+              >
+                {autoScheduling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Auto-schedule
+              </Button>
 
               {/* Publish / Unpublish */}
               {shifts.length > 0 && (
