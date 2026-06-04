@@ -16,10 +16,11 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { status, tableId, notes, time, partySize, name, phone, email, customerId } = body as {
+  const { status, tableId, notes, date, time, partySize, name, phone, email, customerId } = body as {
     status?: string;
     tableId?: string;
     notes?: string;
+    date?: string;
     time?: string;
     partySize?: number;
     name?: string;
@@ -37,12 +38,14 @@ export async function PATCH(
   // The (table, date, time) this reservation will hold after the patch.
   const effectiveTableId = freeingSlot ? null : (tableId !== undefined ? tableId : reservation.tableId);
   const effectiveTime = time !== undefined ? time : reservation.time;
+  const effectiveDate = date !== undefined ? date : reservation.date;
 
-  // Overlap conflict check when assigning/moving to a real table at an active status.
-  if (!freeingSlot && effectiveTableId && (tableId !== undefined || time !== undefined)) {
+  // Overlap conflict check when assigning/moving to a real table at an active
+  // status, OR when the date/time itself changes for an already-tabled booking.
+  if (!freeingSlot && effectiveTableId && (tableId !== undefined || time !== undefined || date !== undefined)) {
     const conflict = await tableHasConflict({
       tableId: effectiveTableId,
-      date: reservation.date,
+      date: effectiveDate,
       time: effectiveTime,
       ignoreReservationId: id,
     });
@@ -62,6 +65,7 @@ export async function PATCH(
         ...(status !== undefined && { status: status as never }),
         ...(freeingSlot ? { tableId: null } : tableId !== undefined && { tableId }),
         ...(notes !== undefined && { notes }),
+        ...(date !== undefined && { date }),
         ...(time !== undefined && { time }),
         ...(partySize !== undefined && { partySize }),
         ...(name !== undefined && { name }),

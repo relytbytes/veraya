@@ -10,6 +10,7 @@ import {
   Users,
   Search,
   X,
+  Pencil,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,9 @@ import { cn } from "@/lib/utils";
 type ReservationStatus =
   | "PENDING"
   | "CONFIRMED"
+  | "RUNNING_LATE"
+  | "ARRIVED"
+  | "PARTIALLY_ARRIVED"
   | "SEATED"
   | "CANCELLED"
   | "NO_SHOW";
@@ -104,21 +108,40 @@ function formatTime(time: string): string {
 const STATUS_LABELS: Record<ReservationStatus, string> = {
   PENDING: "Pending",
   CONFIRMED: "Confirmed",
+  RUNNING_LATE: "Running Late",
+  ARRIVED: "Arrived",
+  PARTIALLY_ARRIVED: "Partially Arrived",
   SEATED: "Seated",
   CANCELLED: "Cancelled",
   NO_SHOW: "No Show",
 };
 
+// Color-coded status indicators (#4). Shared by the badge and the host stand.
+const STATUS_CLS: Record<ReservationStatus, string> = {
+  PENDING: "bg-gray-100 text-gray-700 border-gray-200",
+  CONFIRMED: "bg-blue-100 text-blue-700 border-blue-200",
+  RUNNING_LATE: "bg-amber-100 text-amber-800 border-amber-200",
+  ARRIVED: "bg-teal-100 text-teal-700 border-teal-200",
+  PARTIALLY_ARRIVED: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  SEATED: "bg-green-100 text-green-700 border-green-200",
+  CANCELLED: "bg-red-100 text-red-700 border-red-200",
+  NO_SHOW: "bg-rose-100 text-rose-700 border-rose-200",
+};
+// A solid dot color for compact rows.
+const STATUS_DOT: Record<ReservationStatus, string> = {
+  PENDING: "bg-gray-400",
+  CONFIRMED: "bg-blue-500",
+  RUNNING_LATE: "bg-amber-500",
+  ARRIVED: "bg-teal-500",
+  PARTIALLY_ARRIVED: "bg-indigo-500",
+  SEATED: "bg-green-500",
+  CANCELLED: "bg-red-500",
+  NO_SHOW: "bg-rose-500",
+};
+
 function StatusBadge({ status }: { status: ReservationStatus }) {
-  const cls: Record<ReservationStatus, string> = {
-    PENDING: "bg-gray-100 text-gray-700 border-gray-200",
-    CONFIRMED: "bg-blue-100 text-blue-700 border-blue-200",
-    SEATED: "bg-green-100 text-green-700 border-green-200",
-    CANCELLED: "bg-red-100 text-red-700 border-red-200",
-    NO_SHOW: "bg-warning-100 text-warning-700 border-warning-200",
-  };
   return (
-    <Badge className={cn("border text-xs font-medium", cls[status])}>
+    <Badge className={cn("border text-xs font-medium", STATUS_CLS[status])}>
       {STATUS_LABELS[status]}
     </Badge>
   );
@@ -498,8 +521,104 @@ interface ReservationRowProps {
   showDate?: boolean;
 }
 
+// Statuses a host can set from the dropdown (terminal/side-effecting ones —
+// Seated/Cancelled/No-Show — stay as dedicated buttons).
+const MARKABLE_STATUSES: ReservationStatus[] = ["PENDING", "CONFIRMED", "RUNNING_LATE", "PARTIALLY_ARRIVED", "ARRIVED"];
+
+function EditReservationDialog({ reservation, onClose, onSaved }: {
+  reservation: Reservation;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: reservation.name,
+    phone: reservation.phone ?? "",
+    date: reservation.date,
+    time: reservation.time,
+    partySize: String(reservation.partySize),
+    notes: reservation.notes ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function save() {
+    if (!form.name.trim() || !form.date || !form.time || !form.partySize) {
+      setError("Name, date, time and party size are required.");
+      return;
+    }
+    if (!form.phone.trim()) { setError("A phone number is required."); return; }
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/reservations/${reservation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        date: form.date,
+        time: form.time,
+        partySize: parseInt(form.partySize, 10),
+        notes: form.notes.trim() || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not save changes."); return; }
+    onSaved();
+    onClose();
+  }
+
+  const inputCls = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Reservation</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500">Guest name</label>
+            <input className={inputCls} value={form.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Phone</label>
+            <input className={inputCls} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 123-4567" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <label className="text-xs font-medium text-gray-500">Date</label>
+              <input type="date" className={inputCls} value={form.date} onChange={(e) => set("date", e.target.value)} />
+            </div>
+            <div className="col-span-1">
+              <label className="text-xs font-medium text-gray-500">Time</label>
+              <input type="time" className={inputCls} value={form.time} onChange={(e) => set("time", e.target.value)} />
+            </div>
+            <div className="col-span-1">
+              <label className="text-xs font-medium text-gray-500">Party</label>
+              <input type="number" min="1" className={inputCls} value={form.partySize} onChange={(e) => set("partySize", e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Notes</label>
+            <textarea className={cn(inputCls, "min-h-[60px]")} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Allergies, occasion, seating preference…" />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ReservationRow({ reservation, tables, onRefresh, showDate }: ReservationRowProps) {
   const [seatOpen, setSeatOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [acting, setActing] = useState(false);
 
   async function updateStatus(status: ReservationStatus) {
@@ -521,9 +640,8 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
     onRefresh();
   }
 
-  const isPending = reservation.status === "PENDING";
-  const isConfirmed = reservation.status === "CONFIRMED";
-  const isActive = isPending || isConfirmed;
+  const isTerminal = reservation.status === "SEATED" || reservation.status === "CANCELLED" || reservation.status === "NO_SHOW";
+  const isActive = !isTerminal;
 
   return (
     <>
@@ -563,20 +681,22 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
         <div className="flex items-center gap-1.5 shrink-0">
           {acting && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
 
-          {isPending && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              onClick={() => updateStatus("CONFIRMED")}
-              disabled={acting}
-            >
-              Confirm
-            </Button>
-          )}
-
-          {isConfirmed && (
+          {isActive && (
             <>
+              {/* Status dropdown — mark Confirmed / Running Late / Arrived, etc. */}
+              <select
+                value={MARKABLE_STATUSES.includes(reservation.status) ? reservation.status : ""}
+                onChange={(e) => e.target.value && updateStatus(e.target.value as ReservationStatus)}
+                disabled={acting}
+                className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                title="Set status"
+              >
+                {!MARKABLE_STATUSES.includes(reservation.status) && <option value="">Status…</option>}
+                {MARKABLE_STATUSES.map((s) => (
+                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+
               <Button
                 size="sm"
                 className="bg-green-600 hover:bg-green-500 text-white"
@@ -585,6 +705,18 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
               >
                 Seat
               </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                onClick={() => setEditOpen(true)}
+                disabled={acting}
+                title="Edit reservation"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+
               <Button
                 size="sm"
                 variant="outline"
@@ -594,19 +726,17 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
               >
                 No Show
               </Button>
-            </>
-          )}
 
-          {isActive && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => updateStatus("CANCELLED")}
-              disabled={acting}
-            >
-              Cancel
-            </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => updateStatus("CANCELLED")}
+                disabled={acting}
+              >
+                Cancel
+              </Button>
+            </>
           )}
 
           <Button
@@ -627,6 +757,13 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
           tables={tables}
           onClose={() => setSeatOpen(false)}
           onSeated={onRefresh}
+        />
+      )}
+      {editOpen && (
+        <EditReservationDialog
+          reservation={reservation}
+          onClose={() => setEditOpen(false)}
+          onSaved={onRefresh}
         />
       )}
     </>

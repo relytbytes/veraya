@@ -65,15 +65,23 @@ function formatDayShort(ymd: string): { day: string; num: string } {
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
-type StatusKey = "PENDING" | "CONFIRMED" | "SEATED" | "CANCELLED" | "NO_SHOW";
+type StatusKey = "PENDING" | "CONFIRMED" | "RUNNING_LATE" | "ARRIVED" | "PARTIALLY_ARRIVED" | "SEATED" | "CANCELLED" | "NO_SHOW";
 
+const VIOLET = "#7C5CBF";
+const ORANGE = "#E07B2E";
 const STATUS_CONFIG: Record<StatusKey, { color: string; tint: string; label: string; bar: string }> = {
-  PENDING:   { color: C.ember,  tint: T.ember,  label: "Pending",   bar: C.ember  },
-  CONFIRMED: { color: C.jade,   tint: T.jade,   label: "Confirmed", bar: C.jade   },
-  SEATED:    { color: C.sky,    tint: T.sky,    label: "Seated",    bar: C.sky    },
-  CANCELLED: { color: C.smoke,  tint: T.mist,   label: "Cancelled", bar: C.smoke  },
-  NO_SHOW:   { color: C.coral,  tint: T.coral,  label: "No Show",   bar: C.coral  },
+  PENDING:           { color: C.ember,  tint: T.ember,             label: "Pending",      bar: C.ember  },
+  CONFIRMED:         { color: C.sky,    tint: T.sky,               label: "Confirmed",    bar: C.sky    },
+  RUNNING_LATE:      { color: ORANGE,   tint: "rgba(224,123,46,0.12)", label: "Running Late", bar: ORANGE },
+  ARRIVED:           { color: C.gold,   tint: T.gold,              label: "Arrived",      bar: C.gold   },
+  PARTIALLY_ARRIVED: { color: VIOLET,   tint: "rgba(124,92,191,0.12)", label: "Partially In", bar: VIOLET },
+  SEATED:            { color: C.jade,   tint: T.jade,              label: "Seated",       bar: C.jade   },
+  CANCELLED:         { color: C.smoke,  tint: T.mist,              label: "Cancelled",    bar: C.smoke  },
+  NO_SHOW:           { color: C.coral,  tint: T.coral,             label: "No Show",      bar: C.coral  },
 };
+
+// Pre-seating statuses where seat/cancel/no-show and the quick status marks apply.
+const ACTIVE_STATUSES: string[] = ["PENDING", "CONFIRMED", "RUNNING_LATE", "PARTIALLY_ARRIVED", "ARRIVED"];
 
 const ALL_STATUSES = ["All", "Pending", "Confirmed", "Seated", "Cancelled"] as const;
 type FilterStatus = (typeof ALL_STATUSES)[number];
@@ -476,6 +484,7 @@ function DetailSheet({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(reservation.name);
+  const [date, setDate] = useState(reservation.date);
   const [time, setTime] = useState(reservation.time);
   const [partySize, setPartySize] = useState(reservation.partySize);
   const [phone, setPhone] = useState(reservation.phone ?? "");
@@ -550,10 +559,12 @@ function DetailSheet({
     if (!name.trim() || !phone.trim()) { Alert.alert("Required", "Name and phone are required."); return; }
     const timeRegex = /^\d{1,2}:\d{2}$/;
     if (!timeRegex.test(time.trim())) { Alert.alert("Invalid", "Time must be HH:MM format."); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) { Alert.alert("Invalid", "Date must be YYYY-MM-DD format."); return; }
     setSaving(true);
     try {
       const updated = await patchReservation(reservation.id, {
         name: name.trim(),
+        date: date.trim(),
         time: time.trim(),
         partySize,
         phone: phone.trim() || null,
@@ -725,6 +736,7 @@ function DetailSheet({
                     )}
                   </View>
                   <FormField label="Name *" value={name} onChangeText={setName} placeholder="Guest name" />
+                  <FormField label="Date (YYYY-MM-DD) *" value={date} onChangeText={setDate} placeholder="2026-06-15" keyboardType="numbers-and-punctuation" />
                   <FormField label="Time (HH:MM) *" value={time} onChangeText={setTime} placeholder="18:00" keyboardType="numbers-and-punctuation" />
 
                   <View>
@@ -761,21 +773,35 @@ function DetailSheet({
                 <View style={{ marginTop: 20, gap: 12 }}>
                   <Text style={{ fontSize: 10, fontWeight: "600", color: C.smoke, textTransform: "uppercase", letterSpacing: 1.2 }}>Actions</Text>
                   <View style={{ gap: 8 }}>
-                    {reservation.status === "PENDING" && (
-                      <>
-                        <StatusActionButton label="Confirm" icon="checkmark-circle-outline" color={C.jade} onPress={() => handleStatusAction("CONFIRMED")} loading={saving} />
-                        <StatusActionButton label="No Show" icon="person-remove-outline" color={C.ember} onPress={() => handleStatusAction("NO_SHOW")} loading={saving} />
-                        <StatusActionButton label="Cancel" icon="close-circle-outline" color={C.coral} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
-                      </>
+                    {/* Quick status marks for any active reservation (#4) */}
+                    {ACTIVE_STATUSES.includes(reservation.status) && !seating && (
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                        {(["CONFIRMED", "RUNNING_LATE", "PARTIALLY_ARRIVED", "ARRIVED"] as StatusKey[])
+                          .filter((s) => s !== reservation.status)
+                          .map((s) => {
+                            const cfg = STATUS_CONFIG[s];
+                            return (
+                              <TouchableOpacity
+                                key={s}
+                                onPress={() => handleStatusAction(s)}
+                                disabled={saving}
+                                style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: cfg.tint, borderWidth: 1, borderColor: cfg.color }}
+                              >
+                                <View style={{ height: 7, width: 7, borderRadius: 4, backgroundColor: cfg.color }} />
+                                <Text style={{ fontSize: 12, fontWeight: "700", color: cfg.color }}>Mark {cfg.label}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                      </View>
                     )}
-                    {reservation.status === "CONFIRMED" && !seating && (
+                    {ACTIVE_STATUSES.includes(reservation.status) && !seating && (
                       <>
                         <StatusActionButton label="Seat Guests" icon="restaurant-outline" color={C.sky} onPress={() => setSeating(true)} loading={saving} />
                         <StatusActionButton label="No Show" icon="person-remove-outline" color={C.ember} onPress={() => handleStatusAction("NO_SHOW")} loading={saving} />
                         <StatusActionButton label="Cancel" icon="close-circle-outline" color={C.coral} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
                       </>
                     )}
-                    {reservation.status === "CONFIRMED" && seating && (
+                    {ACTIVE_STATUSES.includes(reservation.status) && seating && (
                       <View style={{ gap: 8 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                           <Text style={{ fontSize: 12, fontWeight: "700", color: C.pearl }}>Pick a table for {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}</Text>

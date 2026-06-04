@@ -85,7 +85,7 @@ export const searchReservations = (q: string) =>
   request<Reservation[]>(`/api/reservations?q=${encodeURIComponent(q)}`);
 export const createReservation = (body: { date: string; time: string; partySize: number; name: string; phone?: string; email?: string; tableId?: string; notes?: string; customerId?: string }) =>
   request<Reservation>("/api/reservations", { method: "POST", body: JSON.stringify(body) });
-export const patchReservation = (id: string, body: { status?: string; tableId?: string; notes?: string; time?: string; partySize?: number; name?: string; phone?: string | null; email?: string | null; customerId?: string | null }) =>
+export const patchReservation = (id: string, body: { status?: string; tableId?: string; notes?: string; date?: string; time?: string; partySize?: number; name?: string; phone?: string | null; email?: string | null; customerId?: string | null }) =>
   request<Reservation>(`/api/reservations/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const deleteReservation = (id: string) =>
   request<void>(`/api/reservations/${id}`, { method: "DELETE" });

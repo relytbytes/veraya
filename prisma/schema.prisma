@@ -580,6 +580,9 @@ model Customer {
 enum ReservationStatus {
   PENDING
   CONFIRMED
+  ARRIVED            // whole party is here, waiting to be seated
+  PARTIALLY_ARRIVED  // some of the party has checked in
+  RUNNING_LATE       // guest called / flagged as late
   SEATED
   CANCELLED
   NO_SHOW
