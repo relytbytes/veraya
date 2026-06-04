@@ -37,7 +37,13 @@ export async function POST(req: NextRequest) {
       include: { items: { include: { menuItem: { select: { name: true } } } } },
     });
 
-    if (order) {
+    // Idempotent — Stripe retries webhooks, so skip if this PI is already
+    // recorded (otherwise the guest gets double-charged on the books + re-emailed).
+    const alreadyRecorded = order
+      ? await prisma.payment.findFirst({ where: { orderId: order.id, reference: pi.id } })
+      : null;
+
+    if (order && !alreadyRecorded) {
       const amountPaid = pi.amount_received / 100;
 
       await prisma.$transaction([

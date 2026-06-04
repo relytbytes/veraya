@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
-import { depleteForFiredItems } from "@/lib/inventory";
+import { depleteForFiredItems, restoreForVoidedItems } from "@/lib/inventory";
 import { verifyManagerPin } from "@/lib/manager-auth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -252,6 +252,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: { countRemaining: { increment: oi.quantity } },
       });
     } catch { /* non-fatal */ }
+    // If the item had already been fired, its recipe ingredients were depleted —
+    // a void means it shouldn't have been made, so return them to stock. (Comps
+    // are NOT restored: that food was made and given away, so it stays in COGS.)
+    if (oi.firedAt) {
+      await restoreForVoidedItems([{ menuItemId: oi.menuItemId, quantity: oi.quantity }], { orderId: id, userId: session.user?.id ?? null });
+    }
     await recalcTotals(id);
     try {
       await prisma.auditLog.create({
