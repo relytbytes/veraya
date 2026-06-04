@@ -23,6 +23,13 @@ interface PrepRow {
   minThreshold: number;
   prepNeeded: number;
   menuItems: string[];
+  // Waste-learning fields (lib/prep-waste)
+  recommendedPrep: number;
+  wasteRate: number;
+  wasteDaysLogged: number;
+  overPrep: boolean;
+  hasWasteSignal: boolean;
+  recentWastedAvg: number;
 }
 
 interface ForecastItem {
@@ -48,6 +55,9 @@ interface PrepData {
     totalForecastCost: number;
     totalIngredients: number;
     reservationCount: number;
+    overPrepCount: number;
+    recentWastedCost: number;
+    wasteDaysLogged: number;
   };
 }
 
@@ -74,7 +84,7 @@ export default function PrepListPage() {
   const [loading, setLoading] = useState(true);
   const [targetDate, setTargetDate] = useState(() => localISO(addDays(new Date(), 1)));
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [view, setView] = useState<"prep" | "forecast">("prep");
+  const [view, setView] = useState<"prep" | "forecast" | "yield">("prep");
   const printRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (date: string) => {
@@ -211,6 +221,14 @@ export default function PrepListPage() {
             >
               Sales Forecast
             </button>
+            <button
+              onClick={() => setView("yield")}
+              className={cn("text-xs px-3 py-1 rounded-md font-medium transition-colors",
+                view === "yield" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              Yield Log
+            </button>
           </div>
         </div>
 
@@ -222,6 +240,8 @@ export default function PrepListPage() {
           <p className="text-center text-gray-400 py-12">Could not load prep data</p>
         ) : view === "forecast" ? (
           <ForecastView data={data} />
+        ) : view === "yield" ? (
+          <YieldLogView prepRows={data.prepRows} summary={data.summary} />
         ) : (
           <PrepView
             data={data}
@@ -399,7 +419,20 @@ function PrepView({
                         }
                       </td>
                       <td className="px-4 py-3">
-                        <p className={cn("font-medium text-gray-900", isDone && "line-through")}>{row.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={cn("font-medium text-gray-900", isDone && "line-through")}>{row.name}</p>
+                          {row.hasWasteSignal && row.wasteRate > 0 && (
+                            <span
+                              title={`${Math.round(row.wasteRate * 100)}% of prepped ${row.name} wasted over the last ${row.wasteDaysLogged} logged day${row.wasteDaysLogged === 1 ? "" : "s"}`}
+                              className={cn(
+                                "text-[11px] font-semibold px-1.5 py-0.5 rounded-full",
+                                row.overPrep ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
+                              )}
+                            >
+                              {Math.round(row.wasteRate * 100)}% waste
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-600">
                         {fmt2(row.forecastQty)} <span className="text-gray-400 text-xs">{row.unit}</span>
@@ -408,8 +441,11 @@ function PrepView({
                         {fmt2(row.currentOnHand)} <span className="text-gray-400 text-xs">{row.unit}</span>
                       </td>
                       <td className="px-4 py-3 text-right bg-amber-50/40">
-                        <span className="text-lg font-bold text-amber-700 tabular-nums">{fmt2(row.prepNeeded)}</span>
+                        <span className="text-lg font-bold text-amber-700 tabular-nums">{fmt2(row.recommendedPrep)}</span>
                         <span className="text-gray-500 text-xs ml-1">{row.unit}</span>
+                        {row.overPrep && row.recommendedPrep < row.prepNeeded && (
+                          <p className="text-[11px] text-red-500 mt-0.5">trimmed from {fmt2(row.prepNeeded)}</p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400 hidden lg:table-cell">
                         {row.menuItems.slice(0, 3).join(", ")}
@@ -522,6 +558,160 @@ function ForecastView({ data }: { data: PrepData }) {
           </div>
         ))
       )}
+    </div>
+  );
+}
+
+// ── Yield Log ────────────────────────────────────────────────────────────────
+// End-of-day input loop: cooks record what they actually prepped vs. wasted for
+// a service day. These logs train the prep forecast (lib/prep-waste) so its
+// recommendation calibrates over a few weeks instead of forever guessing.
+
+function YieldLogView({ prepRows, summary }: { prepRows: PrepRow[]; summary: PrepData["summary"] }) {
+  const [logDate, setLogDate] = useState(() => localISO(new Date()));
+  const [vals, setVals] = useState<Record<string, { prepped: string; wasted: string }>>({});
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const rows = [...prepRows].sort((a, b) => a.name.localeCompare(b.name));
+
+  const loadLogs = useCallback(async (date: string) => {
+    setSavedIds(new Set());
+    try {
+      const res = await fetch(`/api/prep-log?date=${date}`);
+      if (!res.ok) return;
+      const d = await res.json() as { logs: Record<string, { preppedQty: number; wastedQty: number }> };
+      const next: Record<string, { prepped: string; wasted: string }> = {};
+      for (const [id, v] of Object.entries(d.logs)) {
+        next[id] = { prepped: v.preppedQty ? String(v.preppedQty) : "", wasted: v.wastedQty ? String(v.wastedQty) : "" };
+      }
+      setVals(next);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { loadLogs(logDate); }, [logDate, loadLogs]);
+
+  async function save(row: PrepRow) {
+    const v = vals[row.ingredientId] ?? { prepped: "", wasted: "" };
+    setSavingId(row.ingredientId);
+    try {
+      await fetch("/api/prep-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: logDate,
+          ingredientId: row.ingredientId,
+          preppedQty: Number(v.prepped) || 0,
+          wastedQty: Number(v.wasted) || 0,
+        }),
+      });
+      setSavedIds((prev) => new Set(prev).add(row.ingredientId));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  function setVal(id: string, field: "prepped" | "wasted", value: string) {
+    setVals((prev) => ({ ...prev, [id]: { ...{ prepped: "", wasted: "" }, ...prev[id], [field]: value } }));
+    setSavedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+  }
+
+  const today = localISO(new Date());
+  const yesterday = localISO(addDays(new Date(), -1));
+
+  return (
+    <div className="space-y-4">
+      {/* Learning banner */}
+      <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 flex items-start gap-3">
+        <TrendingUp className="h-5 w-5 text-teal-600 mt-0.5 shrink-0" />
+        <div className="text-sm text-teal-900">
+          <p className="font-medium">Vera is learning your kitchen&apos;s yield.</p>
+          <p className="text-teal-700 text-xs mt-0.5">
+            Log what you prepped and what got wasted each day. After a few weeks the prep recommendation trims
+            chronic over-prep and nets out carryover automatically.
+            {summary.wasteDaysLogged > 0 && <> Currently <b>{summary.wasteDaysLogged}</b> day{summary.wasteDaysLogged === 1 ? "" : "s"} logged
+            {summary.recentWastedCost > 0 && <> · about <b>{formatCurrency(summary.recentWastedCost)}</b> wasted recently</>}.</>}
+          </p>
+        </div>
+      </div>
+
+      {/* Date selector for the service day being logged */}
+      <div className="flex items-center gap-2">
+        <input
+          type="date"
+          value={logDate}
+          max={today}
+          onChange={(e) => setLogDate(e.target.value)}
+          className="text-sm font-medium text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none"
+        />
+        {[{ label: "Yesterday", iso: yesterday }, { label: "Today", iso: today }].map(({ label, iso }) => (
+          <button
+            key={label}
+            onClick={() => setLogDate(iso)}
+            className={cn("text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors",
+              logDate === iso ? "bg-amber-500 text-white border-amber-500" : "border-gray-200 text-gray-500 hover:text-gray-700")}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Ingredient</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Prepped</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">Wasted</th>
+                <th className="w-10 px-3 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((row) => {
+                const v = vals[row.ingredientId] ?? { prepped: "", wasted: "" };
+                const saved = savedIds.has(row.ingredientId);
+                return (
+                  <tr key={row.ingredientId}>
+                    <td className="px-4 py-2.5">
+                      <span className="font-medium text-gray-900">{row.name}</span>
+                      <span className="text-gray-400 text-xs ml-1">{row.unit}</span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <input
+                        type="number" min="0" step="0.01" placeholder="0"
+                        value={v.prepped}
+                        onChange={(e) => setVal(row.ingredientId, "prepped", e.target.value)}
+                        onBlur={() => save(row)}
+                        className="w-24 text-right rounded-md border border-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <input
+                        type="number" min="0" step="0.01" placeholder="0"
+                        value={v.wasted}
+                        onChange={(e) => setVal(row.ingredientId, "wasted", e.target.value)}
+                        onBlur={() => save(row)}
+                        className="w-24 text-right rounded-md border border-gray-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-400"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {savingId === row.ingredientId
+                        ? <RefreshCw className="h-4 w-4 text-gray-300 animate-spin inline" />
+                        : saved
+                          ? <CheckSquare className="h-4 w-4 text-green-500 inline" />
+                          : null}
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && (
+                <tr><td colSpan={4} className="px-4 py-10 text-center text-gray-400">No prep ingredients to log yet — they appear once you have sales history.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -55,6 +55,7 @@ const MODULES: Module[] = [
   { label: "Staff",           description: "Team, roles & pay rates",       icon: "people-outline",         color: C.sky,   href: "/(app)/staff" },
   { label: "Schedule",        description: "Weekly shifts & publishing",    icon: "calendar-number-outline",color: C.jade,  href: "/(app)/schedule" },
   { label: "Time Clock",      description: "Clock in / out & hours",        icon: "timer-outline",          color: C.ember, href: "/(app)/timeclock" },
+  { label: "Payroll",         description: "Pay-period register",            icon: "wallet-outline",         color: C.jade,  href: "/(app)/payroll" },
   { label: "Training",        description: "Checklists & sign-offs",        icon: "school-outline",         color: C.jade,  href: "/(app)/training" },
   { label: "Loyalty",         description: "Points, rewards & history",     icon: "ribbon-outline",         color: C.gold,  href: "/(app)/loyalty" },
   // Config
@@ -67,7 +68,7 @@ const SECTIONS = [
   { title: "Front of House", keys: ["Reservations", "Customers", "Events", "Gift Cards", "Pre-Shift Brief"] },
   { title: "Operations",     keys: ["Menu", "Beverages", "Purchase Orders", "Reorder List", "86 List", "Prep List", "Manager Log"] },
   { title: "Analytics",      keys: ["Reports", "Prime Cost"] },
-  { title: "Staff",          keys: ["Staff", "Schedule", "Time Clock", "Training", "Loyalty"] },
+  { title: "Staff",          keys: ["Staff", "Schedule", "Time Clock", "Payroll", "Training", "Loyalty"] },
   { title: "Config",         keys: ["Settings"] },
 ];
 

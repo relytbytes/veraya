@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getWasteStats, recommendPrep } from "@/lib/prep-waste";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -228,6 +229,23 @@ export async function GET(req: NextRequest) {
     entry.prepNeeded = Math.max(0, totalNeeded - entry.currentOnHand);
   }
 
+  // ── Waste learning ──────────────────────────────────────────────────────────
+  // Blend in the end-of-day yield log: a learned waste rate trims over-prep and
+  // surfaces chronic waste. Falls back to the plain recommendation until enough
+  // days are logged.
+  const wasteStats = await getWasteStats(Array.from(ingredientTotals.keys()), targetDateStr);
+  const wasteByIngredient = new Map<string, ReturnType<typeof recommendPrep> & { preppedAvg: number; wastedAvg: number; wastedCostRecent: number }>();
+  for (const entry of ingredientTotals.values()) {
+    const stat = wasteStats.get(entry.ingredientId);
+    const rec = recommendPrep(entry.forecastQty, entry.currentOnHand, entry.minThreshold, stat);
+    wasteByIngredient.set(entry.ingredientId, {
+      ...rec,
+      preppedAvg: stat?.preppedAvg ?? 0,
+      wastedAvg: stat?.wastedAvg ?? 0,
+      wastedCostRecent: (stat?.wastedTotal ?? 0) * entry.costPerUnit,
+    });
+  }
+
   // ── Menu-item level forecast (for the "items to expect" section) ───────────
   const forecastItems = Array.from(itemSales.values())
     .filter((i) => i.recipe.length > 0)
@@ -245,6 +263,22 @@ export async function GET(req: NextRequest) {
   // ── Prep rows ──────────────────────────────────────────────────────────────
   const prepRows = Array.from(ingredientTotals.values())
     .filter((r) => r.forecastQty > 0)
+    .map((r) => {
+      const w = wasteByIngredient.get(r.ingredientId);
+      return {
+        ...r,
+        // Waste-aware fields (see lib/prep-waste). recommendedPrep is the value
+        // to trust once a few days are logged; prepNeeded stays as the raw number.
+        recommendedPrep: w?.recommendedPrep ?? r.prepNeeded,
+        wasteRate: w?.wasteRate ?? 0,
+        wasteDaysLogged: w?.daysLogged ?? 0,
+        overPrep: w?.overPrep ?? false,
+        hasWasteSignal: w?.hasSignal ?? false,
+        recentPreppedAvg: w?.preppedAvg ?? 0,
+        recentWastedAvg: w?.wastedAvg ?? 0,
+        recentWastedCost: w?.wastedCostRecent ?? 0,
+      };
+    })
     .sort((a, b) => {
       // Sort: items that need prep first, then by prep quantity desc
       if (a.prepNeeded > 0 && b.prepNeeded === 0) return -1;
@@ -268,6 +302,10 @@ export async function GET(req: NextRequest) {
       totalForecastCost: prepRows.reduce((s, r) => s + r.forecastQty * r.costPerUnit, 0),
       totalIngredients: prepRows.length,
       reservationCount: targetReservations.length,
+      // Waste learning rollups
+      overPrepCount: prepRows.filter((r) => r.overPrep).length,
+      recentWastedCost: Number(prepRows.reduce((s, r) => s + r.recentWastedCost, 0).toFixed(2)),
+      wasteDaysLogged: Math.max(0, ...prepRows.map((r) => r.wasteDaysLogged)),
     },
   });
 }

@@ -1,14 +1,14 @@
 import { useState, useMemo } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
   RefreshControl, ActivityIndicator, Share, Animated,
 } from "react-native";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getPrepList } from "@/lib/api";
+import { getPrepList, getPrepLog, logPrepWaste, type PrepListResult } from "@/lib/api";
 import { C, shadow } from "@/lib/theme";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 
@@ -34,7 +34,7 @@ export default function PrepListScreen() {
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
   const [targetDate, setTargetDate] = useState(() => toYMD(addDays(new Date(), 1)));
-  const [view, setView] = useState<"prep" | "forecast">("prep");
+  const [view, setView] = useState<"prep" | "forecast" | "yield">("prep");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggleCheck = (id: string) => setChecked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -124,7 +124,11 @@ export default function PrepListScreen() {
 
       {/* View toggle */}
       <View style={{ backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.rim, flexDirection: "row" }}>
-        {(["prep", "forecast"] as const).map((v) => (
+        {([
+          { v: "prep", label: "Prep Needs", icon: "list-outline" },
+          { v: "forecast", label: "Forecast", icon: "bar-chart-outline" },
+          { v: "yield", label: "Yield Log", icon: "trending-up-outline" },
+        ] as const).map(({ v, label, icon }) => (
           <TouchableOpacity
             key={v}
             onPress={() => setView(v)}
@@ -134,14 +138,8 @@ export default function PrepListScreen() {
               borderBottomWidth: 2, borderBottomColor: view === v ? C.gold : "transparent",
             }}
           >
-            <Ionicons
-              name={v === "prep" ? "list-outline" : "bar-chart-outline"}
-              size={14}
-              color={view === v ? C.gold : C.smoke}
-            />
-            <Text style={{ fontSize: 12, fontWeight: "600", color: view === v ? C.gold : C.smoke }}>
-              {v === "prep" ? "Prep Needs" : "Sales Forecast"}
-            </Text>
+            <Ionicons name={icon} size={14} color={view === v ? C.gold : C.smoke} />
+            <Text style={{ fontSize: 12, fontWeight: "600", color: view === v ? C.gold : C.smoke }}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -207,7 +205,14 @@ export default function PrepListScreen() {
                                 <Ionicons name={done ? "checkmark-circle" : urgent ? "warning-outline" : "cut-outline"} size={done ? 20 : 16} color={done ? C.jade : urgent ? C.coral : C.smoke} />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl, textDecorationLine: done ? "line-through" : "none" }}>{row.name}</Text>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl, textDecorationLine: done ? "line-through" : "none" }}>{row.name}</Text>
+                                  {row.hasWasteSignal && row.wasteRate > 0 && (
+                                    <View style={{ paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: row.overPrep ? `${C.coral}22` : C.surfaceHi }}>
+                                      <Text style={{ fontSize: 10, fontWeight: "700", color: row.overPrep ? C.coral : C.smoke }}>{Math.round(row.wasteRate * 100)}% waste</Text>
+                                    </View>
+                                  )}
+                                </View>
                                 <Text style={{ fontSize: 11, color: C.smoke }}>
                                   Have {row.currentOnHand.toFixed(1)} · Need {(row.forecastQty + row.minThreshold).toFixed(1)} {row.unit}
                                 </Text>
@@ -219,9 +224,12 @@ export default function PrepListScreen() {
                               </View>
                               <View style={{ alignItems: "flex-end", gap: 2 }}>
                                 <Text style={{ fontSize: 16, fontWeight: "700", color: urgent ? C.coral : C.pearl }}>
-                                  {row.prepNeeded.toFixed(1)}
+                                  {row.recommendedPrep.toFixed(1)}
                                 </Text>
                                 <Text style={{ fontSize: 10, color: C.smoke }}>{row.unit}</Text>
+                                {row.overPrep && row.recommendedPrep < row.prepNeeded && (
+                                  <Text style={{ fontSize: 9, color: C.coral }}>was {row.prepNeeded.toFixed(1)}</Text>
+                                )}
                               </View>
                             </TouchableOpacity>
                           );
@@ -303,10 +311,133 @@ export default function PrepListScreen() {
                   </View>
                 </View>
               )}
+
+              {view === "yield" && <YieldLog rows={data.prepRows} summary={data.summary} />}
             </>
           )}
         </Animated.ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+// ── Yield Log ────────────────────────────────────────────────────────────────
+// End-of-day input loop feeding lib/prep-waste: record what was prepped vs.
+// wasted so the forecast recommendation calibrates over a few weeks.
+function YieldLog({ rows, summary }: { rows: PrepListResult["prepRows"]; summary: PrepListResult["summary"] }) {
+  const qc = useQueryClient();
+  const [logDate, setLogDate] = useState(() => toYMD(new Date()));
+  const [vals, setVals] = useState<Record<string, { prepped: string; wasted: string }>>({});
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  useQuery({
+    queryKey: ["prepLog", logDate],
+    queryFn: async () => {
+      const d = await getPrepLog(logDate);
+      const next: Record<string, { prepped: string; wasted: string }> = {};
+      for (const [id, v] of Object.entries(d.logs)) {
+        next[id] = { prepped: v.preppedQty ? String(v.preppedQty) : "", wasted: v.wastedQty ? String(v.wastedQty) : "" };
+      }
+      setVals(next);
+      setSavedIds(new Set());
+      return d;
+    },
+  });
+
+  const sorted = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+
+  async function save(ingredientId: string) {
+    const v = vals[ingredientId] ?? { prepped: "", wasted: "" };
+    try {
+      await logPrepWaste({
+        date: logDate,
+        ingredientId,
+        preppedQty: Number(v.prepped) || 0,
+        wastedQty: Number(v.wasted) || 0,
+      });
+      setSavedIds((p) => new Set(p).add(ingredientId));
+      qc.invalidateQueries({ queryKey: ["prepList"] });
+    } catch { /* surfaced on next load */ }
+  }
+
+  function setVal(id: string, field: "prepped" | "wasted", value: string) {
+    setVals((prev) => ({ ...prev, [id]: { ...{ prepped: "", wasted: "" }, ...prev[id], [field]: value } }));
+    setSavedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+  }
+
+  const today = toYMD(new Date());
+  const yesterday = toYMD(addDays(new Date(), -1));
+
+  return (
+    <View style={{ gap: 12 }}>
+      {/* Learning banner */}
+      <View style={{ backgroundColor: `${C.jade}14`, borderColor: `${C.jade}33`, borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: "row", gap: 10 }}>
+        <Ionicons name="trending-up" size={18} color={C.jade} style={{ marginTop: 1 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: C.pearl }}>Vera is learning your yield</Text>
+          <Text style={{ fontSize: 11, color: C.smoke, marginTop: 2, lineHeight: 16 }}>
+            Log what you prepped and wasted each day. The prep recommendation trims chronic over-prep automatically.
+            {summary.wasteDaysLogged > 0 ? ` ${summary.wasteDaysLogged} day${summary.wasteDaysLogged === 1 ? "" : "s"} logged so far.` : ""}
+          </Text>
+        </View>
+      </View>
+
+      {/* Date quick-select */}
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {[{ label: "Yesterday", iso: yesterday }, { label: "Today", iso: today }].map(({ label, iso }) => (
+          <TouchableOpacity key={label} onPress={() => setLogDate(iso)} style={{
+            paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+            backgroundColor: logDate === iso ? C.gold : C.surfaceHi, borderWidth: 1, borderColor: logDate === iso ? C.gold : C.rim,
+          }}>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: logDate === iso ? C.void : C.mist }}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={{ backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.rim, overflow: "hidden" }}>
+        {sorted.map((row, i) => {
+          const v = vals[row.ingredientId] ?? { prepped: "", wasted: "" };
+          const saved = savedIds.has(row.ingredientId);
+          return (
+            <View key={row.ingredientId} style={{
+              paddingHorizontal: 14, paddingVertical: 10, gap: 8,
+              borderBottomWidth: i < sorted.length - 1 ? 1 : 0, borderBottomColor: C.rim,
+            }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: C.pearl }}>{row.name}</Text>
+                <Text style={{ fontSize: 10, color: C.smoke }}>{row.unit}</Text>
+                {saved && <Ionicons name="checkmark-circle" size={15} color={C.jade} />}
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <YieldInput label="Prepped" value={v.prepped} accent={C.mist} onChange={(t) => setVal(row.ingredientId, "prepped", t)} onBlur={() => save(row.ingredientId)} />
+                <YieldInput label="Wasted" value={v.wasted} accent={C.coral} onChange={(t) => setVal(row.ingredientId, "wasted", t)} onBlur={() => save(row.ingredientId)} />
+              </View>
+            </View>
+          );
+        })}
+        {sorted.length === 0 && (
+          <View style={{ padding: 24, alignItems: "center" }}>
+            <Text style={{ color: C.mist, fontSize: 13, textAlign: "center" }}>No prep ingredients to log yet.{"\n"}They appear once you have sales history.</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function YieldInput({ label, value, accent, onChange, onBlur }: { label: string; value: string; accent: string; onChange: (t: string) => void; onBlur: () => void }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontSize: 9, fontWeight: "700", color: C.smoke, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        onBlur={onBlur}
+        keyboardType="decimal-pad"
+        placeholder="0"
+        placeholderTextColor={C.smoke}
+        style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15, color: accent, textAlign: "right" }}
+      />
+    </View>
   );
 }

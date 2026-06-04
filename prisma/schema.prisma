@@ -179,6 +179,30 @@ model Ingredient {
   purchaseOrderItems PurchaseOrderItem[]
   transactions       InventoryTransaction[]
   beverageProfile    BeverageProfile?
+  prepWasteLogs      PrepWasteLog[]
+}
+
+// End-of-day yield log: how much of an ingredient/prep item was actually prepped
+// vs. how much was wasted or expired. Feeds Vera's prep forecast — a learned
+// waste rate trims over-prep, and on-hand carryover is netted out. Manual input
+// for the first few weeks; the recommendation calibrates as logs accumulate.
+model PrepWasteLog {
+  id           String   @id @default(cuid())
+  date         String   // YYYY-MM-DD (the service day the prep was for)
+  ingredientId String
+  preppedQty   Decimal  @default(0)
+  wastedQty    Decimal  @default(0)
+  unit         String   // snapshot of the ingredient unit at log time
+  note         String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([date, ingredientId])
+  @@index([ingredientId])
+  @@index([date])
 }
 
 model BeverageProfile {

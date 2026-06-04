@@ -706,6 +706,24 @@ export default function ReportsScreen() {
   useEffect(() => { if (currentPeriod) setPickerFy(currentPeriod.year); }, [currentPeriod]);
 
   const range = useMemo(() => fiscalSel ?? getRange(rangeKey), [fiscalSel, rangeKey]);
+
+  // Quick ‹/› stepping between fiscal periods (wraps across fiscal years). If no
+  // period is selected yet, the first tap jumps to the current period.
+  function stepFiscal(dir: number) {
+    const anchorPeriod = fiscalSel
+      ? findFiscalPeriod(new Date(`${fiscalSel.from}T12:00:00`), fiscalCfg)
+      : currentPeriod;
+    if (!anchorPeriod) return;
+    let fy = anchorPeriod.year;
+    let n = anchorPeriod.n + (fiscalSel ? dir : 0);
+    if (n < 1) { fy -= 1; n = 12; }
+    if (n > 12) { fy += 1; n = 1; }
+    const p = getFiscalPeriods(fy, fiscalCfg)[n - 1];
+    if (!p) return;
+    setFiscalSel({ from: p.from, to: p.to, label: p.label });
+    setPickerFy(fy);
+  }
+
   const router = useRouter();
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
@@ -749,6 +767,16 @@ export default function ReportsScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* ‹ step to previous fiscal period (shown once a period is active) */}
+            {fiscalSel && (
+              <TouchableOpacity
+                onPress={() => stepFiscal(-1)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 8, paddingVertical: 7, borderRadius: 20, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim }}
+              >
+                <Ionicons name="chevron-back" size={14} color={C.mist} />
+              </TouchableOpacity>
+            )}
             {/* Fiscal period picker */}
             <TouchableOpacity
               onPress={() => setPeriodOpen(true)}
@@ -764,6 +792,16 @@ export default function ReportsScreen() {
                 {fiscalSel ? fiscalSel.label : "Period"}
               </Text>
             </TouchableOpacity>
+            {/* › step to next fiscal period */}
+            {fiscalSel && (
+              <TouchableOpacity
+                onPress={() => stepFiscal(1)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 8, paddingVertical: 7, borderRadius: 20, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim }}
+              >
+                <Ionicons name="chevron-forward" size={14} color={C.mist} />
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </View>

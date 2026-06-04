@@ -523,6 +523,29 @@ export interface FoodCostReport {
   byIngredient: { ingredientId: string; name: string; unit: string; usedQty: number; wastedQty: number; cost: number }[];
 }
 
+// ── Payroll (read-only on mobile) ─────────────────────────────────────────────
+export interface PayrollLineRow {
+  userId: string; name: string; role: string; employmentType: string;
+  hourlyRateCents: number; regularHours: number; otHours: number; totalHours: number;
+  regularPayCents: number; otPayCents: number; salaryPayCents: number;
+  tipsCents: number; grossPayCents: number;
+  lineId: string | null; adjustmentCents: number; adjustmentNote: string | null; netGrossCents: number;
+}
+export interface PayrollTotals {
+  employeeCount: number; regularHours: number; otHours: number;
+  regularPayCents: number; otPayCents: number; salaryPayCents: number;
+  tipsCents: number; adjustmentCents: number; grossPayCents: number;
+}
+export interface PayrollRegister {
+  period: { index: number; start: string; end: string; label: string; cadence: string };
+  config: { otThresholdHours: number; otMultiplier: number; periodsPerYear: number };
+  run: { id: string; status: string; notes: string | null; finalizedAt: string | null } | null;
+  lines: PayrollLineRow[];
+  totals: PayrollTotals;
+}
+export const getPayroll = (index?: number | null) =>
+  request<PayrollRegister>(`/api/payroll${index != null ? `?index=${index}` : ""}`);
+
 // ── Vera (intelligence) ──────────────────────────────────────────────────────────
 
 export interface VeraAlert {
@@ -1089,17 +1112,31 @@ export interface PrepListResult {
     minThreshold: number;
     prepNeeded: number;
     menuItems: string[];
+    // Waste-learning fields (lib/prep-waste)
+    recommendedPrep: number;
+    wasteRate: number;
+    wasteDaysLogged: number;
+    overPrep: boolean;
+    hasWasteSignal: boolean;
   }[];
   summary: {
     totalItemsToPrep: number;
     totalForecastCost: number;
     totalIngredients: number;
     reservationCount: number;
+    overPrepCount: number;
+    recentWastedCost: number;
+    wasteDaysLogged: number;
   };
 }
 
 export const getPrepList = (date?: string) =>
   request<PrepListResult>(`/api/prep-list${date ? `?date=${date}` : ""}`);
+
+export interface PrepLogDay { date: string; logs: Record<string, { preppedQty: number; wastedQty: number; note: string | null }> }
+export const getPrepLog = (date: string) => request<PrepLogDay>(`/api/prep-log?date=${date}`);
+export const logPrepWaste = (body: { date: string; ingredientId: string; preppedQty: number; wastedQty: number; note?: string }) =>
+  request<{ ok: boolean }>(`/api/prep-log`, { method: "POST", body: JSON.stringify(body) });
 
 // ── Manager Log ────────────────────────────────────────────────────────────────
 

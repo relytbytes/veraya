@@ -124,6 +124,7 @@ export default function AppLayout() {
       <Tabs.Screen name="schedule"     options={{ href: null }} />
       <Tabs.Screen name="staff"        options={{ href: null }} />
       <Tabs.Screen name="timeclock"    options={{ href: null }} />
+      <Tabs.Screen name="payroll"      options={{ href: null }} />
       <Tabs.Screen name="customers"    options={{ href: null }} />
       <Tabs.Screen name="events"       options={{ href: null }} />
       <Tabs.Screen name="giftcards"    options={{ href: null }} />
