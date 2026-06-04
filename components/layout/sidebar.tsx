@@ -11,7 +11,17 @@ import { openCommandPalette } from "./command-palette";
 
 const COLLAPSE_KEY = "sidebar:collapsedSections";
 
-export function Sidebar({ role = "SERVER", name }: { role?: string; name?: string | null }) {
+export function Sidebar({
+  role = "SERVER",
+  name,
+  open = false,
+  onClose,
+}: {
+  role?: string;
+  name?: string | null;
+  open?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const router   = useRouter();
   const groups   = visibleGroups(role);
@@ -34,7 +44,13 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
   }
 
   return (
-    <aside className="flex h-screen w-56 flex-col bg-gray-900 text-white">
+    <aside
+      className={cn(
+        // Phone: fixed off-canvas drawer that slides in. Desktop/iPad: static column.
+        "fixed inset-y-0 left-0 z-50 flex h-screen w-56 shrink-0 flex-col bg-gray-900 text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-6 border-b border-gray-700">
         <div className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden shrink-0">
@@ -83,6 +99,7 @@ export function Sidebar({ role = "SERVER", name }: { role?: string; name?: strin
                       <Link
                         key={href}
                         href={href}
+                        onClick={onClose}
                         className={cn(
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                           active
