@@ -89,39 +89,56 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   let updated;
 
   if (newItems && po.status === "RECEIVED") {
-    // Correct a received PO: reverse old inventory deltas, apply new ones
-    const ops = [
-      // reverse old
-      ...po.items.map((item) =>
-        prisma.inventoryItem.updateMany({
-          where: { ingredientId: item.ingredientId },
-          data: { quantity: { decrement: Number(item.quantity) } },
-        })
-      ),
-      // delete old items
-      prisma.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } }),
-      // apply new inventory
-      ...newItems.map((item) =>
-        prisma.inventoryItem.updateMany({
-          where: { ingredientId: item.ingredientId },
-          data: { quantity: { increment: item.quantity } },
-        })
-      ),
-      // create new items
-      ...newItems.map((item) =>
-        prisma.purchaseOrderItem.create({
-          data: { purchaseOrderId: id, ingredientId: item.ingredientId, quantity: item.quantity, unitCost: item.unitCost },
-        })
-      ),
-      // update PO header
-      prisma.purchaseOrder.update({
+    // Correct a received PO: reverse the original quantities, re-blend the
+    // corrected line prices into weighted-average cost, then apply the new
+    // quantities. Interactive transaction so we can read on-hand between the
+    // reversal and the re-apply.
+    //
+    // NOTE: a perfect un-blend of the original receipt's cost effect isn't
+    // possible without a per-receipt cost-movement ledger — costPerUnit already
+    // folded the original (wrong) price in. This re-averages the corrected price
+    // against on-hand, which is strictly better than leaving cost stale (the old
+    // behavior) and matches the "re-average on next receive" model.
+    const ingredientIds = [...new Set([...po.items, ...newItems].map((i) => i.ingredientId))];
+    updated = await prisma.$transaction(async (tx) => {
+      const [invs, ings] = await Promise.all([
+        tx.inventoryItem.findMany({ where: { ingredientId: { in: ingredientIds } }, select: { ingredientId: true, quantity: true } }),
+        tx.ingredient.findMany({ where: { id: { in: ingredientIds } }, select: { id: true, costPerUnit: true } }),
+      ]);
+      const onHand = new Map(invs.map((v) => [v.ingredientId, Number(v.quantity)]));
+      const prevCost = new Map(ings.map((g) => [g.id, Number(g.costPerUnit)]));
+
+      // Reverse the originally-received quantities (aggregate per ingredient).
+      const oldQtyByIng = new Map<string, number>();
+      for (const item of po.items) oldQtyByIng.set(item.ingredientId, (oldQtyByIng.get(item.ingredientId) ?? 0) + Number(item.quantity));
+      for (const [ingredientId, q] of oldQtyByIng) {
+        await tx.inventoryItem.updateMany({ where: { ingredientId }, data: { quantity: { decrement: q } } });
+      }
+
+      // Re-blend + apply each corrected line against post-reversal on-hand.
+      for (const item of newItems) {
+        const recvQty = Number(item.quantity);
+        const recvCost = Number(item.unitCost);
+        if (recvQty > 0 && recvCost > 0) {
+          const have = Math.max(0, (onHand.get(item.ingredientId) ?? 0) - (oldQtyByIng.get(item.ingredientId) ?? 0));
+          const old = prevCost.get(item.ingredientId) ?? recvCost;
+          const denom = have + recvQty;
+          const wac = denom > 0 ? (have * old + recvQty * recvCost) / denom : recvCost;
+          await tx.ingredient.update({ where: { id: item.ingredientId }, data: { costPerUnit: Math.round(wac * 10000) / 10000 } });
+        }
+        await tx.inventoryItem.updateMany({ where: { ingredientId: item.ingredientId }, data: { quantity: { increment: recvQty } } });
+      }
+
+      await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
+      for (const item of newItems) {
+        await tx.purchaseOrderItem.create({ data: { purchaseOrderId: id, ingredientId: item.ingredientId, quantity: item.quantity, unitCost: item.unitCost } });
+      }
+      return tx.purchaseOrder.update({
         where: { id },
         data: updateData,
         include: { vendor: true, items: { include: { ingredient: true } } },
-      }),
-    ];
-    const results = await prisma.$transaction(ops);
-    updated = results[results.length - 1];
+      });
+    });
   } else if (newItems) {
     // Correct a non-received PO: just swap items
     const ops = [
