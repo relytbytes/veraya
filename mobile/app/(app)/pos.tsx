@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   FlatList, Modal, RefreshControl, Alert, ActivityIndicator,
@@ -122,6 +122,7 @@ export default function POSScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [browseParent, setBrowseParent] = useState<string | null>(null); // null = top level of the menu tree
   const [closing, setClosing] = useState(false);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
@@ -670,8 +671,29 @@ export default function POSScreen() {
   const waitingList = waitlist.filter((w) => w.status === "WAITING");
   const servers = staff.filter((s) => s.isActive && (s.role === "SERVER" || s.role === "MANAGER" || s.role === "ADMIN"));
 
+  // ── Menu tree (Category → Subcategory → items) ─────────────────────────────
+  const catByParent = useMemo(() => {
+    const m = new Map<string, typeof categories>();
+    for (const c of categories) {
+      const p = c.parentId ?? "__root__";
+      if (!m.has(p)) m.set(p, []);
+      m.get(p)!.push(c);
+    }
+    return m;
+  }, [categories]);
+  const childrenOf = (id: string) => catByParent.get(id) ?? [];
+  const topCats = catByParent.get("__root__") ?? [];
+  // The set of category ids whose items show for the active selection — a chosen
+  // category plus every descendant, so picking a parent shows its whole subtree.
+  const descendantSet = useMemo(() => {
+    const set = new Set<string>();
+    const walk = (id: string) => { set.add(id); for (const ch of (catByParent.get(id) ?? [])) walk(ch.id); };
+    if (activeCategory !== "all") walk(activeCategory);
+    return set;
+  }, [activeCategory, catByParent]);
+
   const visible = menuItems.filter((m) => {
-    const catOk = activeCategory === "all" || m.categoryId === activeCategory;
+    const catOk = activeCategory === "all" || descendantSet.has(m.categoryId);
     const searchOk = !searchText || m.name.toLowerCase().includes(searchText.toLowerCase());
     return catOk && searchOk;
   });
@@ -2348,19 +2370,56 @@ export default function POSScreen() {
           )}
         </View>
 
-        {/* Category filters */}
+        {/* Category filters — drill-down: All / top categories → subcategories → items */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8, gap: 8, flexDirection: "row" }}>
-          {[{ id: "all", name: "All" }, ...categories].map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              onPress={() => setActiveCategory(c.id)}
-              style={{ paddingHorizontal: isTablet ? 20 : 14, paddingVertical: isTablet ? 10 : 6, borderRadius: 20, backgroundColor: activeCategory === c.id ? C.gold : C.surfaceHi }}
-            >
-              <Text style={{ fontSize: isTablet ? 15 : 13, fontWeight: "500", color: activeCategory === c.id ? C.void : C.mist }}>
-                {c.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {(() => {
+            const chipStyle = (active: boolean) => ({ paddingHorizontal: isTablet ? 18 : 13, paddingVertical: isTablet ? 10 : 6, borderRadius: 20, backgroundColor: active ? C.gold : C.surfaceHi, flexDirection: "row" as const, alignItems: "center" as const, gap: 4 });
+            const chipText = (active: boolean) => ({ fontSize: isTablet ? 15 : 13, fontWeight: "500" as const, color: active ? C.void : C.mist });
+            const parentCat = browseParent ? categories.find((c) => c.id === browseParent) : null;
+            const list = browseParent === null ? topCats : childrenOf(browseParent);
+            return (
+              <>
+                {browseParent === null ? (
+                  <TouchableOpacity onPress={() => { setActiveCategory("all"); }} style={chipStyle(activeCategory === "all")}>
+                    <Text style={chipText(activeCategory === "all")}>All</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const up = parentCat?.parentId ?? null;
+                        setBrowseParent(up);
+                        setActiveCategory(up ?? "all");
+                      }}
+                      style={chipStyle(false)}
+                    >
+                      <Ionicons name="chevron-back" size={14} color={C.mist} />
+                      <Text style={chipText(false)}>Back</Text>
+                    </TouchableOpacity>
+                    {parentCat && (
+                      <TouchableOpacity onPress={() => setActiveCategory(parentCat.id)} style={chipStyle(activeCategory === parentCat.id)}>
+                        <Text style={chipText(activeCategory === parentCat.id)}>All {parentCat.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+                {list.map((c: (typeof categories)[number]) => {
+                  const hasKids = childrenOf(c.id).length > 0;
+                  const active = activeCategory === c.id && !hasKids;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      onPress={() => { if (hasKids) { setBrowseParent(c.id); setActiveCategory(c.id); } else { setActiveCategory(c.id); } }}
+                      style={chipStyle(active)}
+                    >
+                      <Text style={chipText(active)}>{c.name}</Text>
+                      {hasKids && <Ionicons name="chevron-forward" size={13} color={active ? C.void : C.smoke} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            );
+          })()}
         </ScrollView>
 
         {/* Search */}

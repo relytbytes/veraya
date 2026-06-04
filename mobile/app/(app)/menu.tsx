@@ -193,7 +193,13 @@ function ModifierManager({ menuItemId, itemName, onClose }: { menuItemId: string
 function CategoryManager({ categories, onClose, onChanged }: { categories: Category[]; onClose: () => void; onChanged: () => void }) {
   const [newName, setNewName] = useState("");
   const [newStation, setNewStation] = useState<"KITCHEN" | "BAR">("KITCHEN");
+  const [newParentId, setNewParentId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+
+  // Group into a top-level → children tree for display.
+  const topLevel = categories.filter((c) => !c.parentId);
+  const childrenOf = (id: string) => categories.filter((c) => c.parentId === id);
+  const parentName = newParentId ? categories.find((c) => c.id === newParentId)?.name : null;
 
   async function setStation(id: string, station: "KITCHEN" | "BAR") {
     setBusy(id);
@@ -204,7 +210,10 @@ function CategoryManager({ categories, onClose, onChanged }: { categories: Categ
   async function add() {
     if (!newName.trim()) return;
     setBusy("new");
-    try { await createCategory({ name: newName.trim(), station: newStation }); setNewName(""); setNewStation("KITCHEN"); onChanged(); }
+    try {
+      await createCategory({ name: newName.trim(), station: newStation, parentId: newParentId });
+      setNewName(""); setNewStation("KITCHEN"); setNewParentId(null); onChanged();
+    }
     catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
     finally { setBusy(null); }
   }
@@ -223,6 +232,21 @@ function CategoryManager({ categories, onClose, onChanged }: { categories: Categ
     </View>
   );
 
+  const CatRow = ({ c, child }: { c: Category; child?: boolean }) => (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: child ? C.surface : C.surfaceHi, marginLeft: child ? 18 : 0 }}>
+      <View style={{ flex: 1, marginRight: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {child && <Ionicons name="return-down-forward" size={13} color={C.smoke} />}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: C.pearl }}>{c.name}</Text>
+          {c._count && <Text style={{ fontSize: 11, color: C.smoke }}>{c._count.menuItems} item{c._count.menuItems === 1 ? "" : "s"}</Text>}
+        </View>
+      </View>
+      {child
+        ? <Text style={{ fontSize: 11, fontWeight: "700", color: C.smoke }}>Subcategory</Text>
+        : <StationToggle value={(c.station as "KITCHEN" | "BAR") ?? "KITCHEN"} onChange={(s) => setStation(c.id, s)} disabled={busy === c.id} />}
+    </View>
+  );
+
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
@@ -230,19 +254,16 @@ function CategoryManager({ categories, onClose, onChanged }: { categories: Categ
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
             <View>
               <Text style={{ fontSize: 17, fontWeight: "800", color: C.pearl }}>Categories</Text>
-              <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }}>Station routes items to the Kitchen or Bar display.</Text>
+              <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }}>Nest subcategories to drill down on the register.</Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 12, gap: 8 }}>
-            {categories.map((c) => (
-              <View key={c.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.surfaceHi }}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: C.pearl }}>{c.name}</Text>
-                  {c._count && <Text style={{ fontSize: 11, color: C.smoke }}>{c._count.menuItems} item{c._count.menuItems === 1 ? "" : "s"}</Text>}
-                </View>
-                <StationToggle value={(c.station as "KITCHEN" | "BAR") ?? "KITCHEN"} onChange={(s) => setStation(c.id, s)} disabled={busy === c.id} />
+            {topLevel.map((c) => (
+              <View key={c.id} style={{ gap: 8 }}>
+                <CatRow c={c} />
+                {childrenOf(c.id).map((ch) => <CatRow key={ch.id} c={ch} child />)}
               </View>
             ))}
 
@@ -256,8 +277,25 @@ function CategoryManager({ categories, onClose, onChanged }: { categories: Categ
                 placeholderTextColor={C.smoke}
                 style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.pearl }}
               />
+
+              {/* Parent picker — Top level + every existing top-level category */}
+              <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, textTransform: "uppercase", letterSpacing: 1 }}>Nest under</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, flexDirection: "row" }}>
+                {[{ id: "", name: "Top level" }, ...topLevel.map((t) => ({ id: t.id, name: t.name }))].map((opt) => {
+                  const sel = (newParentId ?? "") === opt.id;
+                  return (
+                    <TouchableOpacity key={opt.id || "root"} onPress={() => setNewParentId(opt.id || null)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: sel ? `${C.gold}22` : C.surfaceHi, borderColor: sel ? C.gold : C.rim }}>
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: sel ? C.gold : C.smoke }}>{opt.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <StationToggle value={newStation} onChange={setNewStation} />
+                {/* Subcategories inherit the parent's station, so only show the toggle at top level */}
+                {newParentId
+                  ? <Text style={{ fontSize: 11, color: C.smoke, flex: 1, marginRight: 8 }}>Inherits {parentName}&apos;s station</Text>
+                  : <StationToggle value={newStation} onChange={setNewStation} />}
                 <TouchableOpacity onPress={add} disabled={!newName.trim() || busy === "new"} style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: newName.trim() ? C.gold : C.surfaceHi }}>
                   <Text style={{ fontSize: 13, fontWeight: "700", color: newName.trim() ? C.void : C.smoke }}>{busy === "new" ? "Adding…" : "Add"}</Text>
                 </TouchableOpacity>

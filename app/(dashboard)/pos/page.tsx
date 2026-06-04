@@ -5,7 +5,7 @@ import {
   Plus, Minus, X, ShoppingCart, CreditCard, Loader2,
   LayoutGrid, UtensilsCrossed, Printer, Receipt, Ban, Pencil,
   Timer, Flame, AlertCircle, CheckCircle2, Users, Search,
-  Banknote,
+  Banknote, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useRealtime } from "@/lib/use-realtime";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-interface Category { id: string; name: string }
+interface Category { id: string; name: string; parentId?: string | null }
 interface MenuItem {
   id: string; name: string; description: string | null;
   price: string; categoryId: string; prepTime: number | null; imageUrl: string | null;
@@ -264,6 +264,7 @@ export default function POSPage() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [activeCat, setActiveCat] = useState("all");
+  const [browseParent, setBrowseParent] = useState<string | null>(null); // null = top level of the menu tree
   const [menuSearch, setMenuSearch] = useState("");
   // When set: we're adding items to an existing order (not creating a new one)
   const [addingToOrder, setAddingToOrder] = useState<OpenOrder | null>(null);
@@ -1081,7 +1082,23 @@ export default function POSPage() {
   }
 
   const searchQ = menuSearch.trim().toLowerCase();
-  const visibleItems = (activeCat === "all" ? menuItems : menuItems.filter((i) => i.categoryId === activeCat))
+  // Menu tree: Category → Subcategory → items. Selecting a category shows it plus
+  // every descendant, so a parent surfaces its whole subtree.
+  const catByParent = new Map<string, Category[]>();
+  for (const c of categories) {
+    const p = c.parentId ?? "__root__";
+    if (!catByParent.has(p)) catByParent.set(p, []);
+    catByParent.get(p)!.push(c);
+  }
+  const childrenOfCat = (id: string) => catByParent.get(id) ?? [];
+  const topCats = catByParent.get("__root__") ?? [];
+  const descendantCatIds = (() => {
+    const set = new Set<string>();
+    const walk = (id: string) => { set.add(id); for (const ch of (catByParent.get(id) ?? [])) walk(ch.id); };
+    if (activeCat !== "all") walk(activeCat);
+    return set;
+  })();
+  const visibleItems = (activeCat === "all" ? menuItems : menuItems.filter((i) => descendantCatIds.has(i.categoryId)))
     .filter((i) => !searchQ || i.name.toLowerCase().includes(searchQ));
   // Quantity of each menu item already in the cart → drives the tile badge.
   const cartQtyById = cart.reduce<Record<string, number>>((m, c) => {
@@ -1231,21 +1248,47 @@ export default function POSPage() {
                 )}
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1">
-                <button
-                  onClick={() => setActiveCat("all")}
-                  className={cn("shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
-                    activeCat === "all" ? "bg-amber-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
-                >
-                  All
-                </button>
-                {categories.map((cat) => (
-                  <button key={cat.id} onClick={() => setActiveCat(cat.id)}
-                    className={cn("shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
-                      activeCat === cat.id ? "bg-amber-500 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
+                {(() => {
+                  const chip = "shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1";
+                  const on = "bg-amber-500 text-white shadow-sm";
+                  const off = "bg-gray-100 text-gray-600 hover:bg-gray-200";
+                  const parentCat = browseParent ? categories.find((c) => c.id === browseParent) : null;
+                  const list = browseParent === null ? topCats : childrenOfCat(browseParent);
+                  return (
+                    <>
+                      {browseParent === null ? (
+                        <button onClick={() => setActiveCat("all")} className={cn(chip, activeCat === "all" ? on : off)}>All</button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => { const up = parentCat?.parentId ?? null; setBrowseParent(up); setActiveCat(up ?? "all"); }}
+                            className={cn(chip, off)}
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" /> Back
+                          </button>
+                          {parentCat && (
+                            <button onClick={() => setActiveCat(parentCat.id)} className={cn(chip, activeCat === parentCat.id ? on : off)}>
+                              All {parentCat.name}
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {list.map((cat) => {
+                        const hasKids = childrenOfCat(cat.id).length > 0;
+                        const active = activeCat === cat.id && !hasKids;
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => { if (hasKids) { setBrowseParent(cat.id); setActiveCat(cat.id); } else { setActiveCat(cat.id); } }}
+                            className={cn(chip, active ? on : off)}
+                          >
+                            {cat.name}{hasKids && <ChevronRight className="h-3.5 w-3.5 opacity-70" />}
+                          </button>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

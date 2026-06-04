@@ -21,6 +21,7 @@ interface Category {
   id: string;
   name: string;
   station: string;
+  parentId?: string | null;
   _count: { menuItems: number };
 }
 
@@ -103,6 +104,7 @@ export default function MenuPage() {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatStation, setNewCatStation] = useState("KITCHEN");
+  const [newCatParent, setNewCatParent] = useState<string>(""); // "" = top level
 
   // Modifier state
   const [modifiers, setModifiers] = useState<Modifier[]>([]);
@@ -295,10 +297,12 @@ export default function MenuPage() {
     await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newCatName.trim(), station: newCatStation }),
+      // A subcategory inherits its parent's station server-side.
+      body: JSON.stringify({ name: newCatName.trim(), station: newCatStation, parentId: newCatParent || null }),
     });
     setNewCatName("");
     setNewCatStation("KITCHEN");
+    setNewCatParent("");
     loadAll();
   }
 
@@ -365,7 +369,11 @@ export default function MenuPage() {
             >
               All
             </button>
-            {categories.map((cat) => (
+            {/* Top-level categories, each followed by its subcategories (shown with a ↳ prefix) */}
+            {categories.filter((c) => !c.parentId).flatMap((parent) => [
+              parent,
+              ...categories.filter((ch) => ch.parentId === parent.id),
+            ]).map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setFilterCat(cat.id)}
@@ -373,7 +381,7 @@ export default function MenuPage() {
                   filterCat === cat.id ? "bg-amber-500 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                {cat.name}
+                {cat.parentId ? `↳ ${cat.name}` : cat.name}
               </button>
             ))}
           </div>
@@ -771,50 +779,73 @@ export default function MenuPage() {
                 onChange={(e) => setNewCatName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && createCategory()}
               />
-              <div className="flex items-center gap-1.5">
-                {(["KITCHEN", "BAR"] as const).map((st) => (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setNewCatStation(st)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      newCatStation === st
-                        ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {st === "BAR" ? "Bar" : "Kitchen"}
-                  </button>
+              {/* Nest under a top-level category to create a drill-down subcategory */}
+              <select
+                value={newCatParent}
+                onChange={(e) => setNewCatParent(e.target.value)}
+                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+              >
+                <option value="">Top level (no parent)</option>
+                {categories.filter((c) => !c.parentId).map((c) => (
+                  <option key={c.id} value={c.id}>Under {c.name}</option>
                 ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                {newCatParent ? (
+                  <span className="text-xs text-gray-400">Inherits parent&apos;s station</span>
+                ) : (
+                  (["KITCHEN", "BAR"] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setNewCatStation(st)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                        newCatStation === st
+                          ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {st === "BAR" ? "Bar" : "Kitchen"}
+                    </button>
+                  ))
+                )}
                 <Button size="sm" className="ml-auto" onClick={createCategory} disabled={!newCatName.trim()}>Add</Button>
               </div>
             </div>
 
-            {/* Routing for existing categories */}
+            {/* Routing for existing categories — top-level rows with nested children */}
             <div className="space-y-2 border-t pt-3">
               <Label className="text-xs uppercase tracking-wide text-gray-500">Routes to</Label>
               {categories.length === 0 ? (
                 <p className="text-sm text-gray-400">No categories yet.</p>
               ) : (
-                categories.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{c.name}</span>
-                    <div className="flex items-center gap-1">
-                      {(["KITCHEN", "BAR"] as const).map((st) => (
-                        <button
-                          key={st}
-                          type="button"
-                          onClick={() => setCategoryStation(c.id, st)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                            (c.station ?? "KITCHEN") === st
-                              ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
-                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                          }`}
-                        >
-                          {st === "BAR" ? "Bar" : "Kitchen"}
-                        </button>
-                      ))}
+                categories.filter((c) => !c.parentId).map((c) => (
+                  <div key={c.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">{c.name}</span>
+                      <div className="flex items-center gap-1">
+                        {(["KITCHEN", "BAR"] as const).map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => setCategoryStation(c.id, st)}
+                            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+                              (c.station ?? "KITCHEN") === st
+                                ? st === "BAR" ? "bg-teal-500 text-white" : "bg-amber-500 text-white"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}
+                          >
+                            {st === "BAR" ? "Bar" : "Kitchen"}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                    {categories.filter((ch) => ch.parentId === c.id).map((ch) => (
+                      <div key={ch.id} className="flex items-center justify-between pl-4">
+                        <span className="text-sm text-gray-500">↳ {ch.name}</span>
+                        <span className="text-[11px] uppercase tracking-wide text-gray-400">Subcategory</span>
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
