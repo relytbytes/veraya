@@ -43,6 +43,7 @@ export default function SettingsPage() {
     serviceClose: "22:00",
     timezone: "",
     leadNotifyPhone: "",
+    servedDayparts: JSON.stringify({ breakfast: true, lunch: true, dinner: true }),
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -385,6 +386,22 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+            {(() => {
+              let dp: Record<string, boolean> = { breakfast: true, lunch: true, dinner: true };
+              try { if (settings.servedDayparts) dp = { ...dp, ...JSON.parse(settings.servedDayparts) }; } catch { /* defaults */ }
+              const toggle = (k: string) => setSettings({ ...settings, servedDayparts: JSON.stringify({ ...dp, [k]: !dp[k] }) });
+              return (
+                <div className="space-y-1.5">
+                  <Label>Take reservations for</Label>
+                  <div className="flex gap-2">
+                    {["breakfast", "lunch", "dinner"].map((k) => (
+                      <button key={k} type="button" onClick={() => toggle(k)} className={`flex-1 rounded-lg border px-3 py-2 text-sm capitalize transition-colors ${dp[k] ? "border-teal-500 bg-teal-50 text-teal-700 font-medium" : "border-gray-200 text-gray-400"}`}>{k}</button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400">With your open/close times, this controls which slots guests can book (and the public booking page).</p>
+                </div>
+              );
+            })()}
             <div className="space-y-1.5">
               <Label>Timezone</Label>
               <select

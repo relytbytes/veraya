@@ -135,10 +135,35 @@ export interface DaySlots {
   maxPartySize: number;
 }
 
+/** Read the simple venue settings that drive reservations when no dedicated
+ *  reservationHours config exists: the service window + which dayparts are served. */
+async function getServiceHoursFallback(): Promise<DaySlots> {
+  const rows = await prisma.restaurantSettings.findMany({
+    where: { key: { in: ["serviceOpen", "serviceClose", "servedDayparts"] } },
+  });
+  const m = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const open = m.serviceOpen || "11:00";
+  const close = m.serviceClose || "22:00";
+  let served = { breakfast: true, lunch: true, dinner: true };
+  try { if (m.servedDayparts) served = { ...served, ...JSON.parse(m.servedDayparts) }; } catch { /* defaults */ }
+
+  const slots: string[] = [];
+  const end = toMinutes(close) - 30; // 30-min buffer before close
+  for (let t = toMinutes(open); t <= end; t += 30) {
+    const time = fromMinutes(t);
+    const period = slotPeriod(time);
+    if (period === null || served[period]) slots.push(time);
+  }
+  return { slots: slots.length ? slots : DEFAULT_SLOTS, dayEnabled: true, maxPartySize: 10 };
+}
+
 /** Bookable slot times for a date, honoring configured hours when present. */
 export async function getSlotsForDate(date: string): Promise<DaySlots> {
   const hours = await getReservationHours();
-  if (!hours) return { slots: DEFAULT_SLOTS, dayEnabled: true, maxPartySize: 10 };
+  // No dedicated reservation-hours config → drive bookings off the venue's
+  // service hours + daypart toggles, so "we open at 4pm" actually limits
+  // reservations instead of defaulting to 11am.
+  if (!hours) return getServiceHoursFallback();
 
   const dow = new Date(date + "T12:00:00").getDay();
   const day = hours[DAY_NAMES[dow]];

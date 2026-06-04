@@ -17,6 +17,9 @@ const SETTING_DEFAULTS: Record<string, string> = {
   // Phone texted when a new event / private-party inquiry arrives. No-ops until
   // this is set AND Twilio env is configured — drop in the number any time.
   leadNotifyPhone: "",
+  // Which dayparts the venue takes reservations for. Combined with the service
+  // hours, drives bookable slots when no advanced reservationHours config exists.
+  servedDayparts: JSON.stringify({ breakfast: true, lunch: true, dinner: true }),
 };
 
 export async function GET() {

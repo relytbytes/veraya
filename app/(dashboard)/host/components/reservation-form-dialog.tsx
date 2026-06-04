@@ -78,7 +78,7 @@ export function ReservationFormDialog({
           <Button variant="outline" onClick={() => { onClose(); setForm(EMPTY); }}>Cancel</Button>
           <Button
             onClick={() => onSubmit(form)}
-            disabled={saving || !form.name.trim() || !form.time}
+            disabled={saving || !form.name.trim() || !form.phone.trim() || !form.time}
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />} Create
           </Button>

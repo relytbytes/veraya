@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
     birthday?: string; notes?: string; tags?: string;
   };
 
-  if (!body.name?.trim()) {
-    return Response.json({ error: "name is required" }, { status: 400 });
+  if (!body.name?.trim() || !body.phone?.trim()) {
+    return Response.json({ error: "name and phone are required" }, { status: 400 });
   }
 
   const customer = await prisma.customer.create({

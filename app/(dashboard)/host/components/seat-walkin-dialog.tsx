@@ -40,7 +40,7 @@ export function SeatWalkInDialog({
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const set = (k: keyof WalkInData, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const valid = form.name.trim() && Number(form.partySize) > 0;
+  const valid = form.name.trim() && form.phone.trim() && Number(form.partySize) > 0;
   const close = () => { onClose(); setForm(EMPTY); setMatches([]); setLinked(null); setShowMatches(false); };
 
   // Search guests by name / phone / email across the system as the host types.

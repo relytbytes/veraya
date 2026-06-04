@@ -81,9 +81,9 @@ export async function POST(req: NextRequest) {
     stripePaymentIntentId?: string; cardLast4?: string; cardBrand?: string;
   };
 
-  if (!date || !time || !partySize || !name) {
+  if (!date || !time || !partySize || !name || !phone) {
     return Response.json(
-      { error: "date, time, partySize, and name are required" },
+      { error: "date, time, partySize, name and phone are required" },
       { status: 400 }
     );
   }

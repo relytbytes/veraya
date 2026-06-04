@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as { name?: string; partySize?: number; phone?: string; notes?: string; customerId?: string };
   const { name, partySize, phone, notes, customerId } = body;
 
-  if (!name || !partySize) {
-    return Response.json({ error: "name and partySize are required" }, { status: 400 });
+  if (!name || !partySize || !phone?.trim()) {
+    return Response.json({ error: "name, partySize and phone are required" }, { status: 400 });
   }
 
   const entry = await prisma.waitlist.create({
