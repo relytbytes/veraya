@@ -58,6 +58,16 @@ export default function PnlPage() {
     return { from: p.from, to: p.to, label: `${p.label} FY${fy}`, weeks: p.weeks };
   }, [sel, fy, cfg, periods, quarters, customFrom, customTo]);
 
+  // Step to the previous / next fiscal period, wrapping across fiscal years.
+  function stepPeriod(dir: number) {
+    const cur = periods.findIndex((p) => p.label === sel);
+    const next = (cur >= 0 ? cur : 0) + dir;
+    if (next < 0) { setFy(fy - 1); setSel("P12"); }
+    else if (next >= periods.length) { setFy(fy + 1); setSel("P1"); }
+    else setSel(periods[next].label);
+  }
+  const onPeriod = periods.some((p) => p.label === sel);
+
   const closed = range.to < todayISO();
   const fmtRange = (fromISO: string, toISO: string) => {
     const f = new Date(fromISO + "T12:00:00"), t = new Date(toISO + "T12:00:00");
@@ -82,6 +92,13 @@ export default function PnlPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Period</label>
+            <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => stepPeriod(-1)}
+              title="Previous period"
+              className="h-9 w-9 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+            >‹</button>
             <select
               value={sel}
               onChange={(e) => setSel(e.target.value)}
@@ -104,6 +121,14 @@ export default function PnlPage() {
                 <option value="CUSTOM">Custom range…</option>
               </optgroup>
             </select>
+            <button
+              type="button"
+              onClick={() => stepPeriod(1)}
+              title="Next period"
+              className="h-9 w-9 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+            >›</button>
+            </div>
+            {onPeriod && <p className="text-[11px] text-gray-400 mt-1">Use ‹ › to step periods across fiscal years.</p>}
           </div>
 
           {sel === "CUSTOM" && (

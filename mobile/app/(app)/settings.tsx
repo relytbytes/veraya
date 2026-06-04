@@ -263,7 +263,7 @@ export default function SettingsScreen() {
                 <SegmentRow label="Week starts" options={[{ label: "Mon", value: "1" }, { label: "Sun", value: "0" }, { label: "Wed", value: "3" }]} value={String(f.weekStart)} onChange={(v) => writeF({ ...f, weekStart: Number(v) })} />
                 <SegmentRow label="P1 begins" options={[{ label: "Wk of Jan 1", value: "week-of-jan1" }, { label: `1st ${WEEKDAY_NAMES[f.weekStart].slice(0, 3)}`, value: "first-weekday" }]} value={f.anchor} onChange={(v) => writeF({ ...f, anchor: v as typeof f.anchor })} last />
               </CardWrap>
-              <Text style={{ fontSize: 11, color: C.smoke, paddingHorizontal: 8, marginTop: 4 }}>This year, Period 1 starts {fmtShort(start)}, {start.getFullYear()}. Each quarter = 5+4+4 weeks.</Text>
+              <Text style={{ fontSize: 11, color: C.smoke, paddingHorizontal: 8, marginTop: 4 }}>This year, Period 1 started on {fmtShort(start)}, {start.getFullYear()}. Each quarter = 5+4+4 weeks.</Text>
             </>);
           })()}
 

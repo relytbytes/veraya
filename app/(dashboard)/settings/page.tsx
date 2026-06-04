@@ -567,7 +567,7 @@ export default function SettingsPage() {
               </div>
             </div>
             <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-md px-3 py-2">
-              This year, Period 1 starts <b className="text-gray-900">{fmtShort(fiscalYearStart(new Date().getFullYear(), fiscal))}, {fiscalYearStart(new Date().getFullYear(), fiscal).getFullYear()}</b>.
+              This year, Period 1 started on <b className="text-gray-900">{fmtShort(fiscalYearStart(new Date().getFullYear(), fiscal))}, {fiscalYearStart(new Date().getFullYear(), fiscal).getFullYear()}</b>.
             </p>
             <div className="flex justify-end">
               <Button onClick={saveFiscal} disabled={fiscalSaving}>
