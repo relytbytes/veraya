@@ -77,6 +77,51 @@ export async function getWasteStats(
   return out;
 }
 
+export interface WasteRollup {
+  overPrepCount: number;     // ingredients chronically over-prepped (trustworthy signal)
+  recentWastedCost: number;  // $ of prepped product wasted over the lookback
+  wasteDaysLogged: number;   // most days logged for any one ingredient (signal strength)
+}
+
+/**
+ * Venue-wide waste rollup for Vera's Cost dimension — independent of any single
+ * day's forecast. Aggregates the yield log over the lookback window and flags
+ * ingredients whose waste rate is high enough, often enough, to act on.
+ */
+export async function getWasteRollup(targetDateISO: string): Promise<WasteRollup> {
+  const from = shiftISO(targetDateISO, -LOOKBACK_DAYS);
+  const to = shiftISO(targetDateISO, -1);
+
+  const logs = await prisma.prepWasteLog.findMany({
+    where: { date: { gte: from, lte: to } },
+    select: { ingredientId: true, preppedQty: true, wastedQty: true, ingredient: { select: { costPerUnit: true } } },
+  });
+
+  const agg = new Map<string, { prepped: number; wasted: number; days: number; cost: number }>();
+  for (const l of logs) {
+    const e = agg.get(l.ingredientId) ?? { prepped: 0, wasted: 0, days: 0, cost: Number(l.ingredient.costPerUnit) };
+    e.prepped += Number(l.preppedQty);
+    e.wasted += Number(l.wastedQty);
+    e.days += 1;
+    agg.set(l.ingredientId, e);
+  }
+
+  let overPrepCount = 0;
+  let recentWastedCost = 0;
+  let wasteDaysLogged = 0;
+  for (const e of agg.values()) {
+    const rate = e.prepped > 0 ? e.wasted / e.prepped : 0;
+    if (e.days >= MIN_DAYS_FOR_SIGNAL && rate >= OVERPREP_THRESHOLD) overPrepCount += 1;
+    recentWastedCost += e.wasted * e.cost;
+    wasteDaysLogged = Math.max(wasteDaysLogged, e.days);
+  }
+  return {
+    overPrepCount,
+    recentWastedCost: round2(recentWastedCost),
+    wasteDaysLogged,
+  };
+}
+
 export interface PrepRecommendation {
   recommendedPrep: number; // waste/carryover-aware target to prep for the day
   wasteRate: number; // 0..1 (0 if no signal yet)

@@ -89,6 +89,11 @@ export interface HealthInput {
   /** Same data, structured — drives the per-reason breakdown on the Service card. */
   compVoidReasonCounts?: { reason: string; count: number }[];
   priceChangeCount: number;
+  // Prep yield/waste learning (lib/prep-waste). Chronic over-prep is real money
+  // out the back door — Vera surfaces it once enough days are logged.
+  overPrepCount?: number;        // ingredients flagged as chronic over-prep
+  recentWastedCost?: number;     // $ of prepped product wasted over the lookback
+  wasteDaysLogged?: number;      // how many days have yield logs (signal strength)
   fixedDailyOverride?: number | null; // configured daily fixed cost (else estimated)
   cogsTargetPct?: number | null;      // configured food-cost target as a fraction (else 0.30)
   expectedByNowFraction?: number | null; // learned cumulative-revenue fraction by now
@@ -372,7 +377,23 @@ function costInventory(i: HealthInput): Dimension {
   if (i.active86Count > 0) { penalty += Math.min(20, i.active86Count * 5); issues.push({ severity: "MEDIUM", message: `${i.active86Count} item${i.active86Count > 1 ? "s" : ""} 86'd`, action: "Confirm the floor knows", link: "/kitchen" }); }
   if (i.lowStockCount > 0) { penalty += Math.min(15, i.lowStockCount * 3); issues.push({ severity: "LOW", message: `${i.lowStockCount} item${i.lowStockCount > 1 ? "s" : ""} below par`, action: "Add to the next order", link: "/purchasing/reorder" }); }
   if (i.priceChangeCount > 0) { penalty += Math.min(12, i.priceChangeCount * 3); issues.push({ severity: "LOW", message: `${i.priceChangeCount} vendor price swing${i.priceChangeCount > 1 ? "s" : ""}`, action: "Review costs / re-bid", link: "/purchasing" }); }
+
+  // Chronic prep over-prep — only acted on once there's a real signal (days logged).
+  const overPrep = i.overPrepCount ?? 0;
+  const wastedCost = i.recentWastedCost ?? 0;
+  const wasteSignal = (i.wasteDaysLogged ?? 0) >= 3;
+  if (wasteSignal && overPrep > 0) {
+    penalty += Math.min(18, overPrep * 5);
+    issues.push({
+      severity: wastedCost >= 100 ? "MEDIUM" : "LOW",
+      message: `${overPrep} prep item${overPrep > 1 ? "s" : ""} over-prepped`,
+      impact: wastedCost > 0 ? `${money(wastedCost)} wasted recently` : undefined,
+      action: "Trim batch sizes — the prep list already lowered the recommendation",
+      link: "/prep-list",
+    });
+  }
   if (penalty === 0) wins.push("No stock-outs, 86s, or price spikes");
+  else if (wasteSignal && overPrep === 0 && (i.wasteDaysLogged ?? 0) > 0) wins.push("Prep yield on target — little waste");
 
   const score = clamp(100 - penalty, 0, 100);
   return {
@@ -383,6 +404,7 @@ function costInventory(i: HealthInput): Dimension {
       { label: "Out of stock", value: String(i.outOfStockCount), status: i.outOfStockCount ? "critical" : "good" },
       { label: "86'd", value: String(i.active86Count), status: i.active86Count ? "fair" : "good" },
       { label: "Below par", value: String(i.lowStockCount), status: i.lowStockCount ? "fair" : "good" },
+      ...(wasteSignal ? [{ label: "Over-prepped", value: String(overPrep), status: (overPrep ? "fair" : "good") as Status }] : []),
     ],
     wins, issues,
   };
@@ -515,6 +537,20 @@ function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preSe
   // doors it's just a projection for a normal day, not an actionable concern.
   if (!preService && p.projectedNet < 0) out.push({ key: "below_breakeven", tone: "concern", text: `Below break-even — projected ${money(p.projectedNet)} (need ${money(p.breakEvenRevenue)}).` });
   else if (!preService && p.projectedMarginPct >= 12) out.push({ key: "margin_healthy", tone: "positive", text: `Healthy margin — projected ${pct(p.projectedMarginPct)} net (${money(p.projectedNet)}).` });
+
+  // Prep over-prep — only once enough days are logged to trust the rate.
+  if ((i.wasteDaysLogged ?? 0) >= 3 && (i.overPrepCount ?? 0) > 0) {
+    const wc = i.recentWastedCost ?? 0;
+    out.push({
+      key: "prep_overprep",
+      tone: "concern",
+      text: wc > 0
+        ? `${i.overPrepCount} prep item${i.overPrepCount! > 1 ? "s" : ""} consistently over-prepped — about ${money(wc)} wasted recently. Trim batch sizes.`
+        : `${i.overPrepCount} prep item${i.overPrepCount! > 1 ? "s" : ""} consistently over-prepped — trim batch sizes.`,
+    });
+  } else if ((i.wasteDaysLogged ?? 0) >= 5 && (i.overPrepCount ?? 0) === 0) {
+    out.push({ key: "prep_yield_good", tone: "positive", text: "Prep yield is dialed in — almost nothing going to waste." });
+  }
 
   // Pull in any HIGH issues the manager must see.
   for (const d of dims) {

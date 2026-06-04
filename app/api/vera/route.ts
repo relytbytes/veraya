@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { veraComplete, aiEnabled } from "@/lib/openai";
 import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
+import { getWasteRollup } from "@/lib/prep-waste";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 import { getLearnedWeights } from "@/lib/vera-weights";
 import { localDateStr, dayWindow, localHourFloat, localDow, resolveTz } from "@/lib/time";
@@ -371,6 +372,9 @@ export async function GET(req: NextRequest) {
   const closeHour = parseHour(cfgMap.serviceClose, CLOSE_HOUR);
 
   // ── Economics-grounded diagnosis ─────────────────────────────────────────────
+  // Prep yield/waste rollup feeds Vera's Cost dimension (chronic over-prep).
+  const wasteRollup = await getWasteRollup(todayStr);
+
   const diag = buildDiagnosis({
     nowHour: localHourFloat(now, tz), openHour, closeHour,
     salesToday, ordersToday: todaySales._count,
@@ -384,6 +388,9 @@ export async function GET(req: NextRequest) {
     active86Count: active86.length,
     voidTotal, voidCount: voids.length, compTotal, compVoidReasons, compVoidReasonCounts,
     priceChangeCount: priceChanges.length,
+    overPrepCount: wasteRollup.overPrepCount,
+    recentWastedCost: wasteRollup.recentWastedCost,
+    wasteDaysLogged: wasteRollup.wasteDaysLogged,
     fixedDailyOverride, cogsTargetPct,
     expectedByNowFraction,
     avgCheckToday, avgCheckMean: baselines.avgCheckMean, avgCheckStdev: baselines.avgCheckStdev,
