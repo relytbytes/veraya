@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { formatTime12 } from "@/lib/utils";
 import { getPublicBrand } from "@/lib/brand";
 import Link from "next/link";
-import { CalendarDays, Clock, MapPin, Users, ArrowRight } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users, ArrowRight, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,14 @@ export default async function PublicEventsPage() {
         <div className="grid gap-6 sm:grid-cols-2">
           {events.map((event) => (
             <Link key={event.id} href={`/special-events/${event.id}`} className="group block">
-              <article className="h-full rounded-2xl border border-stone-200 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+              <article className="h-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                {event.imageUrl && (
+                  <div className="overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                  </div>
+                )}
+                <div className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-[11px] font-semibold tracking-[0.12em] uppercase px-3 py-1 rounded-full" style={{ backgroundColor: `${accent}14`, color: accent }}>
                     {formatDate(event.date)}
@@ -63,11 +70,24 @@ export default async function PublicEventsPage() {
                 <div className="mt-5 pt-4 border-t border-stone-100 flex items-center gap-1.5 text-sm font-semibold group-hover:gap-2.5 transition-all" style={{ color: accent }}>
                   {event.ticketingEnabled ? "Get tickets" : "View details"} <ArrowRight size={15} />
                 </div>
+                </div>
               </article>
             </Link>
           ))}
         </div>
       )}
+
+      {/* Host-a-private-event inquiry CTA — captures leads straight into Inquiries */}
+      <div className="mt-10 rounded-2xl border border-stone-200 bg-white p-7 sm:p-8 text-center shadow-sm">
+        <Sparkles size={22} className="mx-auto mb-3" style={{ color: accent }} />
+        <h3 className="font-display text-2xl sm:text-3xl text-stone-900">Planning something special?</h3>
+        <p className="text-[15px] text-stone-500 mt-2 max-w-md mx-auto leading-relaxed">
+          Wine dinners, private celebrations, corporate gatherings — tell us what you have in mind and we&rsquo;ll craft it with you.
+        </p>
+        <Link href="/special-events/inquire" className="inline-flex items-center gap-1.5 mt-5 rounded-xl px-5 py-2.5 text-sm font-semibold text-white" style={{ backgroundColor: accent }}>
+          Host a private event <ArrowRight size={15} />
+        </Link>
+      </div>
     </div>
   );
 }

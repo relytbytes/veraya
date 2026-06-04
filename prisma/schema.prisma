@@ -696,6 +696,7 @@ model Event {
   contactEmail  String?
   venue         String?
   status        String   @default("INQUIRY") // INQUIRY | CONFIRMED | COMPLETED | CANCELLED
+  imageUrl      String?  // hero image (pasted URL or compact data URL)
   notes         String?
   menuNotes     String?
   depositAmount Decimal?

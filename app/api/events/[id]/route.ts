@@ -33,7 +33,7 @@ export async function PATCH(
     notes?: string | null; menuNotes?: string | null;
     depositAmount?: number | null; depositPaid?: boolean;
     totalAmount?: number | null; customerId?: string | null;
-    ticketingEnabled?: boolean; ticketMode?: string;
+    ticketingEnabled?: boolean; ticketMode?: string; imageUrl?: string | null;
   };
 
   const existing = await prisma.event.findUnique({ where: { id } });
@@ -70,6 +70,7 @@ export async function PATCH(
       ...(body.customerId !== undefined && { customerId: body.customerId }),
       ...(body.ticketingEnabled !== undefined && { ticketingEnabled: body.ticketingEnabled }),
       ...(body.ticketMode !== undefined && { ticketMode: body.ticketMode }),
+      ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
     },
     include: { customer: { select: { id: true, name: true, phone: true } } },
   });

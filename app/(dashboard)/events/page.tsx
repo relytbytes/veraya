@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { cn, formatTime12 } from "@/lib/utils";
 import { EventTicketingPanel } from "./event-ticketing";
+import { EventImagePicker } from "./event-image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ interface EventRecord {
   contactEmail: string | null;
   venue: string | null;
   status: EventStatus;
+  imageUrl: string | null;
   notes: string | null;
   menuNotes: string | null;
   depositAmount: number | null;
@@ -156,6 +158,7 @@ function EventRow({ event, onRefresh }: EventRowProps) {
     guestCount: event.guestCount?.toString() ?? "",
     endTime: event.endTime ?? "",
   });
+  const [imageUrl, setImageUrl] = useState<string | null>(event.imageUrl ?? null);
 
   async function save() {
     setSaving(true);
@@ -172,6 +175,7 @@ function EventRow({ event, onRefresh }: EventRowProps) {
         venue: edit.venue || null,
         guestCount: edit.guestCount ? parseInt(edit.guestCount, 10) : null,
         endTime: edit.endTime || null,
+        imageUrl,
       }),
     });
     setSaving(false);
@@ -395,6 +399,9 @@ function EventRow({ event, onRefresh }: EventRowProps) {
               className="text-sm resize-none"
             />
           </div>
+
+          {/* Hero image */}
+          <EventImagePicker value={imageUrl} onChange={setImageUrl} />
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 pt-1 flex-wrap">

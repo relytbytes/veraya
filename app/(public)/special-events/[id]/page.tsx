@@ -43,6 +43,13 @@ export default async function PublicEventDetailPage({ params }: { params: Promis
           <ArrowLeft size={14} /> All Events
         </Link>
 
+        {event.imageUrl && (
+          <div className="mb-10 overflow-hidden rounded-2xl border border-stone-200 shadow-sm" style={{ aspectRatio: "16 / 7" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={event.imageUrl} alt={event.name} className="h-full w-full object-cover" />
+          </div>
+        )}
+
         <div className="grid gap-12 lg:grid-cols-[1fr_400px]">
           {/* Left — editorial details */}
           <div>
