@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, ScrollView, Alert, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getEventTicketing, eventOrderAction, type EventTicketingData, type EventAttendee } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
@@ -45,17 +45,17 @@ export function EventCheckIn({ eventId, eventName, visible, onClose }: { eventId
   );
   const s = data?.summary;
 
-  if (scanning) {
-    return (
-      <Modal visible animationType="slide" onRequestClose={() => setScanning(false)}>
-        <Scanner onScan={onScan} onClose={() => setScanning(false)} hint="Scan the guest's ticket QR" />
-      </Modal>
-    );
-  }
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: C.void }}>
+        {/* Scanner overlays the check-in list within the SAME modal. Swapping to a
+            separate <Modal> while this one is presented fails to appear on iOS
+            (the Scan button looks dead), so render it as a full-screen overlay. */}
+        {scanning && (
+          <View style={{ ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: "#000" }}>
+            <Scanner onScan={onScan} onClose={() => setScanning(false)} hint="Scan the guest's ticket QR" />
+          </View>
+        )}
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, borderBottomWidth: 1, borderColor: C.rim, backgroundColor: C.surface }}>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><Ionicons name="close" size={24} color={C.mist} /></TouchableOpacity>

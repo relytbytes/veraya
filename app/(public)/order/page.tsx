@@ -175,7 +175,7 @@ export default function OrderPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guestName: guest.name,
-          guestPhone: guest.phone || undefined,
+          guestPhone: guest.phone,
           notes: guest.notes || undefined,
           items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
         }),
@@ -387,11 +387,10 @@ export default function OrderPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
               type="tel"
+              required
               value={guest.phone}
               onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))}
               placeholder="(555) 000-0000"
@@ -417,7 +416,7 @@ export default function OrderPage() {
 
           <button
             onClick={placeOrder}
-            disabled={!guest.name.trim() || placing}
+            disabled={!guest.name.trim() || !guest.phone.trim() || placing}
             className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
           >
             {placing && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -1745,7 +1745,7 @@ export default function POSScreen() {
                             {hasAvailFit ? (
                               <Text style={{ fontSize: 10, fontWeight: "700", color: C.jade }}>TABLE READY</Text>
                             ) : (
-                              <Text style={{ fontSize: 10, fontWeight: "600", color: C.smoke }}>~{waitMins}m</Text>
+                              <Text style={{ fontSize: 10, fontWeight: "600", color: C.smoke }}>{waitMins}m</Text>
                             )}
                           </View>
                           <Text style={{ fontSize: 11, color: C.mist }}>{entry.partySize} guests · waited {elapsedLabel(entry.addedAt, tick)}</Text>

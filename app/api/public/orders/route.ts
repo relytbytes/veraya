@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
     items: { menuItemId: string; quantity: number; notes?: string }[];
   };
 
-  if (!guestName || !items || items.length === 0) {
+  if (!guestName || !guestPhone?.trim() || !items || items.length === 0) {
     return Response.json(
-      { error: "guestName and items are required" },
+      { error: "guestName, guestPhone and items are required" },
       { status: 400 }
     );
   }

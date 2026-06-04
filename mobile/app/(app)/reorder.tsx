@@ -666,7 +666,7 @@ export default function ReorderScreen() {
                           {(item.daysUntilOut != null || (item.dailyUsage != null && item.dailyUsage > 0)) && (
                             <Text className="text-xs mt-0.5" style={{ color: item.daysUntilOut != null && item.daysUntilOut <= 2 ? C.coral : C.smoke }}>
                               {item.daysUntilOut != null
-                                ? `~${item.daysUntilOut === 0 ? "out today" : `${item.daysUntilOut} day${item.daysUntilOut === 1 ? "" : "s"} left`}`
+                                ? `${item.daysUntilOut === 0 ? "out today" : `${item.daysUntilOut} day${item.daysUntilOut === 1 ? "" : "s"} left`}`
                                 : ""}
                               {item.daysUntilOut != null && item.dailyUsage ? " · " : ""}
                               {item.dailyUsage ? `${item.dailyUsage.toFixed(item.dailyUsage < 10 ? 1 : 0)}/day burn` : ""}

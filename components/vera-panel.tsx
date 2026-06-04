@@ -254,9 +254,9 @@ export function VeraPanel() {
     if (p.severity === "out") return "out now";
     if (p.estimatedRunsOut) {
       const t = new Date(p.estimatedRunsOut);
-      return `~${t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      return `${t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
     }
-    if (p.hoursUntilMin != null) return `~${p.hoursUntilMin.toFixed(1)}h`;
+    if (p.hoursUntilMin != null) return `${p.hoursUntilMin.toFixed(1)}h`;
     return "soon";
   }
 

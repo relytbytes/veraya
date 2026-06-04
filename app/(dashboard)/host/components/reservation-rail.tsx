@@ -266,7 +266,7 @@ function WaitRow({ e, position, tables, onSelect, onNotify }: {
           <span className="text-xs font-medium" style={{ color: waitColor }}>
             <Clock className="h-3 w-3 inline mr-0.5" />{fmtElapsed(e.addedAt)}
           </span>
-          <span className="text-[10px] text-gray-500">~{remaining === 0 ? "ready" : `${remaining}m`}</span>
+          <span className="text-[10px] text-gray-500">{remaining === 0 ? "ready" : `${remaining}m`}</span>
         </div>
       </div>
       {e.phone && (

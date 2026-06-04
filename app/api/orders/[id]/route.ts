@@ -16,6 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       table: true,
       server: { select: { id: true, name: true } },
+      reservation: { select: { id: true, name: true, date: true, time: true } },
       items: { include: { menuItem: { include: { category: true } } } },
       payments: true,
     },

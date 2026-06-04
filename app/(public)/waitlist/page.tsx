@@ -64,7 +64,7 @@ export default function WaitlistJoinPage() {
               <p className="text-xs text-gray-600 mt-1">in line</p>
             </div>
             <div className="flex-1 rounded-xl bg-gray-50 border border-gray-200 p-4">
-              <p className="text-3xl font-bold text-gray-900">~{joined.estWaitMins}</p>
+              <p className="text-3xl font-bold text-gray-900">{joined.estWaitMins}</p>
               <p className="text-xs text-gray-500 mt-1">min estimated</p>
             </div>
           </div>
@@ -107,11 +107,11 @@ export default function WaitlistJoinPage() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Mobile number</label>
-          <input type="tel" inputMode="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 000-0000" className={input} style={{ ["--tw-ring-color" as string]: accent }} />
+          <input type="tel" inputMode="tel" required value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 000-0000" className={input} style={{ ["--tw-ring-color" as string]: accent }} />
           <p className="flex items-center gap-1 text-xs text-gray-400 mt-1.5"><Clock className="h-3 w-3" />We&apos;ll text you when your table&apos;s ready.</p>
         </div>
         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg">{error}</p>}
-        <button type="button" disabled={loading || !form.name.trim()} onClick={submit}
+        <button type="button" disabled={loading || !form.name.trim() || !form.phone.trim()} onClick={submit}
           className="w-full py-3.5 rounded-xl disabled:opacity-50 text-white font-semibold text-base flex items-center justify-center gap-2 transition-opacity"
           style={{ background: accent }}>
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -1215,7 +1215,7 @@ export default function SettingsPage() {
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {simRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FlaskConical className="h-4 w-4 mr-1.5" />}
-                Generate {simDays}d × ~{simOrdersPerDay}/day
+                Generate {simDays}d × {simOrdersPerDay}/day
               </Button>
               <Button
                 variant="outline"

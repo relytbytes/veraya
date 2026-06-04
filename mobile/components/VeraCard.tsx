@@ -89,8 +89,8 @@ export function VeraCard() {
 
   function runsOut(p: { severity: string; estimatedRunsOut: string | null; hoursUntilMin: number | null }): string {
     if (p.severity === "out") return "out now";
-    if (p.estimatedRunsOut) return "~" + new Date(p.estimatedRunsOut).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (p.hoursUntilMin != null) return `~${p.hoursUntilMin.toFixed(1)}h`;
+    if (p.estimatedRunsOut) return new Date(p.estimatedRunsOut).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (p.hoursUntilMin != null) return `${p.hoursUntilMin.toFixed(1)}h`;
     return "soon";
   }
 

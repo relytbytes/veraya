@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     include: {
       table: true,
       server: { select: { id: true, name: true } },
+      reservation: { select: { id: true, name: true, date: true, time: true } },
       items: { include: { menuItem: { include: { category: true } } } },
       payments: true,
     },
@@ -86,11 +87,28 @@ export async function POST(req: NextRequest) {
     }
     let validTableId: string | null = null;
     let tableCustomerId: string | null = null;
+    let seatedAt: Date | null = null;
+    let dineGuestName: string | null = null;
+    let reservationId: string | null = null;
     if (tableId) {
-      const tbl = await prisma.table.findUnique({ where: { id: tableId }, select: { id: true, customerId: true } });
+      const tbl = await prisma.table.findUnique({ where: { id: tableId }, select: { id: true, customerId: true, seatedAt: true, guestName: true } });
       if (!tbl) return Response.json({ error: "That table no longer exists. Refresh and try again." }, { status: 400 });
       validTableId = tbl.id;
       tableCustomerId = tbl.customerId; // link the dine-in order to the seated guest
+      seatedAt = tbl.seatedAt;          // when the party was actually seated
+      dineGuestName = tbl.guestName;    // party name shown at the table
+
+      // Link the check back to the reservation that seated this table (if any), so
+      // a check can be looked up by guest name / dined time / table number later.
+      const seatedRes = await prisma.reservation.findFirst({
+        where: { tableId: tbl.id, status: "SEATED" },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, name: true },
+      });
+      if (seatedRes) {
+        reservationId = seatedRes.id;
+        if (!dineGuestName) dineGuestName = seatedRes.name;
+      }
     }
 
     // One timestamp for the whole batch so everything fired together reads as a
@@ -103,6 +121,9 @@ export async function POST(req: NextRequest) {
         tableId: validTableId,
         userId: validUserId,
         customerId: tableCustomerId,
+        reservationId,
+        seatedAt,
+        guestName: dineGuestName,
         type: (type as never) ?? "DINE_IN",
         notes,
         subtotal,

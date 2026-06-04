@@ -134,7 +134,7 @@ export default function PreShiftPage() {
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                         <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{e.insights.visits} visit{e.insights.visits === 1 ? "" : "s"}</span>
                         {e.insights.avgCheckCents > 0 && <span>avg {money(e.insights.avgCheckCents)}</span>}
-                        {e.insights.avgDwellMins && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />~{e.insights.avgDwellMins}m</span>}
+                        {e.insights.avgDwellMins && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{e.insights.avgDwellMins}m</span>}
                         {e.insights.avgTipPct != null && <span>tips {e.insights.avgTipPct}%</span>}
                         {e.insights.favoriteItems.length > 0 && (
                           <span className="truncate">loves {e.insights.favoriteItems.map((f) => f.name).slice(0, 2).join(", ")}</span>

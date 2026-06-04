@@ -65,7 +65,7 @@ function GuestRow({ e }: { e: PreShiftEntry }) {
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
           <Text style={{ fontSize: 11, color: C.mist }}>{ins.visits} visit{ins.visits === 1 ? "" : "s"}</Text>
           {ins.avgCheckCents > 0 && <Text style={{ fontSize: 11, color: C.mist }}>avg {money(ins.avgCheckCents)}</Text>}
-          {ins.avgDwellMins ? <Text style={{ fontSize: 11, color: C.mist }}>~{ins.avgDwellMins}m</Text> : null}
+          {ins.avgDwellMins ? <Text style={{ fontSize: 11, color: C.mist }}>{ins.avgDwellMins}m</Text> : null}
           {ins.avgTipPct != null && <Text style={{ fontSize: 11, color: C.mist }}>tips {ins.avgTipPct}%</Text>}
           {ins.favoriteItems.length > 0 && (
             <Text style={{ fontSize: 11, color: C.mist, flexShrink: 1 }} numberOfLines={1}>loves {ins.favoriteItems.slice(0, 2).map((f) => f.name).join(", ")}</Text>

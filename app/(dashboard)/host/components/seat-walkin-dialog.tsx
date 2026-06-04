@@ -142,7 +142,7 @@ export function SeatWalkInDialog({
             </div>
             <div>
               <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="For waitlist text" />
+              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 000-0000" />
             </div>
           </div>
           {!targetTable && (

@@ -16,8 +16,11 @@ interface CheckOrder {
   id: string; status: string; type: string;
   subtotal: number | string; tax: number | string; total: number | string;
   createdAt: string;
+  seatedAt?: string | null;
+  guestName?: string | null;
   table: { number: number } | null;
   server?: { name: string } | null;
+  reservation?: { name: string; date: string; time: string } | null;
   items: CheckItem[];
   payments: CheckPayment[];
 }
@@ -38,7 +41,7 @@ function receiptHtml(o: CheckOrder): string {
     .muted{color:#666;text-align:center;font-size:11px}hr{border:none;border-top:1px dashed #999;margin:8px 0}
     .tot td{font-weight:bold}</style></head><body>
     <h2>REPRINT</h2>
-    <p class="muted">${where} · ${new Date(o.createdAt).toLocaleString()}<br/>${o.server?.name ? "Server: " + o.server.name + " · " : ""}Check #${o.id.slice(-6)}</p>
+    <p class="muted">${where}${o.guestName ? " · " + o.guestName : ""} · ${new Date(o.seatedAt ?? o.createdAt).toLocaleString()}<br/>${o.server?.name ? "Server: " + o.server.name + " · " : ""}Check #${o.id.slice(-6)}</p>
     <hr/><table>${rows}</table><hr/>
     <table><tr><td>Subtotal</td><td style="text-align:right">${num(o.subtotal).toFixed(2)}</td></tr>
     <tr><td>Tax</td><td style="text-align:right">${num(o.tax).toFixed(2)}</td></tr>
@@ -91,8 +94,11 @@ export function CheckDetailModal({ orderId, onClose }: { orderId: string; onClos
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-gray-900">{where}</p>
-                <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleString()}{order.server?.name ? ` · ${order.server.name}` : ""} · #{order.id.slice(-6)}</p>
+                <p className="font-semibold text-gray-900">{where}{order.guestName ? ` · ${order.guestName}` : ""}</p>
+                <p className="text-xs text-gray-400">
+                  {order.seatedAt ? `Dined ${new Date(order.seatedAt).toLocaleString()}` : new Date(order.createdAt).toLocaleString()}
+                  {order.server?.name ? ` · ${order.server.name}` : ""} · #{order.id.slice(-6)}
+                </p>
               </div>
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{order.status}</span>
             </div>
@@ -129,7 +135,7 @@ export function CheckDetailModal({ orderId, onClose }: { orderId: string; onClos
   );
 }
 
-interface LookupOrder { id: string; total: number | string; createdAt: string; status: string; type: string; table: { number: number } | null; items: { id: string }[] }
+interface LookupOrder { id: string; total: number | string; createdAt: string; seatedAt?: string | null; guestName?: string | null; status: string; type: string; table: { number: number } | null; items: { id: string }[] }
 
 /** A "look up a check" button + search over recent orders, opening the detail modal. */
 export function CheckLookup() {
@@ -154,6 +160,7 @@ export function CheckLookup() {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
     return (o.table ? `table ${o.table.number}` : o.type).toLowerCase().includes(s)
+      || (o.guestName ?? "").toLowerCase().includes(s)
       || o.id.slice(-6).includes(s)
       || num(o.total).toFixed(2).includes(s);
   });
@@ -174,7 +181,7 @@ export function CheckLookup() {
             <div className="p-3 border-b border-gray-100">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Table, check #, or amount…"
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest name, table, check #, or amount…"
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
               </div>
             </div>
@@ -188,8 +195,11 @@ export function CheckLookup() {
                   {filtered.slice(0, 50).map((o) => (
                     <button key={o.id} onClick={() => setDetailId(o.id)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 text-left">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{o.table ? `Table ${o.table.number}` : o.type === "TAKEOUT" ? "Takeout" : "Dine In"}</p>
-                        <p className="text-xs text-gray-400">#{o.id.slice(-6)} · {o.items.length} items · {new Date(o.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {o.table ? `Table ${o.table.number}` : o.type === "TAKEOUT" ? "Takeout" : "Dine In"}
+                          {o.guestName ? ` · ${o.guestName}` : ""}
+                        </p>
+                        <p className="text-xs text-gray-400">#{o.id.slice(-6)} · {o.items.length} items · {new Date(o.seatedAt ?? o.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
                       </div>
                       <span className="text-sm font-semibold tabular-nums">{formatCurrency(num(o.total))}</span>
                     </button>

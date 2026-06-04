@@ -333,7 +333,7 @@ export function HostStandMode({
                             <Text style={{ fontSize: 9, fontWeight: "800", color: C.jade }}>TABLE READY</Text>
                           </View>
                         ) : (
-                          <Text style={{ fontSize: 11, color: waitedMins > 30 ? C.coral : C.smoke, fontWeight: "600" }}>~{waitMins}m</Text>
+                          <Text style={{ fontSize: 11, color: waitedMins > 30 ? C.coral : C.smoke, fontWeight: "600" }}>{waitMins}m</Text>
                         )}
                       </View>
                       <Text style={{ fontSize: 11, color: C.mist, marginTop: 1 }}>
