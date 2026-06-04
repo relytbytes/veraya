@@ -271,7 +271,7 @@ export default function BookPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Phone</Label>
-                <input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 000-0000" className={input} />
+                <input type="tel" required value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(555) 000-0000" className={input} />
               </div>
               <div>
                 <Label>Email</Label>

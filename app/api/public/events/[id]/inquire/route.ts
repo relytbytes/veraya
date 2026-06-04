@@ -29,6 +29,9 @@ export async function POST(
   if (!body.email?.trim()) {
     return Response.json({ error: "email is required" }, { status: 400 });
   }
+  if (!body.phone?.trim()) {
+    return Response.json({ error: "phone is required" }, { status: 400 });
+  }
 
   // Create a Reservation linked to the event's date as a PENDING inquiry
   const reservation = await prisma.reservation.create({

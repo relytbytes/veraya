@@ -198,8 +198,8 @@ function CustomerForm({
           <Text style={{ fontSize: 15, fontWeight: "700", color: C.pearl }}>{title}</Text>
           <TouchableOpacity
             onPress={() => {
-              if (!form.name.trim()) {
-                Alert.alert("Name required", "Please enter a customer name.");
+              if (!form.name.trim() || !form.phone.trim()) {
+                Alert.alert("Required", "Name and phone are both required.");
                 return;
               }
               onSave(form);

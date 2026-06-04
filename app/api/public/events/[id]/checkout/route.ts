@@ -16,8 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const email = body.email?.trim();
   const items = (body.items ?? []).filter((i) => i.tierId && i.quantity > 0);
 
-  if (!name || !email || items.length === 0) {
-    return Response.json({ error: "Name, email and at least one ticket are required." }, { status: 400 });
+  if (!name || !email || !body.phone?.trim() || items.length === 0) {
+    return Response.json({ error: "Name, email, phone and at least one ticket are required." }, { status: 400 });
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return Response.json({ error: "Enter a valid email." }, { status: 400 });

@@ -48,7 +48,7 @@ export function ReservationFormDialog({
             </div>
           </div>
           <div>
-            <Label>Phone (optional)</Label>
+            <Label>Phone</Label>
             <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Phone" />
           </div>
           <div>

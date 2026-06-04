@@ -33,7 +33,7 @@ export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: stri
 
   async function checkout() {
     setError(null);
-    if (!name.trim() || !email.trim()) { setError("Enter your name and email."); return; }
+    if (!name.trim() || !email.trim() || !phone.trim()) { setError("Name, email and phone are required."); return; }
     if (seats === 0) { setError("Choose at least one ticket."); return; }
     setLoading(true);
     try {
@@ -102,7 +102,7 @@ export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: stri
           <div className="space-y-2.5 mb-4">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={field} />
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" className={field} />
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" type="tel" className={field} />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" type="tel" className={field} />
           </div>
 
           {seats > 0 && (

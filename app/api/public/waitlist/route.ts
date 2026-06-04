@@ -11,8 +11,8 @@ export async function POST(req: NextRequest) {
     const { name, partySize, phone } = (await req.json()) as {
       name?: string; partySize?: number; phone?: string;
     };
-    if (!name?.trim() || !partySize) {
-      return Response.json({ error: "name and partySize are required" }, { status: 400 });
+    if (!name?.trim() || !partySize || !phone?.trim()) {
+      return Response.json({ error: "name, partySize and phone are required" }, { status: 400 });
     }
     const size = Number(partySize);
 

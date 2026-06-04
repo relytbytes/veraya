@@ -919,7 +919,7 @@ export default function POSScreen() {
                         />
                         <TextInput
                           style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: C.pearl }}
-                          placeholder="Phone (optional)"
+                          placeholder="Phone"
                           placeholderTextColor={C.smoke}
                           keyboardType="phone-pad"
                           autoComplete="tel"
@@ -962,8 +962,8 @@ export default function POSScreen() {
                         )}
                         <TouchableOpacity
                           onPress={() => seatParty(seatModal, { guestName: walkInName, phone: walkInPhone, partySize: parseInt(walkInParty, 10) || 2, serverId: walkInServerId || undefined })}
-                          disabled={seating || !walkInName.trim()}
-                          style={{ paddingVertical: 16, borderRadius: 16, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, backgroundColor: seating || !walkInName.trim() ? C.surfaceHi : C.gold, ...shadow.gold }}
+                          disabled={seating || !walkInName.trim() || !walkInPhone.trim()}
+                          style={{ paddingVertical: 16, borderRadius: 16, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, backgroundColor: seating || !walkInName.trim() || !walkInPhone.trim() ? C.surfaceHi : C.gold, ...shadow.gold }}
                         >
                           {seating ? <ActivityIndicator color={C.void} /> : (
                             <>

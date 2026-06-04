@@ -13,8 +13,9 @@ export async function POST(req: NextRequest) {
   };
   const name = body.name?.trim();
   const email = body.email?.trim();
-  if (!name || !email) {
-    return Response.json({ error: "Name and email are required." }, { status: 400 });
+  const phone = body.phone?.trim();
+  if (!name || !email || !phone) {
+    return Response.json({ error: "Name, email and phone are required." }, { status: 400 });
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return Response.json({ error: "Enter a valid email." }, { status: 400 });

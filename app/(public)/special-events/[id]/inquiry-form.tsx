@@ -35,6 +35,7 @@ export function EventInquiryForm({ eventId, eventName, guestCount }: EventInquir
       setError("Please enter a valid email address.");
       return;
     }
+    if (!form.phone.trim()) { setError("Please enter your phone number."); return; }
 
     setLoading(true);
     try {

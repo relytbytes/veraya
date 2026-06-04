@@ -141,7 +141,7 @@ export function SeatWalkInDialog({
               <Input type="number" min={1} value={form.partySize} onChange={(e) => set("partySize", e.target.value)} />
             </div>
             <div>
-              <Label>Phone (optional)</Label>
+              <Label>Phone</Label>
               <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="For waitlist text" />
             </div>
           </div>

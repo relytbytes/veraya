@@ -91,10 +91,10 @@ export function StationHost({ onExit }: { onExit: () => void }) {
   }
 
   async function addWaitlist() {
-    if (!wlName.trim()) { Alert.alert("Required", "Enter a name."); return; }
+    if (!wlName.trim() || !wlPhone.trim()) { Alert.alert("Required", "Enter a name and phone number."); return; }
     setBusy(true);
     try {
-      await createWaitlistEntry({ name: wlName.trim(), partySize: Number(wlParty) || 2, phone: wlPhone.trim() || undefined });
+      await createWaitlistEntry({ name: wlName.trim(), partySize: Number(wlParty) || 2, phone: wlPhone.trim() });
       setWaitlistOpen(false); setWlName(""); setWlParty("2"); setWlPhone(""); waitQ.refetch();
     } catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
     finally { setBusy(false); }
@@ -256,7 +256,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
                 <TouchableOpacity onPress={() => setWaitlistOpen(false)}><Ionicons name="close" size={22} color={C.mist} /></TouchableOpacity>
               </View>
               <TextInput value={wlName} onChangeText={setWlName} placeholder="Guest name" placeholderTextColor={C.smoke} style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.pearl }} />
-              <TextInput value={wlPhone} onChangeText={setWlPhone} placeholder="Phone (optional)" placeholderTextColor={C.smoke} keyboardType="phone-pad" style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.pearl }} />
+              <TextInput value={wlPhone} onChangeText={setWlPhone} placeholder="Phone" placeholderTextColor={C.smoke} keyboardType="phone-pad" style={{ backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.pearl }} />
               <View style={{ flexDirection: "row", gap: 6 }}>
                 {["1", "2", "3", "4", "5", "6", "8"].map((n) => (
                   <TouchableOpacity key={n} onPress={() => setWlParty(n)} style={{ flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: "center", backgroundColor: wlParty === n ? C.gold : C.surfaceHi }}>

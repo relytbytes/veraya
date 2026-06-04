@@ -547,7 +547,7 @@ function DetailSheet({
   const tablesQ = useQuery({ queryKey: ["tables"], queryFn: getTables, enabled: seating });
 
   async function handleSave() {
-    if (!name.trim()) { Alert.alert("Required", "Name is required."); return; }
+    if (!name.trim() || !phone.trim()) { Alert.alert("Required", "Name and phone are required."); return; }
     const timeRegex = /^\d{1,2}:\d{2}$/;
     if (!timeRegex.test(time.trim())) { Alert.alert("Invalid", "Time must be HH:MM format."); return; }
     setSaving(true);

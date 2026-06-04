@@ -17,7 +17,7 @@ export function InquiryForm({ accent }: { accent: string }) {
 
   async function submit() {
     setError(null);
-    if (!form.name.trim() || !form.email.trim()) { setError("Name and email are required."); return; }
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) { setError("Name, email and phone are required."); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/public/events/inquire", {
@@ -50,7 +50,7 @@ export function InquiryForm({ accent }: { accent: string }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Your name" className={field} />
         <input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="Email" type="email" className={field} />
-        <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Phone (optional)" type="tel" className={field} />
+        <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Phone" type="tel" className={field} />
         <select value={form.eventType} onChange={(e) => set("eventType", e.target.value)} className={field}>
           {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>

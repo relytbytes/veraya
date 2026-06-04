@@ -20,9 +20,9 @@ export async function POST(req: NextRequest) {
       cardBrand?: string;
     };
 
-    if (!date || !time || !partySize || !name) {
+    if (!date || !time || !partySize || !name || !phone) {
       return Response.json(
-        { error: "date, time, partySize, and name are required" },
+        { error: "date, time, partySize, name and phone are required" },
         { status: 400 },
       );
     }
