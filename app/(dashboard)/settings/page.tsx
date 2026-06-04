@@ -70,6 +70,11 @@ export default function SettingsPage() {
     publicWaitlistEnabled: true,
   });
   const [holidays, setHolidays] = useState<{ date: string; name: string; closed: boolean; open?: string; close?: string }[]>([]);
+  // Per-day-of-week hours (#11). enabled=false closes the day to reservations.
+  const [weeklyHours, setWeeklyHours] = useState<{ open: string; close: string; enabled: boolean }[]>(
+    Array.from({ length: 7 }, () => ({ open: "11:00", close: "22:00", enabled: true }))
+  );
+  const [usePerDayHours, setUsePerDayHours] = useState(false);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "", closed: true, open: "", close: "" });
   const [resvSaving, setResvSaving] = useState(false);
   const [resvSaved, setResvSaved] = useState(false);
@@ -166,11 +171,31 @@ export default function SettingsPage() {
         publicWaitlistEnabled: data.publicWaitlistEnabled !== "false",
       }));
       if (data.holidays) { try { setHolidays(JSON.parse(data.holidays)); } catch { /* ignore */ } }
+      if (data.reservationHours) {
+        try {
+          const rh = JSON.parse(data.reservationHours);
+          const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+          setWeeklyHours(days.map((d) => ({ open: rh[d]?.open ?? "11:00", close: rh[d]?.close ?? "22:00", enabled: rh[d]?.enabled ?? true })));
+          setUsePerDayHours(true);
+        } catch { /* ignore */ }
+      }
     }
   }
 
   async function saveResv(nextHolidays?: typeof holidays) {
     setResvSaving(true);
+    // When per-day hours are on, write the advanced reservationHours config; when
+    // off, blank it so reservations fall back to the simple service window.
+    let reservationHours = "";
+    if (usePerDayHours) {
+      let served: Record<string, boolean> = { breakfast: true, lunch: true, dinner: true };
+      try { served = { ...served, ...JSON.parse(settings.servedDayparts) }; } catch { /* defaults */ }
+      const periods = (["breakfast", "lunch", "dinner"] as const).filter((p) => served[p] !== false);
+      const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const cfg: Record<string, unknown> = { slotInterval: 30, maxPartySize: 10, bufferMins: 0 };
+      days.forEach((d, i) => { cfg[d] = { ...weeklyHours[i], periods }; });
+      reservationHours = JSON.stringify(cfg);
+    }
     await fetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -179,6 +204,7 @@ export default function SettingsPage() {
         autoNoShowMinutes: resv.autoNoShowMinutes,
         publicWaitlistEnabled: String(resv.publicWaitlistEnabled),
         holidays: JSON.stringify(nextHolidays ?? holidays),
+        reservationHours,
       }),
     });
     setResvSaving(false);
@@ -703,6 +729,47 @@ export default function SettingsPage() {
                   <span className="text-sm text-gray-600">Grace period</span>
                   <Input type="number" min="1" className="w-20 h-8" value={resv.autoNoShowMinutes} onChange={(e) => setResv({ ...resv, autoNoShowMinutes: e.target.value })} />
                   <span className="text-sm text-gray-600">minutes past reservation time</span>
+                </div>
+              )}
+            </div>
+
+            {/* Per-day-of-week hours (#11) */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label>Different hours per day of week</Label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Off → reservations use the single service window above. On → set each day, and close days you&apos;re dark.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUsePerDayHours(!usePerDayHours)}
+                  className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", usePerDayHours ? "bg-teal-500" : "bg-gray-300")}
+                >
+                  <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all", usePerDayHours ? "left-[22px]" : "left-0.5")} />
+                </button>
+              </div>
+              {usePerDayHours && (
+                <div className="space-y-1.5">
+                  {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((dn, i) => (
+                    <div key={dn} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWeeklyHours((w) => w.map((d, j) => j === i ? { ...d, enabled: !d.enabled } : d))}
+                        className={cn("w-24 text-left text-sm font-medium px-2 py-1 rounded-md border", weeklyHours[i].enabled ? "border-gray-200 text-gray-700" : "border-gray-100 text-gray-300 line-through")}
+                      >
+                        {dn}
+                      </button>
+                      {weeklyHours[i].enabled ? (
+                        <>
+                          <Input type="time" className="h-8 w-28" value={weeklyHours[i].open} onChange={(e) => setWeeklyHours((w) => w.map((d, j) => j === i ? { ...d, open: e.target.value } : d))} />
+                          <span className="text-gray-400">–</span>
+                          <Input type="time" className="h-8 w-28" value={weeklyHours[i].close} onChange={(e) => setWeeklyHours((w) => w.map((d, j) => j === i ? { ...d, close: e.target.value } : d))} />
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">Closed</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
