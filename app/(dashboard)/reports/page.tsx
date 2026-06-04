@@ -848,7 +848,7 @@ export default function ReportsPage() {
 
         {/* Labor Breakdown */}
         {(data?.laborBreakdown?.length ?? 0) > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">Labor Breakdown</h3>
             </div>
@@ -884,7 +884,7 @@ export default function ReportsPage() {
         {/* Top Items Table */}
         <Card>
           <CardHeader><CardTitle className="text-sm">Top Selling Items — Detail</CardTitle></CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             {!data || data.enrichedTopItems.length === 0 ? (
               <p className="text-center text-gray-400 py-8 text-sm">No sales data yet</p>
             ) : (
@@ -1376,7 +1376,7 @@ function SchedulingTab({ data, loading }: { data: SchedData | null; loading: boo
           <CardTitle className="text-sm">Day-of-Week Staffing Guide</CardTitle>
           <p className="text-xs text-gray-400 -mt-1">Based on last 90 days of sales history</p>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -1413,7 +1413,7 @@ function SchedulingTab({ data, loading }: { data: SchedData | null; loading: boo
       {/* Role Breakdown */}
       <Card>
         <CardHeader><CardTitle className="text-sm">Labor by Role</CardTitle></CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -1448,7 +1448,7 @@ function SchedulingTab({ data, loading }: { data: SchedData | null; loading: boo
       {/* Staff Detail Table */}
       <Card>
         <CardHeader><CardTitle className="text-sm">Staff Detail</CardTitle></CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
