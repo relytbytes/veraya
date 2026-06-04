@@ -15,6 +15,7 @@ import { VeraPanel } from "@/components/vera-panel";
 import { rotatingGreeting, randomGreeting } from "@/lib/greeting";
 import { VeraForecast } from "@/components/vera-forecast";
 import { VeraSetupGuide } from "@/components/vera-setup-guide";
+import { CheckLookup, CheckDetailModal } from "./check-lookup";
 
 // ── Role-based access ─────────────────────────────────────────────────────────
 
@@ -78,12 +79,11 @@ interface DashboardStats {
   lowStockAlerts: LowStockAlert[];
 }
 
-const ACTIVE_STATUSES = new Set(["OPEN", "IN_PROGRESS", "READY"]);
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function DashboardClient({ role, name }: { role: string; name: string | null }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [checkId, setCheckId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -246,9 +246,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
                 <TrendingUp className="h-4 w-4 text-gray-500" />
                 Recent Orders
               </CardTitle>
-              <Link href="/reports" className="text-xs text-amber-600 hover:underline font-medium">
-                View all →
-              </Link>
+              <CheckLookup />
             </CardHeader>
             <CardContent>
               {!stats || stats.recentOrders.length === 0 ? (
@@ -256,13 +254,11 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
               ) : (
                 <div className="divide-y divide-gray-50">
                   {stats.recentOrders.map((order) => {
-                    const isActive = ACTIVE_STATUSES.has(order.status);
-                    const href = isActive ? "/pos?view=floorplan" : "/reports";
                     return (
-                      <Link
+                      <button
                         key={order.id}
-                        href={href}
-                        className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors group"
+                        onClick={() => setCheckId(order.id)}
+                        className="w-full text-left flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors group"
                       >
                         <div>
                           <p className="text-sm font-medium text-gray-900 group-hover:text-amber-700 transition-colors">
@@ -287,7 +283,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
                           </div>
                           <ChevronRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-amber-400 transition-colors" />
                         </div>
-                      </Link>
+                      </button>
                     );
                   })}
                 </div>
@@ -350,6 +346,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
           </Card>
         </div>}
       </div>
+      {checkId && <CheckDetailModal orderId={checkId} onClose={() => setCheckId(null)} />}
     </div>
   );
 }
