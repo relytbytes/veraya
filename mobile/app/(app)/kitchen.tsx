@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndic
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getKitchenOrders, kitchenAction } from "@/lib/api";
+import { getKitchenOrders, kitchenAction, addEightySix } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { fireRounds } from "@/lib/fire-rounds";
 import type { Order } from "@/lib/api";
@@ -52,6 +52,21 @@ export default function KitchenScreen() {
     } finally {
       setBumping(null);
     }
+  }
+
+  // 86 an item straight off the line (#23) — long-press a ticket item.
+  function eightySix(menuItemId: string, name: string) {
+    Alert.alert(`86 ${name}?`, "Mark this item unavailable. It'll be flagged across the POS and host stand.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "86 it",
+        style: "destructive",
+        onPress: async () => {
+          try { await addEightySix(menuItemId); Alert.alert("86'd", `${name} is now marked unavailable.`); }
+          catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+        },
+      },
+    ]);
   }
 
   async function toggleItem(orderId: string, itemId: string, completed: boolean) {
@@ -185,6 +200,7 @@ export default function KitchenScreen() {
                           key={item.id}
                           disabled={locked}
                           onPress={() => { if (!locked) toggleItem(order.id, item.id, !item.completedAt); }}
+                          onLongPress={() => eightySix(item.menuItem.id, item.menuItem.name)}
                           style={{
                             flexDirection: "row", alignItems: "center", gap: 10,
                             paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,

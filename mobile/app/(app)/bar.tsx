@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator, Alert,
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getBarOrders, kitchenAction } from "@/lib/api";
+import { getBarOrders, kitchenAction, addEightySix } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { fireRounds } from "@/lib/fire-rounds";
 import type { Order } from "@/lib/api";
@@ -56,6 +56,21 @@ export default function BarScreen() {
   async function toggleItem(orderId: string, itemId: string, completed: boolean) {
     await kitchenAction({ orderId, orderItemId: itemId, action: completed ? "complete" : "uncomplete", station: "BAR" });
     qc.invalidateQueries({ queryKey: ["bar"] });
+  }
+
+  // 86 a drink straight off the bar display (#23) — long-press a ticket item.
+  function eightySix(menuItemId: string, name: string) {
+    Alert.alert(`86 ${name}?`, "Mark this drink unavailable across the POS and host stand.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "86 it",
+        style: "destructive",
+        onPress: async () => {
+          try { await addEightySix(menuItemId); Alert.alert("86'd", `${name} is now marked unavailable.`); }
+          catch (e: unknown) { Alert.alert("Error", e instanceof Error ? e.message : "Failed"); }
+        },
+      },
+    ]);
   }
 
   return (
@@ -139,6 +154,7 @@ export default function BarScreen() {
                           key={item.id}
                           disabled={locked}
                           onPress={() => { if (!locked) toggleItem(order.id, item.id, !item.completedAt); }}
+                          onLongPress={() => eightySix(item.menuItem.id, item.menuItem.name)}
                           style={{
                             flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12,
                             backgroundColor: item.completedAt ? T.jade : item.sentAt ? T.ember : C.surfaceHi,
