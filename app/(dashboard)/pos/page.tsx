@@ -1266,21 +1266,28 @@ export default function POSPage() {
                           >
                             <ChevronLeft className="h-3.5 w-3.5" /> Back
                           </button>
-                          {parentCat && (
-                            <button onClick={() => setActiveCat(parentCat.id)} className={cn(chip, activeCat === parentCat.id ? on : off)}>
-                              All {parentCat.name}
-                            </button>
-                          )}
+                          {parentCat && (() => {
+                            const acc = tileAccent(parentCat.id);
+                            const active = activeCat === parentCat.id;
+                            return (
+                              <button onClick={() => setActiveCat(parentCat.id)} className={chip}
+                                style={active ? { backgroundColor: acc.fg, color: "#fff" } : { backgroundColor: acc.bg, color: acc.fg }}>
+                                All {parentCat.name}
+                              </button>
+                            );
+                          })()}
                         </>
                       )}
                       {list.map((cat) => {
                         const hasKids = childrenOfCat(cat.id).length > 0;
                         const active = activeCat === cat.id && !hasKids;
+                        const acc = tileAccent(cat.id);
                         return (
                           <button
                             key={cat.id}
                             onClick={() => { if (hasKids) { setBrowseParent(cat.id); setActiveCat(cat.id); } else { setActiveCat(cat.id); } }}
-                            className={cn(chip, active ? on : off)}
+                            className={chip}
+                            style={active ? { backgroundColor: acc.fg, color: "#fff" } : { backgroundColor: acc.bg, color: acc.fg }}
                           >
                             {cat.name}{hasKids && <ChevronRight className="h-3.5 w-3.5 opacity-70" />}
                           </button>

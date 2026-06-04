@@ -683,6 +683,14 @@ export default function POSScreen() {
   }, [categories]);
   const childrenOf = (id: string) => catByParent.get(id) ?? [];
   const topCats = catByParent.get("__root__") ?? [];
+
+  // Distinct color per category/submenu so each section + its items read as a set (#21).
+  const CAT_ACCENTS = ["#21A090", "#2E6EB0", "#1E7A45", "#E0A82E", "#7C5CBF", "#D4683C", "#0E8C8C", "#C2410C"];
+  const catAccent = (id: string) => {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return CAT_ACCENTS[h % CAT_ACCENTS.length];
+  };
   // The set of category ids whose items show for the active selection — a chosen
   // category plus every descendant, so picking a parent shows its whole subtree.
   const descendantSet = useMemo(() => {
@@ -2406,14 +2414,15 @@ export default function POSScreen() {
                 {list.map((c: (typeof categories)[number]) => {
                   const hasKids = childrenOf(c.id).length > 0;
                   const active = activeCategory === c.id && !hasKids;
+                  const acc = catAccent(c.id);
                   return (
                     <TouchableOpacity
                       key={c.id}
                       onPress={() => { if (hasKids) { setBrowseParent(c.id); setActiveCategory(c.id); } else { setActiveCategory(c.id); } }}
-                      style={chipStyle(active)}
+                      style={[chipStyle(active), { backgroundColor: active ? acc : `${acc}22`, borderWidth: 1, borderColor: acc }]}
                     >
-                      <Text style={chipText(active)}>{c.name}</Text>
-                      {hasKids && <Ionicons name="chevron-forward" size={13} color={active ? C.void : C.smoke} />}
+                      <Text style={[chipText(active), { color: active ? "#fff" : acc }]}>{c.name}</Text>
+                      {hasKids && <Ionicons name="chevron-forward" size={13} color={active ? "#fff" : acc} />}
                     </TouchableOpacity>
                   );
                 })}
@@ -2452,7 +2461,7 @@ export default function POSScreen() {
               <TouchableOpacity
                 onPress={() => !soldOut && handleMenuItemPress(m)}
                 disabled={soldOut || modifierLoading}
-                style={{ flex: 1, borderRadius: 12, borderWidth: 1, padding: isTablet ? 16 : 12, backgroundColor: soldOut ? C.surfaceHi : inCart > 0 ? T.gold : C.surface, borderColor: soldOut ? C.rim : inCart > 0 ? C.gold : C.rim, opacity: soldOut ? 0.5 : 1 }}
+                style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderLeftWidth: 4, padding: isTablet ? 16 : 12, paddingLeft: (isTablet ? 16 : 12) - 3, backgroundColor: soldOut ? C.surfaceHi : inCart > 0 ? T.gold : C.surface, borderColor: soldOut ? C.rim : inCart > 0 ? C.gold : C.rim, borderLeftColor: soldOut ? C.rim : catAccent(m.categoryId), opacity: soldOut ? 0.5 : 1 }}
               >
                 {inCart > 0 && !soldOut && (
                   <View style={{ position: "absolute", top: 8, right: 8, height: 20, width: 20, borderRadius: 10, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
