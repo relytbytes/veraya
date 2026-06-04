@@ -44,7 +44,7 @@ export default async function EventConfirmedPage({
         <CheckCircle2 size={46} style={{ color: accent }} className="mx-auto mb-3" />
         <h1 className="font-display text-3xl text-stone-900">{pending ? "Almost there" : "You're confirmed"}</h1>
         <p className="text-sm mt-1.5 text-stone-500">
-          {pending ? "We're finalizing your payment — your confirmation is on its way." : `A confirmation has been sent to ${order.email}.`}
+          {pending ? "We're finalizing your payment — your confirmation is on its way." : "Save your entry code below — show it at check-in."}
         </p>
       </div>
 
