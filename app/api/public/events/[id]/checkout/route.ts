@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { sendSms } from "@/lib/sms";
 import { createPendingOrder, type CheckoutLine } from "@/lib/event-tickets";
 
 // POST /api/public/events/[id]/checkout
@@ -24,7 +25,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const secret = process.env.STRIPE_SECRET_KEY;
-  if (!secret) return Response.json({ error: "Online payments aren't set up yet." }, { status: 503 });
 
   let created;
   try {
@@ -37,9 +37,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return Response.json({ error: "Couldn't start checkout. Please try again." }, { status: 400 });
   }
 
-  const { order, mode, eventName } = created;
-  const stripe = new Stripe(secret, { apiVersion: "2026-04-22.dahlia" });
+  const { order, amountCents, mode, eventName } = created;
   const origin = new URL(req.url).origin;
+
+  // ── Test mode (self-disabling) ──────────────────────────────────────────────
+  // With no Stripe key there's no payment processor, so confirm the order
+  // immediately (no charge) — this lets you exercise the full ticket → QR →
+  // mobile check-in scanner flow. The instant a STRIPE_SECRET_KEY is configured
+  // this branch never runs and real Stripe Checkout below takes over.
+  if (!secret) {
+    await prisma.eventOrder.update({
+      where: { id: order.id },
+      data: { status: "PAID", amountPaidCents: amountCents, expiresAt: null },
+    });
+    if (order.phone) {
+      await sendSms(order.phone, `You're confirmed for ${eventName}! Entry code: ${order.confirmationCode}. Show this at check-in.`).catch(() => {});
+    }
+    return Response.json({
+      url: `${origin}/special-events/${id}/confirmed?code=${order.confirmationCode}`,
+      test: true,
+    });
+  }
+
+  const stripe = new Stripe(secret, { apiVersion: "2026-04-22.dahlia" });
 
   try {
     const session = await stripe.checkout.sessions.create({

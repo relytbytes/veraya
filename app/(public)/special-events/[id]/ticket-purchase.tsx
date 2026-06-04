@@ -15,7 +15,7 @@ interface Tier {
 
 const money = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 
-export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: string; mode: string; tiers: Tier[]; accent: string }) {
+export function TicketPurchase({ eventId, mode, tiers, accent, testMode = false }: { eventId: string; mode: string; tiers: Tier[]; accent: string; testMode?: boolean }) {
   const sellable = tiers.filter((t) => t.active);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
@@ -63,6 +63,12 @@ export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: stri
       <p className="text-[13px] text-stone-500 mb-5 leading-relaxed">
         {mode === "DEPOSIT" ? "Pay a deposit now to hold your seats; the balance is settled at the event." : "Secure checkout — you'll receive a confirmation and entry code."}
       </p>
+
+      {testMode && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          <strong>Test mode</strong> — online payments aren&apos;t configured, so no charge is collected. Tickets confirm instantly so you can try check-in.
+        </div>
+      )}
 
       <div className="space-y-2.5 mb-5">
         {sellable.map((t) => {
@@ -115,9 +121,11 @@ export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: stri
           {error && <p className="text-xs mb-3 text-red-600">{error}</p>}
 
           <button onClick={checkout} disabled={loading || seats === 0} className="w-full rounded-xl py-3 font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40" style={{ backgroundColor: accent }}>
-            {loading ? <><Loader2 size={15} className="animate-spin" /> Redirecting…</> : <>Continue to payment — {money(totalNow)}</>}
+            {loading
+              ? <><Loader2 size={15} className="animate-spin" /> {testMode ? "Confirming…" : "Redirecting…"}</>
+              : testMode ? <>Get test tickets — no charge</> : <>Continue to payment — {money(totalNow)}</>}
           </button>
-          <p className="text-[11px] text-center mt-2.5 text-stone-400">Secured by Stripe.</p>
+          <p className="text-[11px] text-center mt-2.5 text-stone-400">{testMode ? "Test mode — no payment collected." : "Secured by Stripe."}</p>
         </>
       )}
     </div>
