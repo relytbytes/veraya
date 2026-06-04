@@ -386,6 +386,7 @@ model Order {
   // Guest / online ordering fields
   guestName             String?
   guestPhone            String?
+  guestEmail            String?
   stripePaymentIntentId String?
   createdAt             DateTime    @default(now())
   closedAt              DateTime?

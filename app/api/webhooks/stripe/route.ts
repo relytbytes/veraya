@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { sendSms } from "@/lib/sms";
+import { sendEmail, orderConfirmationEmail } from "@/lib/email";
 import { sendTicketEmail } from "@/lib/event-tickets";
 
 // Lazily create the Stripe client so a missing key never crashes module load.
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     const order = await prisma.order.findFirst({
       where: { stripePaymentIntentId: pi.id },
+      include: { items: { include: { menuItem: { select: { name: true } } } } },
     });
 
     if (order) {
@@ -55,6 +57,18 @@ export async function POST(req: NextRequest) {
           data: { status: "IN_PROGRESS" },
         }),
       ]);
+
+      // Email the receipt (best-effort; no-op without Resend / guest email).
+      if (order.guestEmail) {
+        const { subject, html } = await orderConfirmationEmail({
+          guestName: order.guestName,
+          items: order.items.map((it) => ({ name: it.menuItem.name, quantity: it.quantity, unitPrice: Number(it.unitPrice) })),
+          subtotal: Number(order.subtotal),
+          tax: Number(order.tax),
+          total: Number(order.total),
+        });
+        await sendEmail({ to: order.guestEmail, subject, html });
+      }
     }
   }
 

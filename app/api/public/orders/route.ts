@@ -14,16 +14,17 @@ export async function POST(req: NextRequest) {
   if (!stripe) return Response.json({ error: "Online payments are not configured." }, { status: 503 });
 
   const body = await req.json();
-  const { guestName, guestPhone, items, notes } = body as {
+  const { guestName, guestPhone, guestEmail, items, notes } = body as {
     guestName: string;
     guestPhone?: string;
+    guestEmail?: string;
     notes?: string;
     items: { menuItemId: string; quantity: number; notes?: string }[];
   };
 
-  if (!guestName || !guestPhone?.trim() || !items || items.length === 0) {
+  if (!guestName || !guestPhone?.trim() || !guestEmail?.trim() || !items || items.length === 0) {
     return Response.json(
-      { error: "guestName, guestPhone and items are required" },
+      { error: "guestName, guestPhone, guestEmail and items are required" },
       { status: 400 }
     );
   }
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: "usd",
-      metadata: { guestName, guestPhone: guestPhone ?? "" },
+      metadata: { guestName, guestPhone: guestPhone ?? "", guestEmail: guestEmail ?? "" },
       automatic_payment_methods: { enabled: true },
     });
   } catch (err) {
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
       status: "OPEN",
       guestName,
       guestPhone: guestPhone ?? null,
+      guestEmail: guestEmail ?? null,
       notes: notes ?? null,
       stripePaymentIntentId: paymentIntent.id,
       subtotal,

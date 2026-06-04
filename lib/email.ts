@@ -154,6 +154,31 @@ export async function reservationEmail(r: {
   return { subject: `Your reservation at ${restaurant}`, html };
 }
 
+export async function orderConfirmationEmail(o: {
+  guestName?: string | null;
+  items: { name: string; quantity: number; unitPrice: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+}): Promise<{ subject: string; html: string }> {
+  const restaurant = await getRestaurantName();
+  const rows = o.items.map((it) =>
+    `<tr><td style="padding:4px 0;color:#78716c">${it.quantity} × ${esc(it.name)}</td><td style="padding:4px 0;text-align:right">$${(it.unitPrice * it.quantity).toFixed(2)}</td></tr>`
+  ).join("");
+  const html = shell(restaurant, `
+    <h1 style="font-size:22px;margin:0 0 4px">Order confirmed${o.guestName ? `, ${esc(o.guestName.split(" ")[0])}` : ""}!</h1>
+    <p style="color:#78716c;font-size:14px;margin:0 0 16px">Thanks for your order — we're getting it ready.</p>
+    <table style="width:100%;border-top:1px solid #f0eeec;font-size:14px;margin:12px 0">${rows}</table>
+    <table style="width:100%;border-top:1px solid #f0eeec;font-size:14px;margin:0">
+      <tr><td style="padding:4px 0;color:#78716c">Subtotal</td><td style="padding:4px 0;text-align:right">$${o.subtotal.toFixed(2)}</td></tr>
+      <tr><td style="padding:4px 0;color:#78716c">Tax</td><td style="padding:4px 0;text-align:right">$${o.tax.toFixed(2)}</td></tr>
+      <tr><td style="padding:8px 0 0;font-weight:700">Total</td><td style="padding:8px 0 0;text-align:right;font-weight:700;color:${ACCENT}">$${o.total.toFixed(2)}</td></tr>
+    </table>
+    <p style="text-align:center;font-size:12px;color:#a8a29e;margin-top:16px">We'll let you know when it's ready for pickup.</p>
+  `);
+  return { subject: `Your ${restaurant} order is confirmed`, html };
+}
+
 export async function reservationReminderEmail(r: {
   name: string;
   time: string;

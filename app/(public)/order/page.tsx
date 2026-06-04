@@ -116,7 +116,7 @@ export default function OrderPage() {
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [step, setStep] = useState<Step>("menu");
-  const [guest, setGuest] = useState({ name: "", phone: "", notes: "" });
+  const [guest, setGuest] = useState({ name: "", phone: "", email: "", notes: "" });
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
   const [checkoutData, setCheckoutData] = useState<{
@@ -176,6 +176,7 @@ export default function OrderPage() {
         body: JSON.stringify({
           guestName: guest.name,
           guestPhone: guest.phone,
+          guestEmail: guest.email,
           notes: guest.notes || undefined,
           items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
         }),
@@ -398,6 +399,18 @@ export default function OrderPage() {
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={guest.email}
+              onChange={(e) => setGuest((g) => ({ ...g, email: e.target.value }))}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">We&apos;ll email your receipt here.</p>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Order notes <span className="text-gray-400 font-normal">(optional)</span>
             </label>
@@ -416,7 +429,7 @@ export default function OrderPage() {
 
           <button
             onClick={placeOrder}
-            disabled={!guest.name.trim() || !guest.phone.trim() || placing}
+            disabled={!guest.name.trim() || !guest.phone.trim() || !guest.email.trim() || placing}
             className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
           >
             {placing && <Loader2 className="h-4 w-4 animate-spin" />}
