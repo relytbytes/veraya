@@ -236,7 +236,7 @@ function profitability(i: HealthInput, p: Projection): Dimension {
       severity: "MEDIUM",
       message: `Thin margin — projected ${pct(p.projectedMarginPct)} net`,
       impact: `${money(p.projectedNet)} on ${money(p.projectedRevenue)}`,
-      action: "Watch labor and comps; small covers bump clears it",
+      action: "Watch labor and comps — a few more covers clears it",
       link: "/reports",
     });
   } else {
@@ -302,7 +302,7 @@ function demand(i: HealthInput, p: Projection): Dimension {
       severity: paceRatio < 0.6 ? "HIGH" : "MEDIUM",
       message: `Sales pacing ${pct(paceRatio * 100)} of a normal ${dayLabel(i)}`,
       impact: hasForecast ? `Trending ${money(p.projectedRevenue - i.expectedRevenue!)} vs normal` : undefined,
-      action: "Check covers + reservations; consider a demand push",
+      action: "Check covers and reservations, then consider a demand push",
       link: "/reports",
     });
   } else if (paceRatio !== null && paceRatio >= 1.0) {
@@ -349,9 +349,9 @@ function labor(i: HealthInput, p: Projection): Dimension {
   if (prepCrew) {
     issues.push({ severity: "LOW", message: `${i.activeStaff} clocked in before service`, impact: `${money(p.projectedLabor)} in labor so far — normal for prep & opening`, action: "Trim anyone not needed until doors open", link: "/timeclock" });
   } else if (staffedNoSales) {
-    issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `${money(p.projectedLabor)} in labor with little coming in`, action: "Send staff home until covers justify the labor", link: "/timeclock" });
+    issues.push({ severity: "HIGH", message: `${i.activeStaff} on the clock with almost no sales`, impact: `${money(p.projectedLabor)} in labor with little coming in`, action: "Make cuts if staffing levels allow", link: "/timeclock" });
   } else if (laborPct > LABOR_TARGET_PCT + 8) {
-    issues.push({ severity: laborPct > LABOR_TARGET_PCT + 18 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Cut a position or extend only if covers justify it", link: "/staff" });
+    issues.push({ severity: laborPct > LABOR_TARGET_PCT + 18 ? "HIGH" : "MEDIUM", message: `Labor projected at ${pct(laborPct)} of sales`, impact: `Target is ${LABOR_TARGET_PCT}%`, action: "Trim a position if staffing levels allow", link: "/staff" });
   } else if (assessable && laborPct <= LABOR_TARGET_PCT) {
     wins.push(`Labor on target at ${pct(laborPct)}`);
   }
@@ -395,7 +395,7 @@ function service(i: HealthInput): Dimension {
   const score = i.salesToday > 0 ? clamp(Math.round(100 - lossRate * 6), 30, 100) : 75;
   if (lossRate > 4) {
     const reasons = i.compVoidReasons?.length
-      ? `Logged reasons: ${i.compVoidReasons.slice(0, 3).join("; ")}.`
+      ? `Most common — ${i.compVoidReasons.slice(0, 3).join(", ")}.`
       : "Each was logged with a manager reason — review them.";
     issues.push({ severity: lossRate > 8 ? "HIGH" : "MEDIUM", message: `Voids + comps at ${pct(lossRate)} of sales`, impact: money(i.voidTotal + i.compTotal), action: reasons, link: "/reports" });
   }
@@ -470,14 +470,14 @@ export function buildDiagnosis(input: HealthInput): Diagnosis {
   // Headline: lead with the economic reality.
   let headline: string;
   if (emptyOverride) headline = `Empty dining room during service — burning ${money(p.projectedLabor + p.fixedDaily)}/day in fixed cost with no covers.`;
-  else if (lossOverride) headline = `On pace to lose ${money(p.projectedNet)} today. Break-even is ${money(p.breakEvenRevenue)}; trending ${money(p.projectedRevenue)}.`;
+  else if (lossOverride) headline = `On pace to lose ${money(Math.abs(p.projectedNet))} today. Break-even ${money(p.breakEvenRevenue)}, trending ${money(p.projectedRevenue)}.`;
   else if (preService) headline = noBaseline
     ? `Service hasn't started yet — not enough history to project today.`
-    : `Service hasn't started — projecting a normal day (~${money(p.projectedRevenue)}, ~${money(p.projectedNet)} net). Vera grades the day live as covers build.`;
-  else if (noBaseline) headline = `Limited sales history — pace and profit can't be graded yet. A few comparable days unlocks the full read; live issues still flagged below.`;
+    : `Service hasn't started — projecting a normal day around ${money(p.projectedRevenue)}. Vera grades the day live as covers build.`;
+  else if (noBaseline) headline = `Limited sales history — pace and profit can't be graded yet. A few comparable days unlocks the full read. Live issues are still flagged below.`;
   else if (status === "excellent") headline = `Strong day — projected ${money(p.projectedNet)} net at ${pct(p.projectedMarginPct)} margin.`;
   else if (status === "good") headline = `Solid — on pace for ${money(p.projectedNet)} net. ${topIssue(dims) ?? "Nothing urgent."}`;
-  else headline = topIssue(dims) ?? `Tracking toward ${money(p.projectedNet)} net.`;
+  else headline = topIssue(dims) ?? (p.projectedNet >= 0 ? `Tracking toward ${money(p.projectedNet)} net.` : `On track for a ${money(Math.abs(p.projectedNet))} loss.`);
 
   // Confidence shown to the user reflects how much of the day Vera has actually
   // observed (time) tempered by per-dimension data coverage.

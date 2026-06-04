@@ -400,7 +400,7 @@ export async function GET(req: NextRequest) {
   // to the deterministic headline after 1.8s.
   const aiNarrative = await Promise.race([
     veraComplete({
-      system: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings, no em-dashes, no Oxford commas.",
+      system: "You are Vera, a restaurant operations brain. Rewrite the diagnosis into exactly two tight, specific sentences for the manager on shift. Use the numbers. Lead with the most important thing. No filler, no greetings, no Oxford commas. Never use colons or semicolons. Never write a negative dollar amount in parentheses — say 'lose $505' or 'a $505 loss', never '($505)'. Phrase staffing advice the way a GM would, e.g. 'make cuts if staffing levels allow', never 'send staff home'.",
       user: `Diagnosis: ${diag.headline}\nDimensions: ${diag.dimensions.map(d => `${d.label} ${d.score}/100 — ${d.summary}`).join("; ")}`,
       maxTokens: 160,
     }),
