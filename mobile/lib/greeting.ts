@@ -2,22 +2,52 @@
 // pool and rotates hour-to-hour (stable within the hour so it doesn't flicker
 // on refresh). Used as `${rotatingGreeting()}, ${firstName}`.
 
+// Each phrase is shown as "${phrase}, ${firstName}" — so every line must read
+// naturally with a name appended. A deliberate mix of short and longer lines
+// keeps the header feeling human rather than canned.
 const POOLS: Record<string, string[]> = {
   morning: [
-    "Good morning", "Rise and shine", "Mornin'", "Fresh start", "Let's cook",
-    "Coffee's on", "Here we go", "Sleeves up",
+    "Good morning",
+    "Rise and shine",
+    "Welcome back",
+    "The coffee's on",
+    "Let's make it a good one",
+    "Hope you slept well",
+    "Fresh day, fresh start",
+    "Ready when you are",
+    "Here's to a smooth open",
+    "Hope the morning's treating you right",
   ],
   afternoon: [
-    "Good afternoon", "Afternoon", "Keep it rolling", "Halfway home",
-    "Cruising along", "Back at it", "Hope lunch flew",
+    "Good afternoon",
+    "Back at it",
+    "Keep it rolling",
+    "Halfway there",
+    "Hope the lunch rush was kind",
+    "Cruising right along",
+    "Hope you grabbed a bite",
+    "Steady as she goes",
+    "The afternoon lull won't last",
   ],
   evening: [
-    "Good evening", "Evening", "Showtime", "Let's get after it",
-    "Big night ahead", "Lights up", "Game time",
+    "Good evening",
+    "It's showtime",
+    "Big night ahead",
+    "Let's get after it",
+    "Lights up",
+    "The dinner rush awaits",
+    "Hope you're ready for a busy one",
+    "Here's to a smooth service",
+    "Let's give them a night to remember",
   ],
   latenight: [
-    "Burning the midnight oil", "Still standing", "Last-call energy",
-    "Closing strong", "Almost home", "Night owl",
+    "Burning the midnight oil",
+    "Still going strong",
+    "Almost home",
+    "Let's close this one out strong",
+    "It's last-call energy now",
+    "Hope it was a good one",
+    "The night owls are still at it",
   ],
 };
 
