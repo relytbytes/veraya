@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Fetch all data in parallel ─────────────────────────────────────────────
-  const [historicalOrders, targetReservations, currentInventory] = await Promise.all([
+  const [historicalOrders, targetReservations, targetEvents, currentInventory] = await Promise.all([
     // All completed orders on same-DOW days
     prisma.order.findMany({
       where: {
@@ -83,6 +83,19 @@ export async function GET(req: NextRequest) {
         status: { in: ["CONFIRMED", "PENDING", "SEATED"] },
       },
       select: { partySize: true, status: true },
+    }),
+
+    // Confirmed special events / private dining on the target date (#7) — their
+    // covers add demand the sales history alone can't see.
+    prisma.event.findMany({
+      where: { date: targetDateStr, status: "CONFIRMED" },
+      select: {
+        guestCount: true,
+        ticketOrders: {
+          where: { status: { in: ["PAID", "CHECKED_IN"] } },
+          select: { items: { select: { quantity: true } } },
+        },
+      },
     }),
 
     // Current inventory
@@ -151,8 +164,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Reservation adjustment factor ─────────────────────────────────────────
-  const confirmedCovers = targetReservations.reduce((s, r) => s + r.partySize, 0);
+  // ── Reservation + event adjustment factor ─────────────────────────────────
+  const reservationCovers = targetReservations.reduce((s, r) => s + r.partySize, 0);
+  // Each event contributes the larger of its stated headcount or its sold tickets.
+  const eventCovers = targetEvents.reduce((s, e) => {
+    const tickets = e.ticketOrders.reduce((t, o) => t + o.items.reduce((q, i) => q + i.quantity, 0), 0);
+    return s + Math.max(e.guestCount ?? 0, tickets);
+  }, 0);
+  const confirmedCovers = reservationCovers + eventCovers;
 
   // Historical average covers = avg covers per same-DOW (approx from order count)
   const avgOrdersPerWeek = weeksWithData > 0 ? sameDOWOrders.length / weeksWithData : 0;
@@ -294,6 +313,8 @@ export async function GET(req: NextRequest) {
     weeksAnalyzed: weeksWithData,
     coverFactor: Number(coverFactor.toFixed(2)),
     confirmedCovers,
+    reservationCovers,
+    eventCovers,
     avgHistoricalOrders: Number(avgOrdersPerWeek.toFixed(1)),
     forecastItems,
     prepRows,
@@ -302,6 +323,8 @@ export async function GET(req: NextRequest) {
       totalForecastCost: prepRows.reduce((s, r) => s + r.forecastQty * r.costPerUnit, 0),
       totalIngredients: prepRows.length,
       reservationCount: targetReservations.length,
+      eventCount: targetEvents.length,
+      eventCovers,
       // Waste learning rollups
       overPrepCount: prepRows.filter((r) => r.overPrep).length,
       recentWastedCost: Number(prepRows.reduce((s, r) => s + r.recentWastedCost, 0).toFixed(2)),
