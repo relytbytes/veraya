@@ -21,15 +21,25 @@ const POOLS: Record<string, string[]> = {
   ],
 };
 
-export function rotatingGreeting(date: Date = new Date()): string {
+function poolFor(date: Date): string[] {
   const h = date.getHours();
-  const pool =
-    h < 5 ? POOLS.latenight :
+  return h < 5 ? POOLS.latenight :
     h < 12 ? POOLS.morning :
     h < 17 ? POOLS.afternoon :
     h < 22 ? POOLS.evening :
     POOLS.latenight;
+}
+
+// Deterministic (SSR-safe) hourly rotation — same value on server + client.
+export function rotatingGreeting(date: Date = new Date()): string {
+  const pool = poolFor(date);
   const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86_400_000);
-  const idx = (dayOfYear * 24 + h) % pool.length;
-  return pool[idx];
+  return pool[(dayOfYear * 24 + date.getHours()) % pool.length];
+}
+
+// Fresh random phrase — call once per mount (useState initializer) so the
+// greeting visibly changes each time the screen opens. Client-only.
+export function randomGreeting(date: Date = new Date()): string {
+  const pool = poolFor(date);
+  return pool[Math.floor(Math.random() * pool.length)];
 }

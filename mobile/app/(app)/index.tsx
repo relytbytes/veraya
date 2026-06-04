@@ -12,7 +12,7 @@ import { getDashboardStats } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
-import { rotatingGreeting } from "@/lib/greeting";
+import { randomGreeting } from "@/lib/greeting";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { VeraCard } from "@/components/VeraCard";
@@ -95,7 +95,7 @@ export default function HomeScreen() {
   });
 
   const firstName = user?.name?.split(" ")[0] ?? "there";
-  const greeting = rotatingGreeting();
+  const [greeting] = useState(() => randomGreeting());
 
   const { scrollY, scrollHandler } = useCollapsingHeader();
 
