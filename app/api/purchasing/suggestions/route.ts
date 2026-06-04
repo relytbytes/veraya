@@ -101,8 +101,9 @@ export async function GET(req: NextRequest) {
 
     if (!needsReorder) continue;
 
-    // Order up to max (or 3× min if no max set)
-    const orderQty = Math.max(1, maxThreshold - currentQty);
+    // Order up to max (or 3× min if no max set). Round UP to whole units so we
+    // suggest ordering by the each — never a fractional/15-decimal quantity.
+    const orderQty = Math.max(1, Math.ceil(maxThreshold - currentQty));
 
     // Urgency: how urgent is this order
     let urgency: "critical" | "high" | "medium" = "medium";

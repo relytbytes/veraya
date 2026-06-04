@@ -25,7 +25,7 @@ export function TableActionSheet({
   const isCombined = !!table.primaryTableId;
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent animationType="slide" onRequestClose={onClose} supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}>
       <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 28, maxHeight: "82%" }}>
           {/* Header */}

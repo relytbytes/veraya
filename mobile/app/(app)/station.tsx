@@ -33,7 +33,7 @@ function StationControl({ onSwitch, onExit, label }: { onSwitch: () => void; onE
         <Text style={{ fontSize: 12, fontWeight: "700", color: "#fff" }}>{label}</Text>
       </TouchableOpacity>
       {open && (
-        <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Modal transparent animationType="fade" onRequestClose={() => setOpen(false)} supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}>
           <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "flex-end", paddingTop: 56, paddingRight: 12 }}>
             <View style={[{ backgroundColor: C.surface, borderRadius: 14, paddingVertical: 6, minWidth: 200 }, shadow.md]}>
               <TouchableOpacity onPress={() => { setOpen(false); onSwitch(); }} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 13 }}>

@@ -53,7 +53,13 @@ Given a list of menu items and an ingredient library, suggest realistic recipes 
 Use ONLY ingredients from the provided library — do not invent ingredients.
 Choose quantities that make sense for a single serving in a restaurant context.
 Aim for a food cost of 28–35% of the selling price where possible.
-If an item (e.g. a drink or service item) has no meaningful recipe from the available ingredients, return an empty array for it.
+ALWAYS attempt a recipe for every food and beverage item using the closest matching
+ingredients available — a partial recipe is far more useful than none. Only return an
+empty "ingredients" array for genuine non-food items (gift cards, merchandise, service
+fees). When the library is missing ingredients this dish clearly needs, still build the
+best recipe you can from what exists and use the "notes" field to list the ingredients
+the restaurant should add (e.g. "Add buns and cheddar to your ingredient library for a
+complete recipe").
 
 Respond ONLY with valid JSON in this exact shape:
 {

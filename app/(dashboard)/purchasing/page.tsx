@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatQty } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -926,7 +926,7 @@ function OrdersTab({
                     <tr key={item.id}>
                       <td className="py-1.5 font-medium">{item.ingredient.name}</td>
                       <td className="py-1.5 text-right text-gray-500">
-                        {Number(item.quantity)} {item.ingredient.unit}
+                        {formatQty(item.quantity)} {item.ingredient.unit}
                       </td>
                       <td className="py-1.5 text-right text-gray-500">{formatCurrency(Number(item.unitCost))}</td>
                       <td className="py-1.5 text-right font-semibold">
@@ -1000,8 +1000,8 @@ function IngredientsTab({
                     </Button>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                    <span>In stock: <strong className={isLow ? "text-red-600" : "text-gray-900"}>{Number(stock)} {ing.unit}</strong></span>
-                    <span className="text-gray-400">min {Number(min)}</span>
+                    <span>In stock: <strong className={isLow ? "text-red-600" : "text-gray-900"}>{formatQty(stock)} {ing.unit}</strong></span>
+                    <span className="text-gray-400">min {formatQty(min)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1500,7 +1500,7 @@ function ReorderTab({
                       <span className="font-medium text-gray-900">{item.name}</span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {item.currentQty.toFixed(1)} {item.unit} on hand · min {item.minThreshold} {item.unit}
+                      {item.currentQty.toFixed(1)} {item.unit} on hand · min {formatQty(item.minThreshold)} {item.unit}
                       {item.hasVelocityData && item.daysUntilMin !== null && (
                         <span className={item.daysUntilMin <= 1 ? " text-red-500 font-medium" : item.daysUntilMin <= 3 ? " text-warning-500" : ""}>
                           {" "}· {item.daysUntilMin.toFixed(1)} days supply left
@@ -1518,7 +1518,7 @@ function ReorderTab({
                     <div className="text-xs text-gray-400 mb-1">order qty</div>
                     <input
                       type="number"
-                      value={qtyOverrides[item.ingredientId] ?? item.orderQty}
+                      value={qtyOverrides[item.ingredientId] ?? formatQty(item.orderQty, 0)}
                       onChange={(e) => {
                         e.stopPropagation();
                         setQtyOverrides(prev => ({ ...prev, [item.ingredientId]: e.target.value }));
@@ -1526,7 +1526,7 @@ function ReorderTab({
                       onClick={(e) => e.stopPropagation()}
                       className="w-20 text-right text-sm font-semibold border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400"
                       min="0"
-                      step="0.5"
+                      step="1"
                     />
                     <span className="ml-1 text-xs text-gray-400">{item.unit}</span>
                   </td>
@@ -1562,7 +1562,7 @@ function ReorderTab({
                       <span className="font-medium text-gray-700">{item.name}</span>
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {item.currentQty.toFixed(1)} {item.unit} on hand · min {item.minThreshold}
+                      {item.currentQty.toFixed(1)} {item.unit} on hand · min {formatQty(item.minThreshold)}
                     </p>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-gray-400">

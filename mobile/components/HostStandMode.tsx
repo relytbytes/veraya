@@ -501,7 +501,16 @@ export function HostStandMode({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent presentationStyle="fullScreen">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      statusBarTranslucent
+      presentationStyle="fullScreen"
+      // Without this the fullScreen Modal locks to portrait on iPad while the
+      // station screen forces landscape — the content renders rotated and every
+      // tap lands in a dead zone. Allowing landscape keeps touch coords aligned.
+      supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
+    >
       <View style={{ flex: 1, backgroundColor: C.void }}>
 
         {/* Header — paddingTop carries the status-bar inset manually, because a

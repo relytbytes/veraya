@@ -463,7 +463,7 @@ export default function RecipesPage() {
               <VeraSpark className="h-3.5 w-3.5" />
               Suggest with Vera
               {itemsWithoutRecipes.length > 0 && (
-                <span className="ml-1 bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
+                <span className="ml-1 bg-red-600 text-white font-semibold rounded-full px-1.5 py-0.5 text-xs">
                   {itemsWithoutRecipes.length} missing
                 </span>
               )}
@@ -584,7 +584,7 @@ export default function RecipesPage() {
                       <p className="text-xs text-gray-400">{item.category.name}</p>
                     </div>
                     {item.recipe.length === 0 ? (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 shrink-0">no recipe</span>
+                      <span className="text-[10px] bg-red-100 text-red-700 font-semibold rounded-full px-1.5 py-0.5 shrink-0">no recipe</span>
                     ) : (
                       <span className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5 shrink-0">{item.recipe.length} ing.</span>
                     )}
@@ -908,7 +908,7 @@ export default function RecipesPage() {
                   <p className="text-sm text-gray-400">Select an item to view and edit its recipe</p>
                   {itemsWithoutRecipes.length > 0 && (
                     <div className="flex flex-col items-center gap-2">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-red-600 font-medium">
                         {itemsWithoutRecipes.length} item{itemsWithoutRecipes.length !== 1 ? "s" : ""} have no recipe yet
                       </p>
                       <Button

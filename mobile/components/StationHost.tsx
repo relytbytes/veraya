@@ -184,7 +184,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
 
       {/* Table picker — seat a reservation / waitlist party */}
       {pickFor && (
-        <Modal transparent animationType="slide" onRequestClose={() => setPickFor(null)}>
+        <Modal transparent animationType="slide" supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]} onRequestClose={() => setPickFor(null)}>
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
             <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "70%", paddingBottom: 28 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>
@@ -211,7 +211,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
 
       {/* Walk-in */}
       {walkIn && (
-        <Modal transparent animationType="slide" onRequestClose={() => setWalkIn(null)}>
+        <Modal transparent animationType="slide" supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]} onRequestClose={() => setWalkIn(null)}>
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
             <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28, gap: 12, maxHeight: "75%" }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -248,7 +248,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
 
       {/* Add to waitlist */}
       {waitlistOpen && (
-        <Modal transparent animationType="slide" onRequestClose={() => setWaitlistOpen(false)}>
+        <Modal transparent animationType="slide" supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]} onRequestClose={() => setWaitlistOpen(false)}>
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
             <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 28, gap: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -288,7 +288,7 @@ export function StationHost({ onExit }: { onExit: () => void }) {
 
       {/* Move party — pick the destination table */}
       {moveFrom && (
-        <Modal transparent animationType="slide" onRequestClose={() => setMoveFrom(null)}>
+        <Modal transparent animationType="slide" supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]} onRequestClose={() => setMoveFrom(null)}>
           <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
             <View style={{ backgroundColor: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: "70%", paddingBottom: 28 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: C.rim }}>

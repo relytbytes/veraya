@@ -19,6 +19,14 @@ export function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
+/** Display a quantity without floating-point noise (e.g. 2.0000000000004 → "2").
+ *  Rounds to `decimals` places (default 1) and strips trailing zeros. */
+export function formatQty(value: number | string | null | undefined, decimals = 1): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0";
+  return String(Number(n.toFixed(decimals)));
+}
+
 /** "14:30" → "2:30 PM" */
 export function formatTime12(hhmm: string): string {
   const [h, m] = hhmm.split(":").map(Number);

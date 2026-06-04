@@ -464,15 +464,16 @@ export default function TrainingPage() {
       <StarterDialog
         open={starterDialog}
         onClose={() => setStarterDialog(false)}
+        existingNames={templates.map((t) => t.name)}
         onImport={async (starter) => {
           // Atomic: template + all items in a single request (no partial imports).
+          // Keep the dialog open so several (or all) can be added in a row.
           await fetch("/api/training/templates", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: starter.name, role: starter.role, items: starter.items }),
           });
-          setStarterDialog(false);
-          fetchAll();
+          await fetchAll();
         }}
       />
     </div>
@@ -1013,14 +1014,29 @@ function AssignDialog({
 // ─── Starter Templates Dialog ─────────────────────────────────────────────────
 
 function StarterDialog({
-  open, onClose, onImport,
+  open, onClose, onImport, existingNames = [],
 }: {
   open: boolean;
   onClose: () => void;
   onImport: (starter: typeof STARTER_TEMPLATES[0]) => Promise<void>;
+  existingNames?: string[];
 }) {
   const [importing, setImporting] = useState<string | null>(null);
+  const [importingAll, setImportingAll] = useState(false);
   const [preview, setPreview] = useState<typeof STARTER_TEMPLATES[0] | null>(null);
+
+  const existing = new Set(existingNames.map((n) => n.toLowerCase()));
+  const remaining = STARTER_TEMPLATES.filter((s) => !existing.has(s.name.toLowerCase()));
+
+  async function importAll() {
+    setImportingAll(true);
+    for (const s of remaining) {
+      setImporting(s.name);
+      await onImport(s);
+    }
+    setImporting(null);
+    setImportingAll(false);
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -1057,19 +1073,23 @@ function StarterDialog({
                     </div>
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!!importing}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    setImporting(starter.name);
-                    await onImport(starter);
-                    setImporting(null);
-                  }}
-                >
-                  {importing === starter.name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}
-                </Button>
+                {existing.has(starter.name.toLowerCase()) ? (
+                  <span className="text-xs font-medium text-emerald-600 flex items-center gap-1 px-2"><CheckCircle2 className="h-3.5 w-3.5" /> Added</span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!!importing}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setImporting(starter.name);
+                      await onImport(starter);
+                      setImporting(null);
+                    }}
+                  >
+                    {importing === starter.name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Import"}
+                  </Button>
+                )}
               </div>
 
               {/* Preview items */}
@@ -1087,8 +1107,14 @@ function StarterDialog({
           ))}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:justify-between">
           <Button variant="outline" onClick={onClose}>Close</Button>
+          {remaining.length > 0 && (
+            <Button onClick={importAll} disabled={importingAll} className="bg-amber-500 hover:bg-amber-600 text-white">
+              {importingAll ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
+              Add all {remaining.length} template{remaining.length === 1 ? "" : "s"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

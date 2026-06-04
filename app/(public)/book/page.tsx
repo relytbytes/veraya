@@ -25,6 +25,13 @@ function dateLabel(d: string): string {
   return new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+/** "Today" / "Tomorrow" read as adverbs, so drop the "on" before them; keep it
+ *  for actual dates ("on Mon, Jun 7"). */
+function whenLabel(d: string): string {
+  const relative = d === localDate(0) || d === localDate(1);
+  return relative ? dateLabel(d) : `on ${dateLabel(d)}`;
+}
+
 function periodOf(t: string): "Breakfast" | "Lunch" | "Dinner" {
   const [h, m] = t.split(":").map(Number);
   const mins = h * 60 + m;
@@ -213,7 +220,7 @@ export default function BookPage() {
               </Label>
               {!anyAvailable && !loadingSlots ? (
                 <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
-                  Fully booked for {form.partySize} on {dateLabel(form.date)}. Try another date or party size.
+                  Fully booked for {form.partySize} {whenLabel(form.date)}. Try another date or party size.
                 </p>
               ) : (
                 <div className="space-y-3">
