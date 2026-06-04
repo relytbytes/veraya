@@ -5,7 +5,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { tableHasConflict } from "@/lib/reservations";
 import { publish } from "@/lib/realtime";
 import { applyAutoTags } from "@/lib/customer-tags";
-import { settleReservationHold } from "@/lib/reservation-fees";
+import { settleReservationHold, releaseReservationHold } from "@/lib/reservation-fees";
 
 export async function PATCH(
   req: NextRequest,
@@ -168,6 +168,16 @@ export async function DELETE(
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  // Release any still-active card hold so we don't leave the guest's card
+  // authorized after the booking is gone. (Already-settled holds no-op.)
+  const existing = await prisma.reservation.findUnique({
+    where: { id },
+    select: { stripePaymentIntentId: true, status: true, feeCents: true },
+  });
+  if (existing?.stripePaymentIntentId && existing.feeCents == null
+      && !["SEATED", "COMPLETED", "NO_SHOW"].includes(existing.status)) {
+    await releaseReservationHold(existing.stripePaymentIntentId);
+  }
   await prisma.reservation.delete({ where: { id } });
   publish({ scope: "floor", type: "reservation.deleted", ids: [id] });
   return new Response(null, { status: 204 });

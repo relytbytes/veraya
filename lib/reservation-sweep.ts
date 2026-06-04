@@ -8,6 +8,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { publish } from "@/lib/realtime";
+import { settleReservationHold } from "@/lib/reservation-fees";
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -45,7 +46,7 @@ export async function sweepOverdueReservations(todayStr: string, nowMinutes: num
 
   const candidates = await prisma.reservation.findMany({
     where: { date: todayStr, status: { in: ["PENDING", "CONFIRMED"] } },
-    select: { id: true, time: true },
+    select: { id: true, time: true, date: true, stripePaymentIntentId: true },
   });
   const overdue = candidates.filter((r) => nowMinutes - toMinutes(r.time) >= cfg.graceMinutes);
   if (!overdue.length) return 0;
@@ -54,6 +55,17 @@ export async function sweepOverdueReservations(todayStr: string, nowMinutes: num
     where: { id: { in: overdue.map((r) => r.id) } },
     data: { status: "NO_SHOW", tableId: null },
   });
+
+  // Capture the no-show fee for any held cards — same settlement the manual
+  // no-show path runs, so auto-no-shows don't silently skip the fee.
+  for (const r of overdue) {
+    if (!r.stripePaymentIntentId) continue;
+    const { feeCents } = await settleReservationHold(r, "NO_SHOW");
+    if (feeCents != null) {
+      await prisma.reservation.update({ where: { id: r.id }, data: { feeCents } });
+    }
+  }
+
   publish({ scope: "floor", type: "reservation.updated", ids: overdue.map((r) => r.id) });
   return overdue.length;
 }

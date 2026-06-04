@@ -37,6 +37,11 @@ async function captureHold(paymentIntentId: string): Promise<number | null> {
   }
 }
 
+/** Release a reservation's card hold (no charge) — e.g. when it's deleted. */
+export async function releaseReservationHold(paymentIntentId: string | null): Promise<void> {
+  if (paymentIntentId) await releaseHold(paymentIntentId);
+}
+
 /** Release the hold (no charge). */
 async function releaseHold(paymentIntentId: string): Promise<void> {
   const stripe = getStripe();
