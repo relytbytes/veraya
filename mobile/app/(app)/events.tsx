@@ -54,6 +54,9 @@ export default function EventsScreen() {
   const [selectedEvent, setSelectedEvent] = useState<CalEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
+  // iOS can't present the check-in modal while the detail page-sheet is up, so we
+  // dismiss the sheet first and open check-in once it has fully animated away.
+  const [pendingCheckIn, setPendingCheckIn] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -228,6 +231,7 @@ export default function EventsScreen() {
           animationType="slide"
           presentationStyle="pageSheet"
           onRequestClose={() => setDetailOpen(false)}
+          onDismiss={() => { if (pendingCheckIn) { setPendingCheckIn(false); setCheckInOpen(true); } }}
         >
           <SafeAreaView style={{ flex: 1, backgroundColor: C.surface }}>
             <View
@@ -251,7 +255,7 @@ export default function EventsScreen() {
               </Text>
               {selectedEvent.status === "CONFIRMED" && (
                 <TouchableOpacity
-                  onPress={() => setCheckInOpen(true)}
+                  onPress={() => { setPendingCheckIn(true); setDetailOpen(false); }}
                   style={{ flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 12 }}
                 >
                   <Ionicons name="qr-code-outline" size={14} color={C.gold} />
