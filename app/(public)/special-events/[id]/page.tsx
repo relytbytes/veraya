@@ -93,7 +93,7 @@ export default async function PublicEventDetailPage({ params }: { params: Promis
                 eventId={event.id}
                 mode={event.ticketMode}
                 accent={accent}
-                testMode={!process.env.STRIPE_SECRET_KEY}
+                testMode={!process.env.STRIPE_SECRET_KEY && process.env.ALLOW_TEST_TICKETS === "1"}
                 tiers={sellable.map((t) => ({ id: t.id, name: t.name, description: t.description, priceCents: t.priceCents, chargeNowCents: t.chargeNowCents, remaining: t.remaining, active: t.active }))}
               />
             ) : (

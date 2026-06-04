@@ -25,6 +25,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const secret = process.env.STRIPE_SECRET_KEY;
+  // Test mode is OPT-IN: it only runs when payments are unconfigured AND the
+  // operator has explicitly set ALLOW_TEST_TICKETS=1. This prevents a misconfig
+  // (missing Stripe key in prod) from silently handing out free tickets.
+  const testMode = !secret && process.env.ALLOW_TEST_TICKETS === "1";
+
+  if (!secret && !testMode) {
+    return Response.json({ error: "Online payments aren't set up yet." }, { status: 503 });
+  }
 
   let created;
   try {
@@ -37,18 +45,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return Response.json({ error: "Couldn't start checkout. Please try again." }, { status: 400 });
   }
 
-  const { order, amountCents, mode, eventName } = created;
+  const { order, mode, eventName } = created;
   const origin = new URL(req.url).origin;
 
-  // ── Test mode (self-disabling) ──────────────────────────────────────────────
-  // With no Stripe key there's no payment processor, so confirm the order
-  // immediately (no charge) — this lets you exercise the full ticket → QR →
-  // mobile check-in scanner flow. The instant a STRIPE_SECRET_KEY is configured
-  // this branch never runs and real Stripe Checkout below takes over.
-  if (!secret) {
+  // ── Test mode ────────────────────────────────────────────────────────────────
+  // Opt-in only (gated above). Confirms the order immediately with $0 collected —
+  // no charge, no revenue pollution — so the full ticket → QR → mobile check-in
+  // flow can be exercised. Disabled the moment a STRIPE_SECRET_KEY is configured.
+  if (testMode) {
     await prisma.eventOrder.update({
       where: { id: order.id },
-      data: { status: "PAID", amountPaidCents: amountCents, expiresAt: null },
+      data: { status: "PAID", amountPaidCents: 0, expiresAt: null },
     });
     if (order.phone) {
       await sendSms(order.phone, `You're confirmed for ${eventName}! Entry code: ${order.confirmationCode}. Show this at check-in.`).catch(() => {});
@@ -59,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
   }
 
-  const stripe = new Stripe(secret, { apiVersion: "2026-04-22.dahlia" });
+  const stripe = new Stripe(secret as string, { apiVersion: "2026-04-22.dahlia" });
 
   try {
     const session = await stripe.checkout.sessions.create({
