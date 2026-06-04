@@ -119,6 +119,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const results = await prisma.$transaction(ops);
     updated = results[results.length - 1];
   } else if (status === "RECEIVED") {
+    // #18 — Weighted moving average costing. Read each ingredient's CURRENT
+    // on-hand qty and cost BEFORE the receive increments stock, then blend the
+    // received qty/price in: (onHand×oldCost + recv×newCost) / (onHand+recv).
+    // Keeps inventory valuation honest for COGS instead of just last-price-paid.
+    const ingredientIds = [...new Set(po.items.map((i) => i.ingredientId))];
+    const [invs, ings] = await Promise.all([
+      prisma.inventoryItem.findMany({ where: { ingredientId: { in: ingredientIds } }, select: { ingredientId: true, quantity: true } }),
+      prisma.ingredient.findMany({ where: { id: { in: ingredientIds } }, select: { id: true, costPerUnit: true } }),
+    ]);
+    const onHand = new Map(invs.map((v) => [v.ingredientId, Number(v.quantity)]));
+    const prevCost = new Map(ings.map((g) => [g.id, Number(g.costPerUnit)]));
+    const blendedCost = new Map<string, number>();
+    for (const item of po.items) {
+      const recvQty = Number(item.quantity);
+      const recvCost = Number(item.unitCost);
+      if (recvQty <= 0 || recvCost <= 0) continue; // no price → leave cost as-is
+      const have = Math.max(0, onHand.get(item.ingredientId) ?? 0);
+      const old = prevCost.get(item.ingredientId) ?? recvCost;
+      const denom = have + recvQty;
+      const wac = denom > 0 ? (have * old + recvQty * recvCost) / denom : recvCost;
+      blendedCost.set(item.ingredientId, Math.round(wac * 10000) / 10000);
+    }
+
     const ops = [
       ...po.items.map((item) =>
         prisma.inventoryItem.updateMany({
@@ -126,16 +149,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           data: { quantity: { increment: Number(item.quantity) } },
         })
       ),
-      // #18 — receiving an invoice updates each ingredient's cost to what we
-      // actually paid, so food-cost math stays current.
-      ...po.items
-        .filter((item) => Number(item.unitCost) > 0)
-        .map((item) =>
-          prisma.ingredient.update({
-            where: { id: item.ingredientId },
-            data: { costPerUnit: item.unitCost },
-          })
-        ),
+      // Write the blended (weighted-average) cost back to each ingredient.
+      ...[...blendedCost.entries()].map(([ingredientId, cost]) =>
+        prisma.ingredient.update({ where: { id: ingredientId }, data: { costPerUnit: cost } })
+      ),
       ...po.items.map((item) =>
         prisma.inventoryTransaction.create({
           data: {
