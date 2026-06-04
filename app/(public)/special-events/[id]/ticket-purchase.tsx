@@ -130,7 +130,7 @@ export function TicketPurchase({ eventId, mode, tiers }: { eventId: string; mode
           >
             {loading ? <><Loader2 size={15} className="animate-spin" /> Redirecting…</> : <>Continue to payment — {money(totalNow)}</>}
           </button>
-          <p className="text-[11px] text-center mt-2.5" style={{ color: MUTED }}>Secured by Stripe. Cards never touch our servers.</p>
+          <p className="text-[11px] text-center mt-2.5" style={{ color: MUTED }}>Secured by Stripe.</p>
         </>
       )}
     </div>

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
-import { Loader2, Plus, Trash2, Check, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Trash2, Check, RotateCcw, Ticket } from "lucide-react";
 
 const money = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const toCents = (s: string) => Math.round((parseFloat(s) || 0) * 100);
@@ -14,7 +13,7 @@ interface OrderItem { tierName: string; quantity: number; unitPriceCents: number
 interface Order { id: string; confirmationCode: string; name: string; email: string; phone: string | null; status: string; amountPaidCents: number; checkedInAt: string | null; seats: number; items: OrderItem[]; }
 interface Data { enabled: boolean; mode: string; tiers: Tier[]; totalRemaining: number; orders: Order[]; summary: { orders: number; seatsSold: number; revenueCents: number; checkedIn: number }; }
 
-export function EventTicketingDialog({ eventId, eventName, open, onClose }: { eventId: string; eventName: string; open: boolean; onClose: () => void }) {
+export function EventTicketingPanel({ eventId }: { eventId: string }) {
   const [data, setData] = useState<Data | null>(null);
   const [tab, setTab] = useState<"setup" | "attendees">("setup");
   const [busy, setBusy] = useState(false);
@@ -25,7 +24,7 @@ export function EventTicketingDialog({ eventId, eventName, open, onClose }: { ev
     if (res.ok) setData(await res.json());
   }, [eventId]);
 
-  useEffect(() => { if (open) load(); }, [open, load]);
+  useEffect(() => { load(); }, [load]);
 
   async function patchEvent(body: object) {
     setBusy(true);
@@ -61,12 +60,14 @@ export function EventTicketingDialog({ eventId, eventName, open, onClose }: { ev
   const s = data?.summary;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Tickets — {eventName}</DialogTitle></DialogHeader>
-        {!data ? (
-          <div className="py-12 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
-        ) : (
+    <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Ticket className="h-4 w-4 text-teal-600" />
+        <h3 className="text-sm font-semibold text-gray-800">Tickets</h3>
+      </div>
+      {!data ? (
+        <div className="py-8 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+      ) : (
           <div className="space-y-4">
             {/* Enable + mode */}
             <div className="flex items-center justify-between rounded-xl border p-3">
@@ -163,7 +164,6 @@ export function EventTicketingDialog({ eventId, eventName, open, onClose }: { ev
             )}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
