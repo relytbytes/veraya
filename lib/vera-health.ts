@@ -208,7 +208,7 @@ function profitability(i: HealthInput, p: Projection): Dimension {
     return {
       key: "profitability", label: "Profitability", score: 68, status: "fair",
       confidence: 0.3,
-      summary: `Projecting ~${money(p.projectedNet)} net on a normal day — grades live as sales come in.`,
+      summary: `Projecting ${money(p.projectedNet)} net on a normal day — grades live as sales come in.`,
       metrics: [
         { label: "Break-even", value: money(p.breakEvenRevenue), status: "good" },
         { label: "Expected net", value: money(p.projectedNet), status: "good" },
@@ -270,7 +270,7 @@ function demand(i: HealthInput, p: Projection): Dimension {
     return {
       key: "demand", label: "Demand", score: 70, status: "fair",
       confidence: 0.3,
-      summary: hasForecast ? `Service hasn't started — expecting a normal day (~${money(i.expectedRevenue!)}).` : "Service hasn't started yet.",
+      summary: hasForecast ? `Service hasn't started — expecting a normal day (${money(i.expectedRevenue!)}).` : "Service hasn't started yet.",
       metrics: [
         { label: "Expected today", value: hasForecast ? money(i.expectedRevenue!) : "—", status: "good" },
         { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" : "fair" },
@@ -298,7 +298,7 @@ function demand(i: HealthInput, p: Projection): Dimension {
     issues.push({
       severity: "HIGH",
       message: "Dining room is empty during service",
-      impact: hasForecast ? `Normally ~${money(i.expectedRevenue! * p.serviceElapsedPct / 100)} by now` : "No orders open",
+      impact: hasForecast ? `Normally ${money(i.expectedRevenue! * p.serviceElapsedPct / 100)} by now` : "No orders open",
       action: "Drive demand — promo blast, walk-in push, or trim the floor",
       link: "/host",
     });

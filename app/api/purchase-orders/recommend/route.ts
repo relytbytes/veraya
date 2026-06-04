@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
     // ── AI summary ────────────────────────────────────────────────────────────
     let summary = buildDeterministicSummary(suggestions, daysAhead);
     if (demandFactor > 1.15 && suggestions.length > 0) {
-      summary += ` Upcoming ${daysAhead} days run ~${Math.round((demandFactor - 1) * 100)}% busier than average, so quantities are boosted.`;
+      summary += ` Upcoming ${daysAhead} days run ${Math.round((demandFactor - 1) * 100)}% busier than average, so quantities are boosted.`;
     }
     let aiPowered = false;
 
@@ -243,7 +243,7 @@ export async function GET(req: NextRequest) {
           `Estimated total: $${totalEstimatedCost.toFixed(2)}`,
           `Suppliers involved: ${[...new Set(suggestions.map(s => s.supplierName).filter(Boolean))].join(", ") || "unassigned"}`,
           demandFactor > 1.1
-            ? `Demand note: the next ${daysAhead} days are ~${Math.round((demandFactor - 1) * 100)}% busier than an average stretch (weekend-weighted), so quantities cover the surge.`
+            ? `Demand note: the next ${daysAhead} days are ${Math.round((demandFactor - 1) * 100)}% busier than an average stretch (weekend-weighted), so quantities cover the surge.`
             : `Demand note: the next ${daysAhead} days are about average.`,
         ];
         const completion = await openai.chat.completions.create({

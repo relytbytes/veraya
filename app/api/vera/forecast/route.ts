@@ -91,7 +91,7 @@ export async function GET(_req: NextRequest) {
     // Deterministic narrative (always valid).
     const deterministic = sampleCount === 0
       ? `Not enough ${dowName} history yet to project tonight. ${reservedCovers > 0 ? `${reservedCovers} covers are already booked.` : "No reservations booked yet."}`
-      : `Based on the last ${sampleCount} ${dowName}${sampleCount > 1 ? "s" : ""}, Vera projects about ${fmt(projectedSales)} across ~${Math.round(avgOrders)} tickets tonight${reservedCovers > 0 ? `, with ${reservedCovers} covers already booked` : ""}.`;
+      : `Based on the last ${sampleCount} ${dowName}${sampleCount > 1 ? "s" : ""}, Vera projects about ${fmt(projectedSales)} across ${Math.round(avgOrders)} tickets tonight${reservedCovers > 0 ? `, with ${reservedCovers} covers already booked` : ""}.`;
 
     const payload = {
       projectedSales,
@@ -117,7 +117,7 @@ export async function GET(_req: NextRequest) {
         `Same-weekday history (${sampleCount} recent ${dowName}s):`,
         `  Average sales: ${fmt(avgSales)}; average tickets: ${avgOrders.toFixed(0)}`,
         `  Covers booked so far tonight: ${reservedCovers}`,
-        `Projected: ${fmt(projectedSales)} / ~${projectedCovers} covers (confidence: ${confidence}).`,
+        `Projected: ${fmt(projectedSales)} / ${projectedCovers} covers (confidence: ${confidence}).`,
         `Top items on ${dowName}s (avg qty per service):`,
         ...prep.map((p) => `  - ${p.name}: ${p.basis}`),
       ].join("\n");

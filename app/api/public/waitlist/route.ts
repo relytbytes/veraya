@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       const restaurant = await getRestaurantName();
       await sendSms(
         entry.phone,
-        `${restaurant}: you're on the waitlist, party of ${size}. You're #${ahead} in line (~${estWaitMins} min). We'll text when your table's ready.`,
+        `${restaurant}: you're on the waitlist, party of ${size}. You're #${ahead} in line (${estWaitMins} min). We'll text when your table's ready.`,
       );
     }
 

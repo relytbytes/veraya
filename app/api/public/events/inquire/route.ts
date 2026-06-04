@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().split("T")[0];
   const noteLines = [
     `Inbound inquiry via website.`,
-    body.partySize ? `Party size: ~${body.partySize}` : null,
+    body.partySize ? `Party size: ${body.partySize}` : null,
     body.date ? `Preferred date: ${body.date}` : null,
     body.message?.trim() ? `\n${body.message.trim()}` : null,
   ].filter(Boolean);
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   // and Twilio is configured.
   const notify = await prisma.restaurantSettings.findUnique({ where: { key: "leadNotifyPhone" } });
   if (notify?.value?.trim()) {
-    const who = body.partySize ? ` · ~${body.partySize} guests` : "";
+    const who = body.partySize ? ` · ${body.partySize} guests` : "";
     await sendSms(notify.value.trim(), `New event inquiry: ${type} from ${name}${who}. See it in Events → Inquiries.`).catch(() => {});
   }
 
