@@ -645,7 +645,7 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
 
   return (
     <>
-      <div className="flex items-center gap-4 px-4 py-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
         {/* Time (+ date in search results) */}
         <div className="w-20 shrink-0 text-sm font-semibold text-gray-900 tabular-nums">
           {formatTime(reservation.time)}
@@ -677,8 +677,8 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Actions — wrap to a full-width second line on phones, inline on desktop */}
+        <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:shrink-0">
           {acting && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
 
           {isActive && (
