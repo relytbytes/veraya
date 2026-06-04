@@ -20,6 +20,13 @@ const SETTING_DEFAULTS: Record<string, string> = {
   // Which dayparts the venue takes reservations for. Combined with the service
   // hours, drives bookable slots when no advanced reservationHours config exists.
   servedDayparts: JSON.stringify({ breakfast: true, lunch: true, dinner: true }),
+  // Payroll: how often payroll runs and the overtime rule. Pay periods anchor to
+  // the fiscal-year start unless payrollAnchor overrides it. Veraya produces a
+  // gross-pay register for export — it does not calculate tax withholding.
+  payrollCadence: "BIWEEKLY", // WEEKLY | BIWEEKLY | SEMIMONTHLY
+  payrollAnchor: "", // YYYY-MM-DD; blank → derived from the fiscal calendar
+  overtimeThresholdHours: "40", // weekly hours before overtime kicks in
+  overtimeMultiplier: "1.5", // overtime pay multiplier
 };
 
 export async function GET() {

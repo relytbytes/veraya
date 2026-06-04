@@ -54,6 +54,14 @@ export default function SettingsPage() {
   const [fiscalSaving, setFiscalSaving] = useState(false);
   const [fiscalSaved, setFiscalSaved] = useState(false);
 
+  // Payroll config (cadence + overtime rule). Pay periods anchor to the fiscal
+  // year start unless `anchor` overrides it.
+  const [payroll, setPayroll] = useState({
+    cadence: "BIWEEKLY", anchor: "", overtimeThresholdHours: "40", overtimeMultiplier: "1.5",
+  });
+  const [payrollSaving, setPayrollSaving] = useState(false);
+  const [payrollSaved, setPayrollSaved] = useState(false);
+
   // Card policy state
   const [cardPolicy, setCardPolicy] = useState({
     enabled: false,
@@ -134,7 +142,30 @@ export default function SettingsPage() {
       }
       if (data.managerBonus) setBonus(parseBonusConfig(data.managerBonus));
       if (data.fiscalCalendar) setFiscal(parseFiscalConfig(data.fiscalCalendar));
+      setPayroll((prev) => ({
+        cadence: data.payrollCadence ?? prev.cadence,
+        anchor: data.payrollAnchor ?? prev.anchor,
+        overtimeThresholdHours: data.overtimeThresholdHours ?? prev.overtimeThresholdHours,
+        overtimeMultiplier: data.overtimeMultiplier ?? prev.overtimeMultiplier,
+      }));
     }
+  }
+
+  async function savePayroll() {
+    setPayrollSaving(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        payrollCadence: payroll.cadence,
+        payrollAnchor: payroll.anchor,
+        overtimeThresholdHours: payroll.overtimeThresholdHours,
+        overtimeMultiplier: payroll.overtimeMultiplier,
+      }),
+    });
+    setPayrollSaving(false);
+    setPayrollSaved(true);
+    setTimeout(() => setPayrollSaved(false), 2000);
   }
 
   async function saveFiscal() {
@@ -589,6 +620,74 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <Button onClick={saveFiscal} disabled={fiscalSaving}>
                 {fiscalSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : fiscalSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Fiscal Calendar</>)}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Payroll */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-teal-600" /> Payroll
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-gray-500">
+              How often payroll runs and the overtime rule. Pay periods anchor to the fiscal-year start
+              unless you set a custom anchor below. Veraya produces a gross-pay register to export — it
+              does not calculate tax withholding.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Pay period</Label>
+                <select
+                  value={payroll.cadence}
+                  onChange={(e) => setPayroll({ ...payroll, cadence: e.target.value })}
+                  className="w-full h-9 rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="BIWEEKLY">Bi-weekly (every 2 weeks)</option>
+                  <option value="SEMIMONTHLY">Semi-monthly (1st & 16th)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Period anchor date</Label>
+                <Input
+                  type="date"
+                  value={payroll.anchor}
+                  onChange={(e) => setPayroll({ ...payroll, anchor: e.target.value })}
+                />
+                <p className="text-[11px] text-gray-400">A date that starts a known pay period. Blank → fiscal-year start.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Overtime after (hrs/week)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={payroll.overtimeThresholdHours}
+                  onChange={(e) => setPayroll({ ...payroll, overtimeThresholdHours: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Overtime multiplier</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={payroll.overtimeMultiplier}
+                  onChange={(e) => setPayroll({ ...payroll, overtimeMultiplier: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-md px-3 py-2">
+              Overtime pays <b className="text-gray-900">{payroll.overtimeMultiplier}×</b> for hours over{" "}
+              <b className="text-gray-900">{payroll.overtimeThresholdHours}</b> in a workweek (federal default).
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={savePayroll} disabled={payrollSaving}>
+                {payrollSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : payrollSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Payroll Settings</>)}
               </Button>
             </div>
           </CardContent>

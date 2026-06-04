@@ -112,6 +112,9 @@ model User {
   trainingAssignments TrainingAssignment[]   @relation("TrainingAssignee")
   trainingAssigned    TrainingAssignment[]   @relation("TrainingAssigner")
   trainingSignoffs    TrainingSignoff[]      @relation("TrainingManager")
+  payrollLines        PayrollLine[]          @relation("PayrollLines")
+  payrollRunsCreated   PayrollRun[]          @relation("PayrollCreatedBy")
+  payrollRunsFinalized PayrollRun[]          @relation("PayrollFinalizedBy")
 }
 
 // ─── Menu ─────────────────────────────────────────────────────────────────────
@@ -924,4 +927,62 @@ model BarcodeCache {
   source    String?  // which provider resolved it (off | upcitemdb | go-upc | …)
   fetchedAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── Payroll ──────────────────────────────────────────────────────────────────
+// A payroll run is a gross-pay register for one pay period. Hours come from
+// ClockEntry, rates/salary from User. DRAFT runs recompute live from the clock;
+// FINALIZED runs freeze their line snapshots so historical pay never shifts when
+// punches are later edited. Veraya does NOT calculate tax withholding — the
+// register exports to the restaurant's payroll provider / accountant.
+model PayrollRun {
+  id          String    @id @default(cuid())
+  periodStart String    // YYYY-MM-DD, inclusive
+  periodEnd   String    // YYYY-MM-DD, inclusive
+  cadence     String    @default("BIWEEKLY") // WEEKLY | BIWEEKLY | SEMIMONTHLY
+  status      String    @default("DRAFT")    // DRAFT | FINALIZED
+  notes       String?
+  createdById   String?
+  finalizedById String?
+  finalizedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy   User?         @relation("PayrollCreatedBy",   fields: [createdById],   references: [id])
+  finalizedBy User?         @relation("PayrollFinalizedBy", fields: [finalizedById], references: [id])
+  lines       PayrollLine[]
+
+  @@unique([periodStart, periodEnd])
+  @@index([status])
+}
+
+model PayrollLine {
+  id    String @id @default(cuid())
+  runId String
+  userId String
+
+  // Snapshots of identity + rate at finalize time (so the register is self-contained).
+  name           String
+  role           String
+  employmentType String  // HOURLY | SALARY
+  hourlyRateCents Int    @default(0) // rate at compute time, in cents/hour
+
+  regularHours Float @default(0)
+  otHours      Float @default(0)
+
+  regularPayCents Int @default(0)
+  otPayCents      Int @default(0)
+  salaryPayCents  Int @default(0) // prorated salary for the period (SALARY only)
+  tipsCents       Int @default(0) // declared tips from TipDistribution (informational)
+
+  // Manager-entered bonus (+) or deduction (−) and the running gross.
+  adjustmentCents Int     @default(0)
+  adjustmentNote  String?
+  grossPayCents   Int     @default(0) // regular + ot + salary + adjustment (tips excluded — informational)
+
+  run  PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user User       @relation("PayrollLines", fields: [userId], references: [id])
+
+  @@unique([runId, userId])
+  @@index([userId])
 }
