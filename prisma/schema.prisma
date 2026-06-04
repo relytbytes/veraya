@@ -959,6 +959,27 @@ model BarcodeCache {
   updatedAt DateTime @updatedAt
 }
 
+// ─── Licensing ────────────────────────────────────────────────────────────────
+// A vault for the restaurant's licenses/permits (liquor, health, business,
+// food handler, etc.), visible to managers/admins. Each can hold a scanned
+// image as a backup before the physical copy is posted in the restaurant.
+model License {
+  id         String   @id @default(cuid())
+  name       String   // e.g. "Liquor License", "Health Permit"
+  type       String   @default("OTHER") // LIQUOR | HEALTH | BUSINESS | FOOD_HANDLER | FIRE | SIGN | OTHER
+  number     String?  // license/permit number
+  issuedTo   String?  // entity/person on the license
+  authority  String?  // issuing authority
+  issueDate  String?  // YYYY-MM-DD
+  expiryDate String?  // YYYY-MM-DD
+  imageUrl   String?  // scanned copy (data URL or hosted)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([expiryDate])
+}
+
 // ─── Payroll ──────────────────────────────────────────────────────────────────
 // A payroll run is a gross-pay register for one pay period. Hours come from
 // ClockEntry, rates/salary from User. DRAFT runs recompute live from the clock;

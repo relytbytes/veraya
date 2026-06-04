@@ -2,7 +2,7 @@ import {
   LayoutDashboard, UtensilsCrossed, Package, ShoppingCart, Users, BarChart3,
   Truck, Settings, ChefHat, CalendarDays, BookOpen, Clock, ConciergeBell,
   ClipboardList, RefreshCw, GlassWater, ListChecks, GraduationCap, PartyPopper,
-  Wine, Sparkles, Wallet,
+  Wine, Sparkles, Wallet, ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -69,6 +69,7 @@ export const navGroups: NavGroup[] = [
       { href: "/timeclock",   label: "Time Clock",  icon: Clock         },
       { href: "/payroll",     label: "Payroll",     icon: Wallet        },
       { href: "/training",    label: "Training",    icon: GraduationCap },
+      { href: "/licenses",    label: "Licensing",   icon: ShieldCheck   },
       { href: "/manager-log", label: "Manager Log", icon: ClipboardList },
     ],
   },
