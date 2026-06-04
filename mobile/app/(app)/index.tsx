@@ -12,6 +12,7 @@ import { getDashboardStats } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
+import { rotatingGreeting } from "@/lib/greeting";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { VeraCard } from "@/components/VeraCard";
@@ -94,8 +95,7 @@ export default function HomeScreen() {
   });
 
   const firstName = user?.name?.split(" ")[0] ?? "there";
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = rotatingGreeting();
 
   const { scrollY, scrollHandler } = useCollapsingHeader();
 

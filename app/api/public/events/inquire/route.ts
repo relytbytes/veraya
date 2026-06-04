@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendSms } from "@/lib/sms";
 
 // POST /api/public/events/inquire — a prospect asks to host / attend a private
 // event. Creates an Event in INQUIRY status so it lands in the dashboard's
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest) {
       notes: noteLines.join("\n"),
     },
   });
+
+  // Text the team so leads don't sit unseen. No-op until leadNotifyPhone is set
+  // and Twilio is configured.
+  const notify = await prisma.restaurantSettings.findUnique({ where: { key: "leadNotifyPhone" } });
+  if (notify?.value?.trim()) {
+    const who = body.partySize ? ` · ~${body.partySize} guests` : "";
+    await sendSms(notify.value.trim(), `New event inquiry: ${type} from ${name}${who}. See it in Events → Inquiries.`).catch(() => {});
+  }
 
   return Response.json({ ok: true, id: event.id }, { status: 201 });
 }

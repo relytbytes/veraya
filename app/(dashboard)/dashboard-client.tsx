@@ -12,6 +12,7 @@ import { Header } from "@/components/layout/header";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { VeraPanel } from "@/components/vera-panel";
+import { rotatingGreeting } from "@/lib/greeting";
 import { VeraForecast } from "@/components/vera-forecast";
 import { VeraSetupGuide } from "@/components/vera-setup-guide";
 
@@ -133,8 +134,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
 
   // Match the mobile dashboard header: a warm, personal greeting + today's order
   // count, instead of a generic "Dashboard" title.
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = rotatingGreeting();
   const firstName = name?.split(" ")[0] ?? "there";
 
   return (

@@ -14,6 +14,9 @@ const SETTING_DEFAULTS: Record<string, string> = {
   }),
   managerBonus: JSON.stringify(DEFAULT_BONUS_CONFIG),
   fiscalCalendar: JSON.stringify(DEFAULT_FISCAL_CONFIG),
+  // Phone texted when a new event / private-party inquiry arrives. No-ops until
+  // this is set AND Twilio env is configured — drop in the number any time.
+  leadNotifyPhone: "",
 };
 
 export async function GET() {

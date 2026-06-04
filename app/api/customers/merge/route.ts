@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     await tx.customer.update({ where: { id: primaryId }, data: merged });
     await tx.auditLog.create({
       data: {
-        action: "GUEST_MERGE" as never,
+        action: "GUEST_MERGE",
         userId,
         reason: `Merged ${dupes.length} duplicate guest profile(s) into ${primary.name}`,
         notes: `kept=${primaryId}; merged=${dupes.join(",")}`,

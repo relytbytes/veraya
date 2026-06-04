@@ -42,6 +42,7 @@ export default function SettingsPage() {
     serviceOpen: "11:00",
     serviceClose: "22:00",
     timezone: "",
+    leadNotifyPhone: "",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -307,6 +308,16 @@ export default function SettingsPage() {
                 onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
                 placeholder="Thank you for dining with us!"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Event inquiry alerts</Label>
+              <Input
+                value={settings.leadNotifyPhone}
+                onChange={(e) => setSettings({ ...settings, leadNotifyPhone: e.target.value })}
+                placeholder="+1 555 123 4567"
+                type="tel"
+              />
+              <p className="text-xs text-gray-400">Texted when a website event/private-party inquiry comes in. Requires Twilio to be configured; leave blank to disable.</p>
             </div>
             <div className="flex justify-end">
               <Button onClick={saveSettings} disabled={settingsSaving}>
