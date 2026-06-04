@@ -45,6 +45,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
 
   /* ── Amber → Brand Teal (primary accent) ─────────────────────────────────── */
   /* NOTE: amber-* IS the brand primary (teal). NEVER use amber-* to mean a

@@ -13,15 +13,9 @@ interface Tier {
   active: boolean;
 }
 
-const GOLD = "#d4a853";
-const TEXT = "#f5f0e8";
-const MUTED = "#8a7a60";
-const PANEL = "#231809";
-const BORDER = "#3a2e1a";
-
 const money = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 
-export function TicketPurchase({ eventId, mode, tiers }: { eventId: string; mode: string; tiers: Tier[] }) {
+export function TicketPurchase({ eventId, mode, tiers, accent }: { eventId: string; mode: string; tiers: Tier[]; accent: string }) {
   const sellable = tiers.filter((t) => t.active);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [name, setName] = useState("");
@@ -51,86 +45,79 @@ export function TicketPurchase({ eventId, mode, tiers }: { eventId: string; mode
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Couldn't start checkout."); setLoading(false); return; }
-      window.location.href = data.url; // → Stripe Checkout
+      window.location.assign(data.url);
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
     }
   }
 
+  const field = "w-full rounded-xl border border-stone-200 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-stone-400 transition-colors";
+
   return (
-    <div className="rounded-2xl border p-6" style={{ backgroundColor: PANEL, borderColor: BORDER }}>
+    <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
       <div className="flex items-center gap-2 mb-1">
-        <Ticket size={18} style={{ color: GOLD }} />
-        <h2 className="text-lg font-bold" style={{ color: TEXT }}>{mode === "DEPOSIT" ? "Reserve your seats" : "Get tickets"}</h2>
+        <Ticket size={17} style={{ color: accent }} />
+        <h2 className="font-display text-xl text-stone-900">{mode === "DEPOSIT" ? "Reserve your seats" : "Get tickets"}</h2>
       </div>
-      <p className="text-xs mb-5" style={{ color: MUTED }}>
-        {mode === "DEPOSIT" ? "Pay a deposit now to hold your seats; the balance is settled at the event." : "Secure checkout — you'll receive a confirmation and entry code by email."}
+      <p className="text-[13px] text-stone-500 mb-5 leading-relaxed">
+        {mode === "DEPOSIT" ? "Pay a deposit now to hold your seats; the balance is settled at the event." : "Secure checkout — you'll receive a confirmation and entry code."}
       </p>
 
-      {/* Tiers */}
-      <div className="space-y-3 mb-5">
+      <div className="space-y-2.5 mb-5">
         {sellable.map((t) => {
           const out = t.remaining <= 0;
           const n = qty[t.id] ?? 0;
           return (
-            <div key={t.id} className="rounded-xl border p-3.5" style={{ borderColor: BORDER, opacity: out ? 0.55 : 1 }}>
+            <div key={t.id} className="rounded-xl border border-stone-200 p-3.5" style={{ opacity: out ? 0.5 : 1 }}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm" style={{ color: TEXT }}>{t.name}</p>
-                  {t.description && <p className="text-xs mt-0.5" style={{ color: MUTED }}>{t.description}</p>}
-                  <p className="text-sm mt-1" style={{ color: GOLD }}>
+                  <p className="font-semibold text-[15px] text-stone-900">{t.name}</p>
+                  {t.description && <p className="text-xs mt-0.5 text-stone-500">{t.description}</p>}
+                  <p className="text-sm mt-1 font-medium" style={{ color: accent }}>
                     {money(t.priceCents)}
-                    {mode === "DEPOSIT" && t.chargeNowCents !== t.priceCents && (
-                      <span style={{ color: MUTED }}> · {money(t.chargeNowCents)} deposit</span>
-                    )}
+                    {mode === "DEPOSIT" && t.chargeNowCents !== t.priceCents && <span className="text-stone-400 font-normal"> · {money(t.chargeNowCents)} deposit</span>}
                   </p>
                 </div>
                 {out ? (
-                  <span className="text-xs font-semibold shrink-0" style={{ color: MUTED }}>Sold out</span>
+                  <span className="text-xs font-semibold text-stone-400 shrink-0">Sold out</span>
                 ) : (
                   <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => setQ(t.id, -1, t.remaining)} disabled={n === 0} className="h-7 w-7 rounded-full border flex items-center justify-center disabled:opacity-30" style={{ borderColor: BORDER, color: TEXT }}><Minus size={13} /></button>
-                    <span className="w-5 text-center font-bold tabular-nums" style={{ color: TEXT }}>{n}</span>
-                    <button onClick={() => setQ(t.id, 1, t.remaining)} disabled={n >= t.remaining} className="h-7 w-7 rounded-full flex items-center justify-center disabled:opacity-30" style={{ backgroundColor: GOLD, color: "#1a1208" }}><Plus size={13} /></button>
+                    <button onClick={() => setQ(t.id, -1, t.remaining)} disabled={n === 0} className="h-7 w-7 rounded-full border border-stone-200 flex items-center justify-center text-stone-600 disabled:opacity-30 hover:bg-stone-50"><Minus size={13} /></button>
+                    <span className="w-5 text-center font-bold tabular-nums text-stone-900">{n}</span>
+                    <button onClick={() => setQ(t.id, 1, t.remaining)} disabled={n >= t.remaining} className="h-7 w-7 rounded-full flex items-center justify-center text-white disabled:opacity-30" style={{ backgroundColor: accent }}><Plus size={13} /></button>
                   </div>
                 )}
               </div>
-              {!out && t.remaining <= 6 && <p className="text-[11px] mt-1.5" style={{ color: GOLD }}>Only {t.remaining} left</p>}
+              {!out && t.remaining <= 6 && <p className="text-[11px] mt-1.5 font-medium" style={{ color: accent }}>Only {t.remaining} left</p>}
             </div>
           );
         })}
       </div>
 
       {allSoldOut ? (
-        <p className="text-center text-sm font-semibold py-3" style={{ color: MUTED }}>This event is sold out.</p>
+        <p className="text-center text-sm font-semibold text-stone-400 py-3">This event is sold out.</p>
       ) : (
         <>
-          {/* Buyer */}
           <div className="space-y-2.5 mb-4">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: "#1a1208", borderColor: BORDER, color: TEXT }} />
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: "#1a1208", borderColor: BORDER, color: TEXT }} />
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" type="tel" className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none" style={{ backgroundColor: "#1a1208", borderColor: BORDER, color: TEXT }} />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className={field} />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" className={field} />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" type="tel" className={field} />
           </div>
 
           {seats > 0 && (
             <div className="flex items-center justify-between mb-3 text-sm">
-              <span style={{ color: MUTED }}>{seats} {seats === 1 ? "seat" : "seats"} · {mode === "DEPOSIT" ? "deposit due now" : "total"}</span>
-              <span className="font-bold text-lg" style={{ color: TEXT }}>{money(totalNow)}</span>
+              <span className="text-stone-500">{seats} {seats === 1 ? "seat" : "seats"} · {mode === "DEPOSIT" ? "deposit due now" : "total"}</span>
+              <span className="font-bold text-lg text-stone-900">{money(totalNow)}</span>
             </div>
           )}
 
-          {error && <p className="text-xs mb-3" style={{ color: "#e0795a" }}>{error}</p>}
+          {error && <p className="text-xs mb-3 text-red-600">{error}</p>}
 
-          <button
-            onClick={checkout}
-            disabled={loading || seats === 0}
-            className="w-full rounded-xl py-3 font-semibold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
-            style={{ backgroundColor: GOLD, color: "#1a1208" }}
-          >
+          <button onClick={checkout} disabled={loading || seats === 0} className="w-full rounded-xl py-3 font-semibold text-sm text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40" style={{ backgroundColor: accent }}>
             {loading ? <><Loader2 size={15} className="animate-spin" /> Redirecting…</> : <>Continue to payment — {money(totalNow)}</>}
           </button>
-          <p className="text-[11px] text-center mt-2.5" style={{ color: MUTED }}>Secured by Stripe.</p>
+          <p className="text-[11px] text-center mt-2.5 text-stone-400">Secured by Stripe.</p>
         </>
       )}
     </div>
