@@ -118,6 +118,30 @@ const LOG_TEMPLATES: Record<string, LogTemplate[]> = {
       severity: "HIGH",
       followUp: "Complete incident report form and notify GM immediately.",
     },
+    {
+      label: "Refusal of Service",
+      type: "INCIDENT",
+      title: "Refusal of Service",
+      body: "Guest description:\n\nReason for refusal (over-served / behavior / ID):\n\nWho made the call:\n\nHow it was handled (safe ride arranged?):\n\nWitnesses:\n\nPolice involved? Y/N",
+      severity: "HIGH",
+      followUp: "Document thoroughly — liability protection. Notify GM.",
+    },
+    {
+      label: "Theft / Loss",
+      type: "INCIDENT",
+      title: "Theft or Loss",
+      body: "What was taken / lost:\n\nEstimated value:\n\nWhere / when:\n\nDiscovered by:\n\nCamera footage checked? Y/N\n\nPolice report filed? Y/N",
+      severity: "HIGH",
+      followUp: "Pull camera footage and notify GM.",
+    },
+    {
+      label: "Health Inspection",
+      type: "INCIDENT",
+      title: "Health Inspection Visit",
+      body: "Inspector name / agency:\n\nDate & time:\n\nScore / result:\n\nViolations noted:\n\nCorrective actions required:\n\nDeadline to correct:",
+      severity: "MEDIUM",
+      followUp: "File the report and schedule corrections before the deadline.",
+    },
   ],
   MAINTENANCE: [
     {
