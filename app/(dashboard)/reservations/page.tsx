@@ -929,14 +929,34 @@ export default function ReservationsPage() {
           </div>
         ) : (
           <div className="max-w-3xl mx-auto space-y-2">
-            {reservations.map((r) => (
-              <ReservationRow
-                key={r.id}
-                reservation={r}
-                tables={tables}
-                onRefresh={loadReservations}
-              />
-            ))}
+            {(() => {
+              const removedStatuses = new Set(["CANCELLED", "NO_SHOW"]);
+              const active = reservations.filter((r) => !removedStatuses.has(r.status));
+              const removed = reservations.filter((r) => removedStatuses.has(r.status));
+              return (
+                <>
+                  {active.map((r) => (
+                    <ReservationRow key={r.id} reservation={r} tables={tables} onRefresh={loadReservations} />
+                  ))}
+                  {active.length === 0 && (
+                    <p className="text-center text-sm text-gray-400 py-6">No active reservations — see cancelled below.</p>
+                  )}
+                  {removed.length > 0 && (
+                    <details className="mt-4 group">
+                      <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 flex items-center gap-2 py-2">
+                        <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                        Cancelled &amp; removed ({removed.length})
+                      </summary>
+                      <div className="space-y-2 mt-1 opacity-70">
+                        {removed.map((r) => (
+                          <ReservationRow key={r.id} reservation={r} tables={tables} onRefresh={loadReservations} />
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

@@ -18,6 +18,7 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 export function ReservationRail({
+  serviceLabel,
   date, onShiftDate, onToday,
   period, onPeriod,
   search, onSearch,
@@ -26,6 +27,7 @@ export function ReservationRail({
   onSelectReservation, onSeatReservation, onSelectWaitlist, onNotifyWaitlist,
   onAddReservation, onSeatWalkIn,
 }: {
+  serviceLabel?: string;
   date: string;
   onShiftDate: (days: number) => void;
   onToday: () => void;
@@ -74,6 +76,16 @@ export function ReservationRail({
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Service window + active dayparts (#24) */}
+      {serviceLabel && (
+        <div className={cn(
+          "px-4 py-1.5 text-[11px] font-medium text-center border-b border-gray-800",
+          serviceLabel.startsWith("Closed") ? "bg-red-950/40 text-red-300" : "text-gray-400"
+        )}>
+          {serviceLabel}
+        </div>
+      )}
 
       {/* Cover counts */}
       <div className="flex items-center gap-4 px-4 py-2.5 border-b border-gray-800 bg-white/5">

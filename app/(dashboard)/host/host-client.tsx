@@ -53,6 +53,9 @@ export function HostClient() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [cardPolicy, setCardPolicy] = useState<CardPolicy | null>(null);
+  const [serviceMeta, setServiceMeta] = useState<{ open: string; close: string; dayparts: Record<string, boolean>; holidays: { date: string; name?: string; closed?: boolean; open?: string; close?: string }[] }>(
+    { open: "11:00", close: "22:00", dayparts: { breakfast: true, lunch: true, dinner: true }, holidays: [] }
+  );
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [sections, setSections] = useState<ServerSection[]>([]);
   const [sectionsOpen, setSectionsOpen] = useState(false);
@@ -102,6 +105,13 @@ export function HostClient() {
       if (s.floorPlanObjects) { try { setFloorObjects(JSON.parse(s.floorPlanObjects)); } catch {} }
       if (s.reservationCardPolicy) { try { setCardPolicy(JSON.parse(s.reservationCardPolicy)); } catch {} }
       if (s.tableBlocks) { try { setBlocks(JSON.parse(s.tableBlocks) as TableBlock[]); } catch {} } else { setBlocks([]); }
+      // Service window + active dayparts + holidays — drives the host header (#24).
+      setServiceMeta({
+        open: s.serviceOpen || "11:00",
+        close: s.serviceClose || "22:00",
+        dayparts: (() => { try { return JSON.parse(s.servedDayparts || "{}"); } catch { return { breakfast: true, lunch: true, dinner: true }; } })(),
+        holidays: (() => { try { return JSON.parse(s.holidays || "[]"); } catch { return []; } })(),
+      });
     }
     setLoading(false);
   }, []);
@@ -493,6 +503,15 @@ export function HostClient() {
   return (
     <div className="relative flex h-full overflow-hidden bg-[#0C1A1E]">
       <ReservationRail
+        serviceLabel={(() => {
+          const hol = serviceMeta.holidays.find((h) => h.date === date);
+          if (hol?.closed) return `Closed${hol.name ? ` · ${hol.name}` : ""}`;
+          const o = hol?.open || serviceMeta.open, c = hol?.close || serviceMeta.close;
+          const fmt = (t: string) => { const [h, m] = t.split(":").map(Number); const p = h >= 12 ? "PM" : "AM"; const h12 = h % 12 === 0 ? 12 : h % 12; return `${h12}:${String(m).padStart(2, "0")} ${p}`; };
+          const labels: Record<string, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
+          const active = ["breakfast", "lunch", "dinner"].filter((d) => serviceMeta.dayparts[d] !== false).map((d) => labels[d]);
+          return `${fmt(o)}–${fmt(c)}${active.length > 0 && active.length < 3 ? ` · ${active.join(", ")}` : ""}`;
+        })()}
         date={date} onShiftDate={shiftDate} onToday={() => { setDate(toISO(new Date())); cancelModes(); }}
         period={period} onPeriod={setPeriod}
         search={search} onSearch={setSearch}
