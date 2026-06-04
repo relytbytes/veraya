@@ -37,15 +37,17 @@ export async function POST(
     if (!session || !authorId) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const { id } = await params;
 
-    const body = await req.json() as { body?: string };
+    const body = await req.json() as { body?: string; type?: string };
     if (!body.body?.trim()) {
       return Response.json({ error: "Note body is required" }, { status: 400 });
     }
+    const noteType = ["POSITIVE", "DISCIPLINARY", "GENERAL"].includes(body.type ?? "") ? body.type! : "GENERAL";
 
     const note = await prisma.staffNote.create({
       data: {
         userId: id,
         authorId,
+        type: noteType,
         body: body.body.trim(),
       },
       include: { author: { select: { id: true, name: true, role: true } } },

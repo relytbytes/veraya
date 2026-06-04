@@ -20,6 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
+import { STAFF_NOTE_TYPES, STAFF_NOTE_TEMPLATES, STAFF_NOTE_BADGE, type StaffNoteType } from "@/lib/staff-note-templates";
 import { TimeInput } from "@/components/ui/time-input";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1313,6 +1314,7 @@ interface StaffNote {
   id: string;
   userId: string;
   authorId: string;
+  type?: string;
   body: string;
   createdAt: string;
   author: { id: string; name: string };
@@ -1324,7 +1326,16 @@ function NotesTab({ staff }: { staff: StaffMember[] }) {
   const [notes, setNotes] = useState<StaffNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [noteBody, setNoteBody] = useState("");
+  const [noteType, setNoteType] = useState<StaffNoteType>("GENERAL");
   const [savingNote, setSavingNote] = useState(false);
+
+  // Switching to a report type seeds its template (only if the box is empty or
+  // still holds another template, so we never clobber typed text).
+  function pickType(t: StaffNoteType) {
+    setNoteType(t);
+    const isTemplate = noteBody.trim() === "" || Object.values(STAFF_NOTE_TEMPLATES).some((tpl) => tpl && noteBody.trim() === tpl.trim());
+    if (isTemplate) setNoteBody(STAFF_NOTE_TEMPLATES[t]);
+  }
 
   const loadNotes = useCallback(async (userId: string) => {
     if (!userId) return;
@@ -1345,10 +1356,11 @@ function NotesTab({ staff }: { staff: StaffMember[] }) {
     const res = await fetch("/api/staff-notes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: selectedUserId, body: noteBody.trim() }),
+      body: JSON.stringify({ userId: selectedUserId, body: noteBody.trim(), type: noteType }),
     });
     if (res.ok) {
       setNoteBody("");
+      setNoteType("GENERAL");
       loadNotes(selectedUserId);
     }
     setSavingNote(false);
@@ -1390,12 +1402,30 @@ function NotesTab({ staff }: { staff: StaffMember[] }) {
       {selectedUserId && (
         <div className="space-y-2 rounded-xl border border-gray-200 bg-white p-4">
           <Label>Add Note</Label>
+          {/* Report type — seeds a structured template for the record (#14) */}
+          <div className="flex flex-wrap gap-1.5">
+            {STAFF_NOTE_TYPES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => pickType(t.value)}
+                title={t.hint}
+                className={cn(
+                  "text-xs font-medium px-2.5 py-1 rounded-full border transition-colors",
+                  noteType === t.value ? STAFF_NOTE_BADGE[t.value].cls : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <textarea
             className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Write a note about this staff member…"
             value={noteBody}
             onChange={(e) => setNoteBody(e.target.value)}
           />
+          {noteType !== "GENERAL" && <p className="text-[11px] text-gray-400">{STAFF_NOTE_TYPES.find((t) => t.value === noteType)?.hint}</p>}
           <Button
             size="sm"
             onClick={saveNote}
@@ -1421,6 +1451,11 @@ function NotesTab({ staff }: { staff: StaffMember[] }) {
               <div key={note.id} className="rounded-xl border border-gray-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
+                    {note.type && note.type !== "GENERAL" && (
+                      <span className={cn("inline-block mb-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border", STAFF_NOTE_BADGE[note.type as StaffNoteType]?.cls)}>
+                        {STAFF_NOTE_BADGE[note.type as StaffNoteType]?.label}
+                      </span>
+                    )}
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.body}</p>
                     <p className="text-xs text-gray-400 mt-1.5">
                       {note.author.name} · {timeAgo(note.createdAt)}

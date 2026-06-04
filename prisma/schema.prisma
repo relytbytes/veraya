@@ -870,6 +870,9 @@ model StaffNote {
   id        String   @id @default(cuid())
   userId    String
   authorId  String
+  // GENERAL | POSITIVE (commendation) | DISCIPLINARY (corrective action). Typed
+  // for documentation/liability — disciplinary records need a clear paper trail.
+  type      String   @default("GENERAL")
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
