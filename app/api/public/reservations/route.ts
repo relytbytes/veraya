@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { bookReservation, getDayAvailability } from "@/lib/reservations";
 import { sendSms, getRestaurantName, reservationConfirmationMessage } from "@/lib/sms";
+import { sendEmail, reservationEmail } from "@/lib/email";
 
 // POST /api/public/reservations — public instant booking (auto-assigns a table)
 export async function POST(req: NextRequest) {
@@ -69,6 +70,10 @@ export async function POST(req: NextRequest) {
     if (result.reservation.phone) {
       const restaurant = await getRestaurantName();
       await sendSms(result.reservation.phone, reservationConfirmationMessage(result.reservation, restaurant));
+    }
+    if (result.reservation.email) {
+      const { subject, html } = await reservationEmail(result.reservation);
+      await sendEmail({ to: result.reservation.email, subject, html });
     }
 
     return Response.json(result.reservation, { status: 201 });

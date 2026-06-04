@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { sendSms } from "@/lib/sms";
+import { sendTicketEmail } from "@/lib/event-tickets";
 
 // Lazily create the Stripe client so a missing key never crashes module load.
 function getStripe(): Stripe | null {
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
           const ev = await prisma.event.findUnique({ where: { id: eo.eventId }, select: { name: true } });
           await sendSms(eo.phone, `You're confirmed for ${ev?.name ?? "the event"}! Entry code: ${eo.confirmationCode}. Show this at check-in.`).catch(() => {});
         }
+        // Email the tickets (entry code + QR; best-effort, no-op without Resend/email).
+        await sendTicketEmail(eo.id, new URL(req.url).origin);
       }
     }
   }

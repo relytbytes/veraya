@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { bookReservation } from "@/lib/reservations";
 import { sendSms, getRestaurantName, reservationConfirmationMessage } from "@/lib/sms";
+import { sendEmail, reservationEmail } from "@/lib/email";
 import { publish } from "@/lib/realtime";
 import { sweepOverdueReservations } from "@/lib/reservation-sweep";
 import { getRestaurantTz } from "@/lib/restaurant-tz";
@@ -142,10 +143,14 @@ export async function POST(req: NextRequest) {
 
   publish({ scope: "floor", type: "reservation.created", ids: [result.reservation.id] });
 
-  // Best-effort confirmation text (no-ops gracefully if SMS isn't configured).
+  // Best-effort confirmation text + email (both no-op gracefully if unconfigured).
   if (result.reservation.phone) {
     const restaurant = await getRestaurantName();
     await sendSms(result.reservation.phone, reservationConfirmationMessage(result.reservation, restaurant));
+  }
+  if (result.reservation.email) {
+    const { subject, html } = await reservationEmail(result.reservation);
+    await sendEmail({ to: result.reservation.email, subject, html });
   }
 
   return Response.json(result.reservation, { status: 201 });

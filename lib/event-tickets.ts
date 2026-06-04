@@ -1,4 +1,50 @@
+import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, eventTicketEmail } from "@/lib/email";
+
+/**
+ * Email a paid event order its tickets (entry code + QR attachment + link to the
+ * confirmation page). Fire-and-forget: no-ops without an email on file or when
+ * Resend isn't configured, and never throws.
+ */
+export async function sendTicketEmail(orderId: string, origin: string): Promise<void> {
+  try {
+    const order = await prisma.eventOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true, event: true },
+    });
+    if (!order || !order.email) return;
+
+    const ticketUrl = `${origin}/special-events/${order.eventId}/confirmed?code=${order.confirmationCode}`;
+    const { subject, html } = await eventTicketEmail(
+      {
+        name: order.name,
+        confirmationCode: order.confirmationCode,
+        amountPaidCents: order.amountPaidCents,
+        items: order.items.map((it) => ({ tierName: it.tierName, quantity: it.quantity, unitPriceCents: it.unitPriceCents })),
+        event: {
+          name: order.event.name,
+          date: order.event.date,
+          startTime: order.event.startTime,
+          endTime: order.event.endTime,
+          venue: order.event.venue,
+          ticketMode: order.event.ticketMode,
+        },
+      },
+      ticketUrl,
+    );
+
+    let attachments;
+    try {
+      const buf = await QRCode.toBuffer(order.confirmationCode, { margin: 1, width: 320 });
+      attachments = [{ filename: `ticket-${order.confirmationCode}.png`, content: buf.toString("base64") }];
+    } catch { /* QR optional — entry code + link still work */ }
+
+    await sendEmail({ to: order.email, subject, html, attachments });
+  } catch (e) {
+    console.error("[sendTicketEmail] failed (non-fatal):", e instanceof Error ? e.message : e);
+  }
+}
 
 // What the guest is charged NOW per seat for a tier, given the event's mode.
 // TICKET = full price; DEPOSIT = the deposit (balance settled at the venue).

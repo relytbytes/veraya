@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { sendSms } from "@/lib/sms";
-import { createPendingOrder, type CheckoutLine } from "@/lib/event-tickets";
+import { createPendingOrder, sendTicketEmail, type CheckoutLine } from "@/lib/event-tickets";
 
 // POST /api/public/events/[id]/checkout
 // Body: { name, email, phone?, items: [{ tierId, quantity }] }
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (order.phone) {
       await sendSms(order.phone, `You're confirmed for ${eventName}! Entry code: ${order.confirmationCode}. Show this at check-in.`).catch(() => {});
     }
+    await sendTicketEmail(order.id, origin);
     return Response.json({
       url: `${origin}/special-events/${id}/confirmed?code=${order.confirmationCode}`,
       test: true,
