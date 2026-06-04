@@ -41,6 +41,8 @@ export function DashboardShell({
           >
             <Menu className="h-6 w-6" />
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/veraya-icon.png" alt="Veraya" width={28} height={28} className="h-7 w-7 rounded-full" />
           <span className="text-lg font-bold text-gray-900">Veraya</span>
         </div>
 
