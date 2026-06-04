@@ -112,9 +112,9 @@ export const kitchenAction = (body: object) =>
 
 // Menu
 export const getCategories = () => request<Category[]>("/api/categories");
-export const createCategory = (body: { name: string; station?: "KITCHEN" | "BAR" }) =>
+export const createCategory = (body: { name: string; station?: "KITCHEN" | "BAR"; parentId?: string | null }) =>
   request<Category>("/api/categories", { method: "POST", body: JSON.stringify(body) });
-export const patchCategory = (id: string, body: { name?: string; station?: "KITCHEN" | "BAR" }) =>
+export const patchCategory = (id: string, body: { name?: string; station?: "KITCHEN" | "BAR"; parentId?: string | null }) =>
   request<Category>(`/api/categories/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 export const getMenuItems = <T = MenuItem>() => request<T[]>("/api/menu");
 export const barcodeSearch = (barcode: string) =>
@@ -350,7 +350,7 @@ export interface ClockEntryWithUser extends ClockEntry {
   user: { id: string; name: string; role: string };
 }
 
-export interface Category { id: string; name: string; station?: "KITCHEN" | "BAR"; _count?: { menuItems: number } }
+export interface Category { id: string; name: string; station?: "KITCHEN" | "BAR"; parentId?: string | null; _count?: { menuItems: number } }
 
 export interface ModifierOption {
   id: string; name: string; priceAdj: string; sortOrder: number;

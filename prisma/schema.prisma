@@ -123,10 +123,17 @@ model Category {
   sortOrder   Int      @default(0)
   station     String   @default("KITCHEN") // KITCHEN | BAR — routes orders to the right display
   isActive    Boolean  @default(true)
+  // Self-nesting: a top-level category (parentId null) can hold subcategories,
+  // which hold the menu items — drives the POS drill-down (Drinks → Soda → Coke).
+  parentId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
   menuItems MenuItem[]
+
+  @@index([parentId])
 }
 
 model MenuItem {

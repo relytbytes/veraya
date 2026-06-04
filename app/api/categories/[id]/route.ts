@@ -10,11 +10,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { name, description, sortOrder, station } = body as {
+  const { name, description, sortOrder, station, parentId } = body as {
     name?: string;
     description?: string | null;
     sortOrder?: number;
     station?: string;
+    parentId?: string | null;
   };
 
   const data: {
@@ -22,11 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     description?: string | null;
     sortOrder?: number;
     station?: string;
+    parentId?: string | null;
   } = {};
   if (name !== undefined) data.name = name;
   if (description !== undefined) data.description = description;
   if (sortOrder !== undefined) data.sortOrder = sortOrder;
   if (station !== undefined) data.station = station === "BAR" ? "BAR" : "KITCHEN";
+  // Re-parenting (or null to make it top-level). Guard against self-parenting.
+  if (parentId !== undefined) data.parentId = parentId && parentId !== id ? parentId : null;
 
   const category = await prisma.category.update({ where: { id }, data });
   return Response.json(category);

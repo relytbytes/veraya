@@ -18,16 +18,24 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, description, sortOrder, station } = body;
+  const { name, description, sortOrder, station, parentId } = body;
 
   if (!name) return Response.json({ error: "Name is required" }, { status: 400 });
+
+  // A subcategory inherits its parent's station so order routing stays correct.
+  let resolvedStation = station === "BAR" ? "BAR" : "KITCHEN";
+  if (parentId) {
+    const parent = await prisma.category.findUnique({ where: { id: parentId }, select: { station: true } });
+    if (parent) resolvedStation = parent.station;
+  }
 
   const category = await prisma.category.create({
     data: {
       name,
       description,
       sortOrder: sortOrder ?? 0,
-      station: station === "BAR" ? "BAR" : "KITCHEN",
+      station: resolvedStation,
+      parentId: parentId || null,
     },
   });
   return Response.json(category, { status: 201 });
