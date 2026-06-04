@@ -51,6 +51,7 @@ enum PurchaseOrderStatus {
   DRAFT
   ORDERED
   PARTIAL
+  PENDING_APPROVAL  // goods received by staff, awaiting manager approval before cost/stock commit
   RECEIVED
   CANCELLED
 }

@@ -18,7 +18,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   });
   if (!po) return Response.json({ error: "Not found" }, { status: 404 });
-  return Response.json(po);
+
+  // Review flags for the approver (#1): line prices that swing hard vs the
+  // ingredient's current cost are the most likely scan errors to catch.
+  const SWING = 0.25;
+  const priceFlags = po.items
+    .map((it) => {
+      const old = Number(it.ingredient?.costPerUnit ?? 0);
+      const next = Number(it.unitCost);
+      if (old <= 0 || next <= 0) return null;
+      const pct = (next - old) / old;
+      if (Math.abs(pct) < SWING) return null;
+      return { ingredientId: it.ingredientId, name: it.ingredient?.name ?? "Item", oldCost: old, newCost: next, pct: Math.round(pct * 100) };
+    })
+    .filter(Boolean);
+
+  return Response.json({ ...po, reviewFlags: { priceFlags } });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,12 +42,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { status, notes, invoiceNumber, items: newItems } = body as {
+  const { status: rawStatus, notes, invoiceNumber, items: newItems } = body as {
     status?: string;
     notes?: string;
     invoiceNumber?: string;
     items?: { ingredientId: string; quantity: number; unitCost: number }[];
   };
+
+  // Two-step approval (#1): only a manager/admin's approval may RECEIVE a PO
+  // (the moment cost + inventory commit). A non-manager "receiving" instead
+  // submits it for approval — goods are in, but nothing hits the books yet.
+  const isManager = MANAGE_ROLES.includes(session.user?.role as string);
+  const status = rawStatus === "RECEIVED" && !isManager ? "PENDING_APPROVAL" : rawStatus;
 
   const po = await prisma.purchaseOrder.findUnique({
     where: { id },

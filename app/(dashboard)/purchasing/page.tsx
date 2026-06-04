@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Plus, Truck, Loader2, Pencil, CheckCircle2,
   ChevronDown, ChevronRight, ClipboardList, X, Search,
@@ -157,8 +158,12 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "warning" | "succe
   DRAFT: "secondary",
   ORDERED: "warning",
   PARTIAL: "warning",
+  PENDING_APPROVAL: "warning",
   RECEIVED: "success",
   CANCELLED: "destructive",
+};
+const STATUS_LABELS: Record<string, string> = {
+  PENDING_APPROVAL: "Pending Approval",
 };
 
 const EMPTY_SUPPLIER = { name: "", contactName: "", email: "", phone: "", address: "", notes: "" };
@@ -167,6 +172,8 @@ const EMPTY_ING = { name: "", unit: "", costPerUnit: "", supplierId: "", barcode
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PurchasingPage() {
+  const { data: session } = useSession();
+  const isManager = ["ADMIN", "MANAGER"].includes((session?.user as { role?: string } | undefined)?.role ?? "");
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -200,6 +207,12 @@ export default function PurchasingPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [ingForm, setIngForm] = useState<any>(EMPTY_ING);
   const [ingSaving, setIngSaving] = useState(false);
+
+  // Manual cost adjustment (#3) — manager-only, reason required for the ledger.
+  const [adjustIng, setAdjustIng] = useState<Ingredient | null>(null);
+  const [adjustCost, setAdjustCost] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
 
   // Supplier dialog
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -310,6 +323,68 @@ export default function PurchasingPage() {
       body: JSON.stringify({ status }),
     });
     loadAll();
+  }
+
+  // Approve & receive (#1): surface price-swing flags before committing cost+stock.
+  async function approveAndReceive(id: string) {
+    let flagNote = "";
+    try {
+      const res = await fetch(`/api/purchase-orders/${id}`);
+      if (res.ok) {
+        const detail = await res.json();
+        const flags: { name: string; oldCost: number; newCost: number; pct: number }[] = detail.reviewFlags?.priceFlags ?? [];
+        if (flags.length) {
+          flagNote = " Review price changes: " + flags
+            .map((f) => `${f.name} $${f.oldCost.toFixed(2)}→$${f.newCost.toFixed(2)} (${f.pct > 0 ? "+" : ""}${f.pct}%)`)
+            .join(", ") + ".";
+        }
+      }
+    } catch { /* proceed without flags */ }
+    const ok = await confirmDialog({
+      title: "Approve & receive order?",
+      message: `This commits inventory and updates ingredient costs (weighted average).${flagNote}`,
+      confirmText: "Approve & Receive",
+    });
+    if (!ok) return;
+    await updatePOStatus(id, "RECEIVED");
+    toast.success("Order received — inventory and costs updated.");
+  }
+
+  function openAdjustCost(ing: Ingredient) {
+    setAdjustIng(ing);
+    setAdjustCost(String(ing.costPerUnit));
+    setAdjustReason("");
+  }
+
+  async function saveAdjustCost() {
+    if (!adjustIng) return;
+    const newCost = parseFloat(adjustCost);
+    if (!Number.isFinite(newCost) || newCost < 0) {
+      toast.error("Enter a valid cost.");
+      return;
+    }
+    if (!adjustReason.trim()) {
+      toast.error("A reason is required for the audit trail.");
+      return;
+    }
+    setAdjustSaving(true);
+    try {
+      const res = await fetch(`/api/ingredients/${adjustIng.id}/adjust-cost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newCost, reason: adjustReason.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? "Could not adjust cost.");
+        return;
+      }
+      toast.success(`Cost updated for ${adjustIng.name}.`);
+      setAdjustIng(null);
+      loadAll();
+    } finally {
+      setAdjustSaving(false);
+    }
   }
 
   async function saveInvoice(id: string) {
@@ -537,6 +612,8 @@ export default function PurchasingPage() {
             setEditingInvoice={setEditingInvoice}
             saveInvoice={saveInvoice}
             updatePOStatus={updatePOStatus}
+            isManager={isManager}
+            approveAndReceive={approveAndReceive}
           />
         ) : tab === "ingredients" ? (
           <IngredientsTab
@@ -544,6 +621,8 @@ export default function PurchasingPage() {
             search={ingSearch}
             setSearch={setIngSearch}
             onEdit={openEditIng}
+            canAdjust={isManager}
+            onAdjustCost={openAdjustCost}
           />
         ) : tab === "suppliers" ? (
           <SuppliersTab
@@ -798,6 +877,34 @@ export default function PurchasingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manual cost adjustment (#3) — manager-gated; reason is required and stored on the inventory ledger. */}
+      <Dialog open={!!adjustIng} onOpenChange={(o) => { if (!o) setAdjustIng(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Adjust cost{adjustIng ? ` — ${adjustIng.name}` : ""}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              Current cost {adjustIng ? `${formatCurrency(Number(adjustIng.costPerUnit))} / ${adjustIng.unit}` : ""}.
+              This writes a new unit cost and records a reason on the inventory ledger for audit.
+            </p>
+            <div className="space-y-1.5">
+              <Label>New cost per {adjustIng?.unit ?? "unit"} *</Label>
+              <Input type="number" step="0.01" min="0" placeholder="0.00" value={adjustCost} onChange={(e) => setAdjustCost(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Reason *</Label>
+              <Input placeholder="e.g. supplier price correction, contract renegotiation" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustIng(null)}>Cancel</Button>
+            <Button onClick={saveAdjustCost} disabled={adjustSaving || !adjustCost || !adjustReason.trim()}>
+              {adjustSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Adjustment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -807,7 +914,7 @@ export default function PurchasingPage() {
 function OrdersTab({
   orders, expanded, setExpanded,
   editingInvoice, invoiceInput, setInvoiceInput, setEditingInvoice, saveInvoice,
-  updatePOStatus,
+  updatePOStatus, isManager, approveAndReceive,
 }: {
   orders: PurchaseOrder[];
   expanded: string | null;
@@ -818,6 +925,8 @@ function OrdersTab({
   setEditingInvoice: (id: string | null) => void;
   saveInvoice: (id: string) => void;
   updatePOStatus: (id: string, status: string) => void;
+  isManager: boolean;
+  approveAndReceive: (id: string) => void;
 }) {
   if (orders.length === 0) {
     return (
@@ -845,7 +954,7 @@ function OrdersTab({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-semibold text-gray-900">{po.vendor.name}</p>
-                <Badge variant={STATUS_COLORS[po.status] ?? "secondary"}>{po.status}</Badge>
+                <Badge variant={STATUS_COLORS[po.status] ?? "secondary"}>{STATUS_LABELS[po.status] ?? po.status}</Badge>
                 {/* Invoice number badge / inline edit */}
                 {editingInvoice === po.id ? (
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -903,9 +1012,24 @@ function OrdersTab({
                 </Button>
               )}
               {(po.status === "ORDERED" || po.status === "PARTIAL") && (
-                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => updatePOStatus(po.id, "RECEIVED")}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Receive
-                </Button>
+                isManager ? (
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => approveAndReceive(po.id)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Receive
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => updatePOStatus(po.id, "RECEIVED")}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Mark Received
+                  </Button>
+                )
+              )}
+              {po.status === "PENDING_APPROVAL" && (
+                isManager ? (
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => approveAndReceive(po.id)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve &amp; Receive
+                  </Button>
+                ) : (
+                  <span className="self-center px-2 text-xs font-medium text-amber-600">Awaiting approval</span>
+                )
               )}
             </div>
           </div>
@@ -946,12 +1070,14 @@ function OrdersTab({
 }
 
 function IngredientsTab({
-  ingredients, search, setSearch, onEdit,
+  ingredients, search, setSearch, onEdit, canAdjust, onAdjustCost,
 }: {
   ingredients: Ingredient[];
   search: string;
   setSearch: (v: string) => void;
   onEdit: (ing: Ingredient) => void;
+  canAdjust: boolean;
+  onAdjustCost: (ing: Ingredient) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -1003,6 +1129,14 @@ function IngredientsTab({
                     <span>In stock: <strong className={isLow ? "text-red-600" : "text-gray-900"}>{formatQty(stock)} {ing.unit}</strong></span>
                     <span className="text-gray-400">min {formatQty(min)}</span>
                   </div>
+                  {canAdjust && (
+                    <button
+                      onClick={() => onAdjustCost(ing)}
+                      className="mt-2 text-xs font-medium text-amber-600 hover:text-amber-700"
+                    >
+                      Adjust cost…
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             );

@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   DRAFT:     { bg: "bg-gray-100",   text: "text-mist" },
   ORDERED:   { bg: "bg-sky/10",   text: "text-sky" },
   PARTIAL:   { bg: "bg-gold-muted",  text: "text-gold-dim" },
+  PENDING_APPROVAL: { bg: "bg-ember/10", text: "text-ember" },
   RECEIVED:  { bg: "bg-jade/10",  text: "text-jade" },
   CANCELLED: { bg: "bg-coral/10",    text: "text-coral" },
 };
@@ -150,12 +151,20 @@ export default function InvoicesScreen() {
     if (!selected) return;
     setGenerating(true);
     try {
-      await patchPurchaseOrder(selected.id, { status: "RECEIVED", receivedAt: new Date().toISOString() });
+      const updated = await patchPurchaseOrder(selected.id, { status: "RECEIVED", receivedAt: new Date().toISOString() });
       qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
       const uri = await generatePOInvoicePDF(selected, receivedQtys, user?.name ?? undefined);
       await sharePDF(uri);
       setView("list");
       setSelected(null);
+      // Two-step approval (#1): a non-manager receive is held for manager sign-off
+      // before inventory costs commit. Make that explicit instead of implying it's done.
+      if (updated?.status === "PENDING_APPROVAL") {
+        Alert.alert(
+          "Submitted for approval",
+          "Items recorded as received. A manager must approve this order before costs and inventory are finalized.",
+        );
+      }
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to generate invoice");
     } finally {
@@ -1173,7 +1182,7 @@ export default function InvoicesScreen() {
                   {selected.invoiceNumber ? `#${selected.invoiceNumber}` : `PO-${selected.id.slice(-8).toUpperCase()}`}
                 </Text>
                 <View className={`px-2 py-0.5 rounded-full ${sc.bg}`}>
-                  <Text className={`text-xs font-semibold ${sc.text}`}>{selected.status}</Text>
+                  <Text className={`text-xs font-semibold ${sc.text}`}>{selected.status === "PENDING_APPROVAL" ? "PENDING" : selected.status}</Text>
                 </View>
               </View>
             </View>
@@ -1369,7 +1378,7 @@ export default function InvoicesScreen() {
                   {po.vendor.name}
                 </Text>
                 <View className={`px-2.5 py-1 rounded-full ${sc.bg}`}>
-                  <Text className={`text-xs font-semibold ${sc.text}`}>{po.status}</Text>
+                  <Text className={`text-xs font-semibold ${sc.text}`}>{po.status === "PENDING_APPROVAL" ? "PENDING" : po.status}</Text>
                 </View>
               </View>
               <Text className="text-sm text-mist">
