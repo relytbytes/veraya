@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign } from "lucide-react";
 import { Header } from "@/components/layout/header";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,17 @@ export default function SettingsPage() {
   });
   const [payrollSaving, setPayrollSaving] = useState(false);
   const [payrollSaved, setPayrollSaved] = useState(false);
+
+  // Reservation automation + access (#2/#6/#11).
+  const [resv, setResv] = useState({
+    autoNoShowEnabled: false,
+    autoNoShowMinutes: "15",
+    publicWaitlistEnabled: true,
+  });
+  const [holidays, setHolidays] = useState<{ date: string; name: string; closed: boolean; open?: string; close?: string }[]>([]);
+  const [newHoliday, setNewHoliday] = useState({ date: "", name: "", closed: true, open: "", close: "" });
+  const [resvSaving, setResvSaving] = useState(false);
+  const [resvSaved, setResvSaved] = useState(false);
 
   // Card policy state
   const [cardPolicy, setCardPolicy] = useState({
@@ -148,7 +160,30 @@ export default function SettingsPage() {
         overtimeThresholdHours: data.overtimeThresholdHours ?? prev.overtimeThresholdHours,
         overtimeMultiplier: data.overtimeMultiplier ?? prev.overtimeMultiplier,
       }));
+      setResv((prev) => ({
+        autoNoShowEnabled: data.autoNoShowEnabled === "true",
+        autoNoShowMinutes: data.autoNoShowMinutes ?? prev.autoNoShowMinutes,
+        publicWaitlistEnabled: data.publicWaitlistEnabled !== "false",
+      }));
+      if (data.holidays) { try { setHolidays(JSON.parse(data.holidays)); } catch { /* ignore */ } }
     }
+  }
+
+  async function saveResv(nextHolidays?: typeof holidays) {
+    setResvSaving(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        autoNoShowEnabled: String(resv.autoNoShowEnabled),
+        autoNoShowMinutes: resv.autoNoShowMinutes,
+        publicWaitlistEnabled: String(resv.publicWaitlistEnabled),
+        holidays: JSON.stringify(nextHolidays ?? holidays),
+      }),
+    });
+    setResvSaving(false);
+    setResvSaved(true);
+    setTimeout(() => setResvSaved(false), 2000);
   }
 
   async function savePayroll() {
@@ -620,6 +655,126 @@ export default function SettingsPage() {
             <div className="flex justify-end">
               <Button onClick={saveFiscal} disabled={fiscalSaving}>
                 {fiscalSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : fiscalSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Fiscal Calendar</>)}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reservations & Waitlist */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-teal-600" /> Reservations &amp; Waitlist
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Public waitlist toggle (#6) */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label>Public online waitlist</Label>
+                <p className="text-[11px] text-gray-400 mt-0.5">Let guests join the waitlist from your public link or the in-house QR code.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResv({ ...resv, publicWaitlistEnabled: !resv.publicWaitlistEnabled })}
+                className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", resv.publicWaitlistEnabled ? "bg-teal-500" : "bg-gray-300")}
+              >
+                <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all", resv.publicWaitlistEnabled ? "left-[22px]" : "left-0.5")} />
+              </button>
+            </div>
+
+            {/* Auto no-show (#2) */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <Label>Auto-mark no-shows</Label>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Automatically mark a booking as a no-show once it&apos;s past its time and the guest hasn&apos;t arrived. A manager-set &ldquo;Running late&rdquo; is always spared.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResv({ ...resv, autoNoShowEnabled: !resv.autoNoShowEnabled })}
+                  className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", resv.autoNoShowEnabled ? "bg-teal-500" : "bg-gray-300")}
+                >
+                  <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all", resv.autoNoShowEnabled ? "left-[22px]" : "left-0.5")} />
+                </button>
+              </div>
+              {resv.autoNoShowEnabled && (
+                <div className="flex items-center gap-2 pl-1">
+                  <span className="text-sm text-gray-600">Grace period</span>
+                  <Input type="number" min="1" className="w-20 h-8" value={resv.autoNoShowMinutes} onChange={(e) => setResv({ ...resv, autoNoShowMinutes: e.target.value })} />
+                  <span className="text-sm text-gray-600">minutes past reservation time</span>
+                </div>
+              )}
+            </div>
+
+            {/* Holidays (#11) */}
+            <div className="border-t pt-4 space-y-3">
+              <Label>Holiday closures &amp; special hours</Label>
+              <p className="text-[11px] text-gray-400 -mt-1">Block bookings on closed days, or set different hours for a date.</p>
+              {holidays.length > 0 && (
+                <div className="space-y-1.5">
+                  {holidays.slice().sort((a, b) => a.date.localeCompare(b.date)).map((h) => (
+                    <div key={h.date} className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-800">{h.date}</span>
+                        {h.name && <span className="text-gray-500"> · {h.name}</span>}
+                        <span className={cn("ml-2 text-xs", h.closed ? "text-red-600" : "text-teal-600")}>
+                          {h.closed ? "Closed" : `${h.open}–${h.close}`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-red-500"
+                        onClick={() => { const next = holidays.filter((x) => x.date !== h.date); setHolidays(next); saveResv(next); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-end gap-2 rounded-md border border-dashed border-gray-200 p-3">
+                <div>
+                  <Label className="text-[11px]">Date</Label>
+                  <Input type="date" className="h-8 w-40" value={newHoliday.date} onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })} />
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <Label className="text-[11px]">Name (optional)</Label>
+                  <Input className="h-8" placeholder="Thanksgiving" value={newHoliday.name} onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewHoliday({ ...newHoliday, closed: !newHoliday.closed })}
+                  className={cn("h-8 px-3 rounded-md text-xs font-medium border", newHoliday.closed ? "bg-red-50 border-red-200 text-red-600" : "bg-teal-50 border-teal-200 text-teal-600")}
+                >
+                  {newHoliday.closed ? "Closed" : "Special hours"}
+                </button>
+                {!newHoliday.closed && (
+                  <div className="flex items-end gap-1">
+                    <Input type="time" className="h-8 w-28" value={newHoliday.open} onChange={(e) => setNewHoliday({ ...newHoliday, open: e.target.value })} />
+                    <span className="pb-1.5 text-gray-400">–</span>
+                    <Input type="time" className="h-8 w-28" value={newHoliday.close} onChange={(e) => setNewHoliday({ ...newHoliday, close: e.target.value })} />
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  disabled={!newHoliday.date || (!newHoliday.closed && (!newHoliday.open || !newHoliday.close))}
+                  onClick={() => {
+                    const h = { date: newHoliday.date, name: newHoliday.name.trim(), closed: newHoliday.closed, ...(newHoliday.closed ? {} : { open: newHoliday.open, close: newHoliday.close }) };
+                    const next = [...holidays.filter((x) => x.date !== h.date), h];
+                    setHolidays(next);
+                    setNewHoliday({ date: "", name: "", closed: true, open: "", close: "" });
+                    saveResv(next);
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t pt-3">
+              <Button onClick={() => saveResv()} disabled={resvSaving}>
+                {resvSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : resvSaved ? "✓ Saved!" : (<><Save className="h-4 w-4" /> Save Reservation Settings</>)}
               </Button>
             </div>
           </CardContent>

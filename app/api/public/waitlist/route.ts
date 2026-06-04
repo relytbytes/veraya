@@ -5,9 +5,21 @@ import { sendSms, getRestaurantName } from "@/lib/sms";
 
 const AVG_TURN_MINS = 45;
 
+// GET /api/public/waitlist — whether public self-add is currently open (#6).
+export async function GET() {
+  const row = await prisma.restaurantSettings.findUnique({ where: { key: "publicWaitlistEnabled" } });
+  return Response.json({ enabled: row?.value === "true" });
+}
+
 // POST /api/public/waitlist — guest self-add (no auth; reached via QR/link).
 export async function POST(req: NextRequest) {
   try {
+    // Public self-serve waitlisting is manager-gated (#6).
+    const toggle = await prisma.restaurantSettings.findUnique({ where: { key: "publicWaitlistEnabled" } });
+    if (toggle?.value !== "true") {
+      return Response.json({ error: "Online waitlist is closed right now. Please see the host." }, { status: 403 });
+    }
+
     const { name, partySize, phone } = (await req.json()) as {
       name?: string; partySize?: number; phone?: string;
     };

@@ -148,7 +148,8 @@ async function getServiceHoursFallback(): Promise<DaySlots> {
   try { if (m.servedDayparts) served = { ...served, ...JSON.parse(m.servedDayparts) }; } catch { /* defaults */ }
 
   const slots: string[] = [];
-  const end = toMinutes(close) - 30; // 30-min buffer before close
+  // Bookable right up to closing — the last seating can be at close (e.g. 10pm).
+  const end = toMinutes(close);
   for (let t = toMinutes(open); t <= end; t += 30) {
     const time = fromMinutes(t);
     const period = slotPeriod(time);
@@ -157,9 +158,51 @@ async function getServiceHoursFallback(): Promise<DaySlots> {
   return { slots: slots.length ? slots : DEFAULT_SLOTS, dayEnabled: true, maxPartySize: 10 };
 }
 
+export interface Holiday {
+  date: string;            // YYYY-MM-DD
+  name?: string;
+  closed?: boolean;        // fully closed (no reservations)
+  open?: string;           // optional special hours
+  close?: string;
+}
+
+/** Holiday overrides (closures / special hours) from settings. */
+export async function getHolidays(): Promise<Holiday[]> {
+  const row = await prisma.restaurantSettings.findUnique({ where: { key: "holidays" } });
+  if (!row) return [];
+  try {
+    const arr = JSON.parse(row.value);
+    return Array.isArray(arr) ? (arr as Holiday[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Build slot times between open/close (inclusive of close) honoring dayparts. */
+function buildSlots(open: string, close: string, interval: number, periods: Period[] | null): string[] {
+  const slots: string[] = [];
+  const end = toMinutes(close);
+  for (let t = toMinutes(open); t <= end; t += interval) {
+    const time = fromMinutes(t);
+    const period = slotPeriod(time);
+    if (periods === null || period === null || periods.includes(period)) slots.push(time);
+  }
+  return slots;
+}
+
 /** Bookable slot times for a date, honoring configured hours when present. */
 export async function getSlotsForDate(date: string): Promise<DaySlots> {
+  // Holiday overrides win over the weekly schedule (#11) — a closure means no
+  // bookings; special hours replace the day's window.
+  const holiday = (await getHolidays()).find((h) => h.date === date);
+  if (holiday?.closed) return { slots: [], dayEnabled: false, maxPartySize: 10 };
+
   const hours = await getReservationHours();
+
+  if (holiday?.open && holiday?.close) {
+    const interval = hours?.slotInterval ?? 30;
+    return { slots: buildSlots(holiday.open, holiday.close, interval, null), dayEnabled: true, maxPartySize: hours?.maxPartySize ?? 10 };
+  }
   // No dedicated reservation-hours config → drive bookings off the venue's
   // service hours + daypart toggles, so "we open at 4pm" actually limits
   // reservations instead of defaulting to 11am.
@@ -168,7 +211,8 @@ export async function getSlotsForDate(date: string): Promise<DaySlots> {
   const dow = new Date(date + "T12:00:00").getDay();
   const day = hours[DAY_NAMES[dow]];
   const interval = hours.slotInterval ?? 30;
-  const buffer = hours.bufferMins ?? 30;
+  // Default to no buffer so the last seating can be at closing time (#10).
+  const buffer = hours.bufferMins ?? 0;
   const maxPartySize = hours.maxPartySize ?? 10;
 
   if (!day?.enabled) return { slots: [], dayEnabled: false, maxPartySize };

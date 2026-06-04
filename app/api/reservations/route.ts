@@ -4,6 +4,9 @@ import { auth } from "@/lib/auth";
 import { bookReservation } from "@/lib/reservations";
 import { sendSms, getRestaurantName, reservationConfirmationMessage } from "@/lib/sms";
 import { publish } from "@/lib/realtime";
+import { sweepOverdueReservations } from "@/lib/reservation-sweep";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
+import { localDateStr, localHourFloat } from "@/lib/time";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -49,6 +52,14 @@ export async function GET(req: NextRequest) {
     });
     return Response.json(reservations);
   }
+
+  // Self-healing auto-no-show (#2): mark today's overdue, un-arrived bookings.
+  // No-op unless a manager enabled it in Settings; cheap enough to run on load.
+  try {
+    const tz = await getRestaurantTz();
+    const now = new Date();
+    await sweepOverdueReservations(localDateStr(now, tz), Math.round(localHourFloat(now, tz) * 60));
+  } catch { /* never block the list on the sweep */ }
 
   let where: { date: string } | { date: { gte: string; lte: string } };
   if (from && to) {

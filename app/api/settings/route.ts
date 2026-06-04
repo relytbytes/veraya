@@ -27,6 +27,15 @@ const SETTING_DEFAULTS: Record<string, string> = {
   payrollAnchor: "", // YYYY-MM-DD; blank → derived from the fiscal calendar
   overtimeThresholdHours: "40", // weekly hours before overtime kicks in
   overtimeMultiplier: "1.5", // overtime pay multiplier
+  // Auto-no-show sweep (#2): mark overdue, un-arrived bookings NO_SHOW after the
+  // grace window. Off by default — a manager opts in.
+  autoNoShowEnabled: "false",
+  autoNoShowMinutes: "15",
+  // Holiday closures / special hours (#11): JSON [{date,name,closed,open,close}].
+  holidays: "[]",
+  // Public self-serve waitlist join page (#6) — on by default (preserves the
+  // existing in-house QR self-add); a manager can close it any time.
+  publicWaitlistEnabled: "true",
 };
 
 export async function GET() {

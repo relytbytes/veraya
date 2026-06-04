@@ -280,7 +280,9 @@ export function isArrivingSoon(resTime: string): boolean {
   if (isNaN(h) || isNaN(m)) return false;
   const now = new Date();
   const diff = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
-  return diff >= -10 && diff <= 20;
+  // Move a booking into "arriving soon" 30 minutes before its time (#1), with a
+  // little grace once it's just past.
+  return diff >= -10 && diff <= 30;
 }
 
 export function inPeriod(time: string, period: PeriodLabel): boolean {

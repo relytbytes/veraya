@@ -80,7 +80,8 @@ function isArrivingSoon(resTime: string, now: Date): boolean {
   const [h, m] = resTime.split(":").map(Number);
   if (isNaN(h) || isNaN(m)) return false;
   const diff = (h * 60 + m) - (now.getHours() * 60 + now.getMinutes());
-  return diff >= -10 && diff <= 20;
+  // "Arriving soon" begins 30 minutes before the reservation time (#1).
+  return diff >= -10 && diff <= 30;
 }
 
 // Service-stage colors — must match the web floor plan / host stand exactly.
