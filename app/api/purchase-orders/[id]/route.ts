@@ -126,6 +126,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           data: { quantity: { increment: Number(item.quantity) } },
         })
       ),
+      // #18 — receiving an invoice updates each ingredient's cost to what we
+      // actually paid, so food-cost math stays current.
+      ...po.items
+        .filter((item) => Number(item.unitCost) > 0)
+        .map((item) =>
+          prisma.ingredient.update({
+            where: { id: item.ingredientId },
+            data: { costPerUnit: item.unitCost },
+          })
+        ),
       ...po.items.map((item) =>
         prisma.inventoryTransaction.create({
           data: {

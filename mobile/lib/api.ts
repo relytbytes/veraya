@@ -680,6 +680,9 @@ export interface ExtractedInvoiceLine {
 }
 export interface ExtractedInvoice {
   vendor: string | null;
+  vendorPhone: string | null;
+  vendorEmail: string | null;
+  vendorAddress: string | null;
   matchedSupplierId: string | null;
   matchedSupplierName: string | null;
   invoiceNumber: string | null;
@@ -694,6 +697,9 @@ export interface ExtractedInvoice {
 }
 export const extractInvoice = (image: string) =>
   request<ExtractedInvoice>("/api/invoices/extract", { method: "POST", body: JSON.stringify({ image }) });
+
+export const createSupplier = (body: { name: string; phone?: string | null; email?: string | null; address?: string | null }) =>
+  request<Supplier>("/api/suppliers", { method: "POST", body: JSON.stringify(body) });
 
 // AI parse of a spoken inventory count, grounded to candidate items.
 export const parseSpokenCount = (transcript: string, items: { id: string; name: string; unit: string }[]) =>

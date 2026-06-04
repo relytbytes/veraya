@@ -12,6 +12,9 @@ import OpenAI from "openai";
 interface RawLine { description: string; quantity: number | null; unit: string | null; unitCost: number | null; lineTotal: number | null }
 interface RawInvoice {
   vendor: string | null;
+  vendorPhone: string | null;
+  vendorEmail: string | null;
+  vendorAddress: string | null;
   invoiceNumber: string | null;
   invoiceDate: string | null;
   items: RawLine[];
@@ -70,6 +73,9 @@ export async function POST(req: NextRequest) {
 Return ONLY JSON, no markdown:
 {
   "vendor": "supplier/company name on the invoice or null",
+  "vendorPhone": "supplier phone or null",
+  "vendorEmail": "supplier email or null",
+  "vendorAddress": "supplier street address or null",
   "invoiceNumber": "invoice or order number or null",
   "invoiceDate": "YYYY-MM-DD or null",
   "items": [
@@ -121,6 +127,9 @@ Numbers must be plain (no $ or commas). If a value isn't visible, use null. Do n
 
     return Response.json({
       vendor: raw.vendor,
+      vendorPhone: raw.vendorPhone ?? null,
+      vendorEmail: raw.vendorEmail ?? null,
+      vendorAddress: raw.vendorAddress ?? null,
       matchedSupplierId: matchedSupplier?.id ?? null,
       matchedSupplierName: matchedSupplier?.name ?? null,
       invoiceNumber: raw.invoiceNumber,

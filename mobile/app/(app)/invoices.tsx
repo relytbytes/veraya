@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getPurchaseOrders, getPurchaseOrder, patchPurchaseOrder, deletePurchaseOrder,
-  getSuppliers, getIngredients, createPurchaseOrder, createIngredient, visionIdentify, extractInvoice,
+  getSuppliers, getIngredients, createPurchaseOrder, createIngredient, visionIdentify, extractInvoice, createSupplier as createSupplierApi,
 } from "@/lib/api";
 import type { PurchaseOrder, Supplier, IngredientFull, VisionResult } from "@/lib/api";
 import { generatePOInvoicePDF, sharePDF } from "@/lib/invoice";
@@ -303,9 +303,18 @@ export default function InvoicesScreen() {
     setExtracting(true);
     try {
       const res = await extractInvoice(invoicePhoto);
+      let supplierNote = "";
       if (res.matchedSupplierId && !createSupplier) {
         const s = suppliers.find((x) => x.id === res.matchedSupplierId);
         if (s) setCreateSupplier(s);
+      } else if (!res.matchedSupplierId && res.vendor && !createSupplier) {
+        // New vendor → build the supplier database straight from the invoice.
+        try {
+          const s = await createSupplierApi({ name: res.vendor, phone: res.vendorPhone, email: res.vendorEmail, address: res.vendorAddress });
+          setCreateSupplier(s);
+          qc.invalidateQueries({ queryKey: ["suppliers"] });
+          supplierNote = `Added new supplier "${s.name}".`;
+        } catch { supplierNote = `Couldn't auto-add supplier "${res.vendor}" — pick or create one.`; }
       }
       if (res.invoiceNumber && !createInvoiceNum.trim()) setCreateInvoiceNum(res.invoiceNumber);
       const added: DraftItem[] = [];
@@ -317,7 +326,9 @@ export default function InvoicesScreen() {
       }
       if (added.length) setDraftItems((prev) => [...prev, ...added]);
       const needsReview = res.lines.length - added.length;
-      const parts = [`Added ${added.length} matched item${added.length === 1 ? "" : "s"}.`];
+      const parts = [];
+      if (supplierNote) parts.push(supplierNote);
+      parts.push(`Added ${added.length} matched item${added.length === 1 ? "" : "s"}.`);
       if (needsReview > 0) parts.push(`${needsReview} line${needsReview === 1 ? "" : "s"} need manual matching — add them by search.`);
       if (res.totalsMatch === false && res.total != null) parts.push(`Heads up: line totals ($${res.computedTotal}) don't match the invoice total ($${res.total}).`);
       Alert.alert("Vera read the invoice", parts.join("\n\n"));
