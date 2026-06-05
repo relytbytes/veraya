@@ -6,6 +6,7 @@ import { buildDiagnosis, issuesToAlerts } from "@/lib/vera-health";
 import { getWasteRollup } from "@/lib/prep-waste";
 import { getBaselines, expectedRevenueForDow, expectedFractionByNow } from "@/lib/vera-baselines";
 import { getLearnedWeights } from "@/lib/vera-weights";
+import { computeDayForecast } from "@/lib/forecast-day";
 import { localDateStr, dayWindow, localHourFloat, localDow, resolveTz } from "@/lib/time";
 
 // Operating window (estimate until per-restaurant hours are wired in).
@@ -375,10 +376,15 @@ export async function GET(req: NextRequest) {
   // Prep yield/waste rollup feeds Vera's Cost dimension (chronic over-prep).
   const wasteRollup = await getWasteRollup(todayStr);
 
+  // The day forecast (same engine as the Forecast card) is Vera's pre-service
+  // revenue projection, so the dashboard projection agrees with the forecast.
+  const dayForecast = await computeDayForecast(now).catch(() => null);
+
   const diag = buildDiagnosis({
     nowHour: localHourFloat(now, tz), openHour, closeHour,
     salesToday, ordersToday: todaySales._count,
     expectedRevenue,
+    forecastRevenue: dayForecast?.projectedSales ?? null,
     laborSoFar,
     scheduledLaborFullDay: scheduledLaborFullDay > 0 ? scheduledLaborFullDay : null,
     activeStaff: activeClock.length,

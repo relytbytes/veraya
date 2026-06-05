@@ -71,6 +71,7 @@ export interface HealthInput {
   salesToday: number;
   ordersToday: number;
   expectedRevenue: number | null; // 8-week same-DOW average full-day revenue
+  forecastRevenue?: number | null; // the Vera Forecast's projected sales (reservations/events/weather folded in)
   laborSoFar: number;          // $ spent on clocked-in staff so far today
   scheduledLaborFullDay: number | null; // planned labor $ for the whole day (from shifts)
   activeStaff: number;
@@ -136,10 +137,10 @@ function project(i: HealthInput): Projection {
   // Revenue: extrapolate today's pace against the expected curve. With no
   // baseline, extrapolate by elapsed service time but conservatively — a tiny
   // early sample shouldn't blow up into a huge projected day.
-  // Tonight's reservations lift the expected revenue: booked covers imply a night,
-  // scaled up for the walk-ins that don't reserve. Take the higher of the learned
-  // baseline and the booking-implied revenue (capped so a few covers can't blow it
-  // up). This is why a well-booked night projects above the flat average.
+  // Pre-service projection: prefer the Vera Forecast's projected sales — the SAME
+  // number the forecast card shows, with reservations, events, holiday, and weather
+  // already folded in. Fall back to a reservation-lifted baseline if no forecast was
+  // supplied, so a well-booked night still projects above the flat average.
   const AVG_PARTY = 2.3, BOOKING_SHARE = 0.5;
   let bookedExpected = i.expectedRevenue ?? 0;
   if (i.expectedRevenue && i.expectedRevenue > 0 && i.confirmedCovers > 0 && i.avgCheckMean && i.avgCheckMean > 0) {
@@ -147,6 +148,7 @@ function project(i: HealthInput): Projection {
     const bookingImpliedRevenue = (i.confirmedCovers * perCover) / BOOKING_SHARE;
     bookedExpected = Math.min(i.expectedRevenue * 2.5, Math.max(i.expectedRevenue, bookingImpliedRevenue));
   }
+  const preServiceProjection = i.forecastRevenue && i.forecastRevenue > 0 ? i.forecastRevenue : bookedExpected;
 
   let projectedRevenue: number;
   if (i.expectedRevenue && i.expectedRevenue > 0) {
@@ -155,9 +157,13 @@ function project(i: HealthInput): Projection {
     const elapsedFrac = i.expectedByNowFraction != null ? i.expectedByNowFraction : serviceElapsed;
     const expectedSoFar = i.expectedRevenue * elapsedFrac;
     const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
-    // Before service really gets going, trust the (booking-lifted) forecast; once
-    // sales are flowing, trust the live pace.
-    projectedRevenue = elapsedFrac < 0.05 ? Math.max(i.salesToday, bookedExpected) : i.expectedRevenue * paceRatio;
+    // Before service really gets going, trust the forecast; once sales are flowing,
+    // trust the live pace (but never project below the forecast's floor).
+    projectedRevenue = elapsedFrac < 0.05
+      ? Math.max(i.salesToday, preServiceProjection)
+      : Math.max(i.salesToday, i.expectedRevenue * paceRatio);
+  } else if (i.forecastRevenue && i.forecastRevenue > 0) {
+    projectedRevenue = Math.max(i.salesToday, i.forecastRevenue);
   } else {
     projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
   }
