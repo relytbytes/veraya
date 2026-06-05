@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export type RealtimeScope = "floor" | "kitchen";
+export type RealtimeScope = "floor" | "kitchen" | "data";
 export interface RealtimeEvent { scope: RealtimeScope; type: string; ids?: string[]; at?: number }
 
 /**

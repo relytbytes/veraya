@@ -4,7 +4,7 @@ import EventSource from "react-native-sse";
 import { BASE_URL, getHeaders } from "./api";
 
 // Mirror of the web RealtimeEvent shape emitted by /api/realtime.
-export type RealtimeScope = "floor" | "kitchen";
+export type RealtimeScope = "floor" | "kitchen" | "data";
 export interface RealtimeEvent {
   scope: RealtimeScope;
   type: string;
@@ -107,7 +107,7 @@ export function useRealtime(
         if (!event.data) return;
         let data: RealtimeEvent;
         try { data = JSON.parse(event.data); } catch { return; }
-        if (data.scope !== "floor" && data.scope !== "kitchen") return;
+        if (data.scope !== "floor" && data.scope !== "kitchen" && data.scope !== "data") return;
         cb.current(data);
       });
 

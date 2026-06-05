@@ -10,6 +10,9 @@ const DEBOUNCE_MS = 250;
 const SCOPE_KEYS: Record<RealtimeScope, string[][]> = {
   kitchen: [["kitchen"], ["bar"], ["openOrders"], ["dashboard"]],
   floor: [["tables"], ["waitlist"], ["reservations"], ["openOrders"], ["dashboard"]],
+  // Data changes (inventory adjust, 86, receiving) → refresh stock lists, Vera's
+  // Cost & Inventory read, and the dashboard, everywhere at once.
+  data: [["inventory"], ["reorder"], ["vera"], ["vera-predicted"], ["dashboard"]],
 };
 
 /**

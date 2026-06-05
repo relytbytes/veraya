@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
+import { publish } from "@/lib/realtime";
 
 export async function GET() {
   // No auth — POS and kitchen both need this; public menu filters use it too
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
   });
 
   emit({ type: "eightysix.add", menuItemId, name: item.menuItem.name, reason: reason });
+  publish({ scope: "data", type: "eightysix.changed", ids: [menuItemId] });
   return Response.json(item, { status: 201 });
 }
 
@@ -39,5 +41,6 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.eightySixItem.deleteMany({ where: { menuItemId } });
   emit({ type: "eightysix.clear", menuItemId });
+  publish({ scope: "data", type: "eightysix.changed", ids: [menuItemId] });
   return new Response(null, { status: 204 });
 }

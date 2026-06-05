@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { TransactionType } from "@/app/generated/prisma/enums";
+import { publish } from "@/lib/realtime";
 
 export async function GET() {
   const session = await auth();
@@ -57,6 +58,11 @@ export async function POST(req: NextRequest) {
       data: { quantity: { increment: delta } },
     }),
   ]);
+
+  // Push to every client (cross-instance via Redis) so inventory lists, the
+  // dashboard, and Vera's Cost & Inventory read refresh instantly instead of
+  // waiting for a poll.
+  publish({ scope: "data", type: "inventory.changed", ids: [ingredientId] });
 
   return Response.json({ transaction, updatedItem }, { status: 201 });
 }

@@ -8,6 +8,7 @@ import {
   DollarSign, Users, Package, UtensilsCrossed, BarChart2, Calendar, Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRealtime } from "@/lib/use-realtime";
 import { toast } from "@/components/ui/toast";
 import { VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
@@ -201,6 +202,11 @@ export function VeraPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Live refresh: re-pull Vera the moment inventory/86/floor/order data changes
+  // anywhere (pushed via SSE/Redis), so the read is current instead of waiting
+  // on the periodic reload. Subtle refresh spinner, no full loading flash.
+  useRealtime(["data", "floor", "kitchen"], () => load(true));
 
   // Forward-looking run-out predictions (best-effort; never blocks the panel).
   useEffect(() => {
