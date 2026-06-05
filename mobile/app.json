@@ -7,7 +7,10 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -22,7 +25,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Used for barcode scanning when receiving inventory and looking up menu items.",
         "NSMicrophoneUsageDescription": "Used for voice inventory counting — speak ingredient quantities hands-free.",
-        "NSSpeechRecognitionUsageDescription": "Used to recognise spoken ingredient quantities during voice inventory counts."
+        "NSSpeechRecognitionUsageDescription": "Used to recognise spoken ingredient quantities during voice inventory counts.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,8 +35,6 @@
         "backgroundColor": "#FEFAF4"
       },
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
