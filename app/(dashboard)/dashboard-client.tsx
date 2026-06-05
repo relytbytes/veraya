@@ -14,6 +14,7 @@ import React from "react";
 import { VeraPanel } from "@/components/vera-panel";
 import { rotatingGreeting, randomGreeting } from "@/lib/greeting";
 import { VeraForecast } from "@/components/vera-forecast";
+import { WeatherWidget } from "@/components/weather-widget";
 import { VeraSetupGuide } from "@/components/vera-setup-guide";
 import { CheckLookup, CheckDetailModal } from "./check-lookup";
 
@@ -158,6 +159,9 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
       />
 
       <div className="p-6 space-y-6">
+        {/* Current conditions — hidden until a venue location is set in Settings */}
+        <WeatherWidget />
+
         {loadError && !stats && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             ⚠️ Could not load dashboard data.{" "}

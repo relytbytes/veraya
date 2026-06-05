@@ -80,6 +80,9 @@ export interface HealthInput {
   outOfStockCount: number;
   lowStockCount: number;
   active86Count: number;
+  outOfStockNames?: string[]; // specific items, so Vera can name them not just count them
+  lowStockNames?: string[];
+  active86Names?: string[];
   voidTotal: number;
   voidCount: number;
   compTotal: number;
@@ -369,13 +372,33 @@ function labor(i: HealthInput, p: Projection): Dimension {
   };
 }
 
+// Name the specific items (up to 3) instead of a bare count; null if no names available.
+function namedItems(names: string[] | undefined, count: number): string | null {
+  if (!names || names.length === 0) return null;
+  const shown = names.slice(0, 3).join(", ");
+  const extra = count - Math.min(3, names.length);
+  return extra > 0 ? `${shown} +${extra} more` : shown;
+}
+
 function costInventory(i: HealthInput): Dimension {
   const issues: HealthIssue[] = [];
   const wins: string[] = [];
   let penalty = 0;
-  if (i.outOfStockCount > 0) { penalty += Math.min(40, i.outOfStockCount * 14); issues.push({ severity: "HIGH", message: `${i.outOfStockCount} item${i.outOfStockCount > 1 ? "s" : ""} out of stock`, action: "Reorder or 86 affected dishes", link: "/inventory" }); }
-  if (i.active86Count > 0) { penalty += Math.min(20, i.active86Count * 5); issues.push({ severity: "MEDIUM", message: `${i.active86Count} item${i.active86Count > 1 ? "s" : ""} 86'd`, action: "Confirm the floor knows", link: "/kitchen" }); }
-  if (i.lowStockCount > 0) { penalty += Math.min(15, i.lowStockCount * 3); issues.push({ severity: "LOW", message: `${i.lowStockCount} item${i.lowStockCount > 1 ? "s" : ""} below par`, action: "Add to the next order", link: "/purchasing/reorder" }); }
+  if (i.outOfStockCount > 0) {
+    penalty += Math.min(40, i.outOfStockCount * 14);
+    const named = namedItems(i.outOfStockNames, i.outOfStockCount);
+    issues.push({ severity: "HIGH", message: named ? `Out of stock: ${named}` : `${i.outOfStockCount} item${i.outOfStockCount > 1 ? "s" : ""} out of stock`, action: "Reorder or 86 affected dishes", link: "/inventory" });
+  }
+  if (i.active86Count > 0) {
+    penalty += Math.min(20, i.active86Count * 5);
+    const named = namedItems(i.active86Names, i.active86Count);
+    issues.push({ severity: "MEDIUM", message: named ? `86'd: ${named}` : `${i.active86Count} item${i.active86Count > 1 ? "s" : ""} 86'd`, action: "Confirm the floor knows", link: "/kitchen" });
+  }
+  if (i.lowStockCount > 0) {
+    penalty += Math.min(15, i.lowStockCount * 3);
+    const named = namedItems(i.lowStockNames, i.lowStockCount);
+    issues.push({ severity: "LOW", message: named ? `Low on stock: ${named}` : `${i.lowStockCount} item${i.lowStockCount > 1 ? "s" : ""} below par`, action: "Add to the next order", link: "/purchasing/reorder" });
+  }
   if (i.priceChangeCount > 0) { penalty += Math.min(12, i.priceChangeCount * 3); issues.push({ severity: "LOW", message: `${i.priceChangeCount} vendor price swing${i.priceChangeCount > 1 ? "s" : ""}`, action: "Review costs / re-bid", link: "/purchasing" }); }
 
   // Chronic prep over-prep — only acted on once there's a real signal (days logged).
