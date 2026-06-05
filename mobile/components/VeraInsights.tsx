@@ -16,7 +16,9 @@ export function VeraForecastCard() {
   return (
     <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden", ...shadow.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14, paddingBottom: 10 }}>
-        <Image source={require("../assets/vera-forecast.png")} style={{ width: 34, height: 34, borderRadius: 8 }} resizeMode="contain" />
+        <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "#fff", padding: 2.5, alignItems: "center", justifyContent: "center" }}>
+          <Image source={require("../assets/vera-forecast.png")} style={{ width: "100%", height: "100%", borderRadius: 6 }} resizeMode="contain" />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: C.pearl }}>Vera Forecast</Text>
           <Text style={{ fontSize: 11, color: C.smoke, textTransform: "uppercase", letterSpacing: 0.6 }}>Tonight</Text>
