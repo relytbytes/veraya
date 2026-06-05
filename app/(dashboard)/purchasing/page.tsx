@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import {
   Plus, Truck, Loader2, Pencil, CheckCircle2,
   ChevronDown, ChevronRight, ClipboardList, X, Search,
@@ -172,8 +171,15 @@ const EMPTY_ING = { name: "", unit: "", costPerUnit: "", supplierId: "", barcode
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PurchasingPage() {
-  const { data: session } = useSession();
-  const isManager = ["ADMIN", "MANAGER"].includes((session?.user as { role?: string } | undefined)?.role ?? "");
+  // Role gating via /api/me — using next-auth's useSession here would require a
+  // SessionProvider the app doesn't mount, which crashed this whole page.
+  const [isManager, setIsManager] = useState(false);
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => setIsManager(["ADMIN", "MANAGER"].includes(me?.role ?? "")))
+      .catch(() => {});
+  }, []);
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
