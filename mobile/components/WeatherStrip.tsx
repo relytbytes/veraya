@@ -32,21 +32,19 @@ export function WeatherStrip() {
       backgroundColor: `${accent}14`, borderRadius: 18, borderWidth: 1, borderColor: `${accent}2E`,
       paddingHorizontal: 14, paddingVertical: 12, ...shadow.sm,
     }}>
-      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", ...shadow.sm }}>
-        <Text style={{ fontSize: 24 }}>{data.emoji}</Text>
+      <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: C.surface, alignItems: "center", justifyContent: "center", ...shadow.sm }}>
+        <Text style={{ fontSize: 26 }}>{data.emoji}</Text>
       </View>
+      <Text style={{ fontSize: 32, fontWeight: "800", color: C.pearl }}>{data.tempNowF}°</Text>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: C.pearl, lineHeight: 28 }}>{data.tempNowF}°</Text>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: C.mist }}>{data.condition}</Text>
-        </View>
-        <Text style={{ fontSize: 11, color: C.smoke, marginTop: 1 }} numberOfLines={1}>
+        <Text style={{ fontSize: 15, fontWeight: "600", color: C.mist }} numberOfLines={1}>{data.condition}</Text>
+        <Text style={{ fontSize: 12, color: C.smoke, marginTop: 1 }} numberOfLines={1}>
           H {data.hiF}° · L {data.loF}°{data.label ? ` · ${data.label}` : ""}
         </Text>
       </View>
       {showAdj && (
-        <View style={{ backgroundColor: `${up ? C.jade : C.ember}1F`, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: up ? C.jade : C.ember }}>{up ? "↑" : "↓"} {Math.abs(adjPct)}% demand</Text>
+        <View style={{ backgroundColor: `${up ? C.jade : C.coral}1F`, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: up ? C.jade : C.coral }}>{up ? "↑" : "↓"} {Math.abs(adjPct)}% demand</Text>
         </View>
       )}
     </View>

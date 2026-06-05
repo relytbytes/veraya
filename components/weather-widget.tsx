@@ -48,16 +48,16 @@ export function WeatherWidget() {
   const up = (w.multiplier ?? 1) >= 1;
 
   return (
-    <div className={`flex items-center gap-4 rounded-2xl border border-gray-200/80 bg-gradient-to-br ${gradientFor(w.condition)} px-5 py-3.5 shadow-sm`}>
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-[26px] shadow-sm ring-1 ring-black/5">
+    <div className={`flex items-center gap-5 rounded-2xl border border-gray-200/80 bg-gradient-to-br ${gradientFor(w.condition)} px-6 py-4 shadow-sm`}>
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-4xl shadow-sm ring-1 ring-black/5">
         {w.emoji}
       </div>
 
-      <div className="flex items-baseline gap-2.5 min-w-0">
-        <span className="text-3xl font-bold leading-none tabular-nums text-gray-900">{w.tempNowF}°</span>
-        <div className="flex flex-col leading-tight min-w-0">
-          <span className="text-sm font-semibold text-gray-800 truncate">{w.condition}</span>
-          <span className="text-xs text-gray-500 truncate">
+      <div className="flex items-center gap-4 min-w-0">
+        <span className="text-5xl font-bold leading-none tabular-nums text-gray-900">{w.tempNowF}°</span>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="text-lg font-semibold text-gray-800 leading-tight truncate">{w.condition}</span>
+          <span className="text-sm text-gray-500 leading-tight truncate">
             H {w.hiF}° · L {w.loF}°{w.label ? ` · ${w.label}` : ""}
           </span>
         </div>
@@ -65,7 +65,7 @@ export function WeatherWidget() {
 
       {showAdj && (
         <span
-          className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${up ? "bg-emerald-100/80 text-emerald-700" : "bg-amber-100/80 text-amber-700"}`}
+          className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ${up ? "bg-emerald-100/80 text-emerald-700" : "bg-red-100/80 text-red-700"}`}
           title="How weather is nudging today's demand forecast"
         >
           {up ? "↑" : "↓"} {Math.abs(adjPct)}% demand
