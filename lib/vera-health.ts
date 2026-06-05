@@ -77,6 +77,7 @@ export interface HealthInput {
   activeStaff: number;
   confirmedCovers: number;     // covers booked today (active reservations)
   expectedCovers: number | null;
+  forecastCovers?: number | null; // the Vera Forecast's projected covers (history + bookings)
   openOrders: number;
   outOfStockCount: number;
   lowStockCount: number;
@@ -150,25 +151,20 @@ function project(i: HealthInput): Projection {
   }
   const preServiceProjection = i.forecastRevenue && i.forecastRevenue > 0 ? i.forecastRevenue : bookedExpected;
 
+  // Projection = actual sales so far + the rest of the day at the forecast rate.
+  // `observed` is the share of the day's revenue normally in by now (learned
+  // intraday curve), so the remaining slice is forecast × (1 − observed). This
+  // can't collapse to ~$0 during a quiet afternoon (the booked dinner still
+  // counts), and it scales above the forecast when sales run ahead of pace.
+  const baseFloor = i.forecastRevenue && i.forecastRevenue > 0
+    ? i.forecastRevenue
+    : (i.expectedRevenue && i.expectedRevenue > 0 ? bookedExpected : 0);
+
   let projectedRevenue: number;
-  if (i.expectedRevenue && i.expectedRevenue > 0) {
-    // Use the LEARNED intraday curve ("how much is normally in by now") — far more
-    // accurate than a flat clock, since revenue arrives non-linearly (a quiet
-    // afternoon, then a dinner rush).
+  if (baseFloor > 0) {
     const elapsedFrac = i.expectedByNowFraction != null ? i.expectedByNowFraction : serviceElapsed;
-    const expectedSoFar = i.expectedRevenue * elapsedFrac;
-    const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
-    const paceProjection = i.expectedRevenue * paceRatio;
-    // Blend the forecast with the live pace by how much of the DAY'S REVENUE has
-    // actually come in. Early (an empty afternoon before dinner) we trust the
-    // forecast; as the bulk of the day is observed, the live pace takes over. This
-    // stops a quiet lull from collapsing the projection to ~$0 while the booked
-    // dinner is still ahead.
     const observed = clamp(elapsedFrac, 0, 1);
-    const blended = (1 - observed) * preServiceProjection + observed * paceProjection;
-    projectedRevenue = Math.max(i.salesToday, blended);
-  } else if (i.forecastRevenue && i.forecastRevenue > 0) {
-    projectedRevenue = Math.max(i.salesToday, i.forecastRevenue);
+    projectedRevenue = i.salesToday + baseFloor * (1 - observed);
   } else {
     projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
   }
@@ -300,10 +296,11 @@ function demand(i: HealthInput, p: Projection): Dimension {
       summary: hasForecast ? `Service hasn't started — expecting a normal day (${money(i.expectedRevenue!)}).` : "Service hasn't started yet.",
       metrics: [
         { label: "Expected today", value: hasForecast ? money(i.expectedRevenue!) : "—", status: "good" },
-        { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" : "fair" },
+        ...(i.forecastCovers != null ? [{ label: "Projected covers", value: String(i.forecastCovers), status: "good" as const }] : []),
+        { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" as const : "fair" as const },
       ],
       wins: [],
-      issues: i.confirmedCovers === 0 ? [{ severity: "LOW", message: "No reservations on the books for today", action: "Walk-ins only so far", link: "/reservations" }] : [],
+      issues: i.confirmedCovers === 0 ? [{ severity: "LOW", message: "No reservations booked yet — walk-ins only so far", action: "Projected covers come from your same-weekday history", link: "/reservations" }] : [],
     };
   }
 
@@ -316,7 +313,8 @@ function demand(i: HealthInput, p: Projection): Dimension {
   const metrics: HealthMetric[] = [
     { label: "Sales so far", value: money(i.salesToday), target: hasForecast ? `${money(i.expectedRevenue!)} normal` : undefined, status: statusFromScore(score) },
     { label: "Pace vs normal", value: paceRatio !== null ? pct(paceRatio * 100) : "—", status: statusFromScore(score) },
-    { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" : "strained" },
+    ...(i.forecastCovers != null ? [{ label: "Projected covers", value: String(i.forecastCovers), status: "good" as const }] : []),
+    { label: "Covers booked", value: String(i.confirmedCovers), status: i.confirmedCovers > 0 ? "good" as const : "strained" as const },
   ];
 
   // Empty-room detection during service is the loudest demand signal.

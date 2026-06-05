@@ -388,10 +388,13 @@ export async function GET(req: NextRequest) {
     laborSoFar,
     scheduledLaborFullDay: scheduledLaborFullDay > 0 ? scheduledLaborFullDay : null,
     activeStaff: activeClock.length,
-    confirmedCovers,
+    // Use the forecast's reserved covers when available so Vera and the Forecast
+    // card read the same reservations; fall back to the directly-queried count.
+    confirmedCovers: dayForecast?.reservedCovers ?? confirmedCovers,
     expectedCovers: expectedRevenue && baselines.avgCheckMean && baselines.avgCheckMean > 0
       ? Math.round((expectedRevenue / baselines.avgCheckMean) * 2.3)
       : null,
+    forecastCovers: dayForecast?.projectedCovers ?? null,
     openOrders,
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
     active86Count: active86.length,
