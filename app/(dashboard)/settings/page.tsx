@@ -100,7 +100,7 @@ export default function SettingsPage() {
 
   // Simulation
   const [simDays, setSimDays] = useState("30");
-  const [simOrdersPerDay, setSimOrdersPerDay] = useState("25");
+  const [simOrdersPerDay, setSimOrdersPerDay] = useState("70");
   const [simRunning, setSimRunning] = useState(false);
   const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number; reservationsCreated?: number; reservationsCleared?: number } | null>(null);
   const [btRunning, setBtRunning] = useState(false);
@@ -1294,12 +1294,12 @@ export default function SettingsPage() {
                 <Input
                   type="number"
                   min="1"
-                  max="100"
+                  max="200"
                   value={simOrdersPerDay}
                   onChange={(e) => setSimOrdersPerDay(e.target.value)}
                   className="bg-white"
                 />
-                <p className="text-xs text-gray-400">Max 100/day</p>
+                <p className="text-xs text-gray-400">Max 200/day · ~70+ is a profitable full-service venue</p>
               </div>
             </div>
 

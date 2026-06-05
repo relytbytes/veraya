@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { days = 30, ordersPerDay = 25, clear = false, snapshots = true, reservations = true } = body as {
+  const { days = 30, ordersPerDay = 70, clear = false, snapshots = true, reservations = true } = body as {
     days?: number;
     ordersPerDay?: number;
     clear?: boolean;
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   // Safety caps
   const safeDays = Math.min(days, 90);
-  const safeOrdersPerDay = Math.min(ordersPerDay, 100);
+  const safeOrdersPerDay = Math.min(ordersPerDay, 200);
   const tz = await getRestaurantTz();
 
   if (clear) {
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       const day = new Date();
       day.setDate(day.getDate() + d);
       const dateStr = localDateStr(day, tz);
-      const count = Math.round(8 * dowMult[day.getDay()] * (0.7 + Math.random() * 0.6));
+      const count = Math.round(16 * dowMult[day.getDay()] * (0.7 + Math.random() * 0.6));
       for (let i = 0; i < count; i++) {
         const lunch = Math.random() < 0.25;
         toMake.push({

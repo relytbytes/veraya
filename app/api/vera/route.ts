@@ -382,7 +382,10 @@ export async function GET(req: NextRequest) {
     laborSoFar,
     scheduledLaborFullDay: scheduledLaborFullDay > 0 ? scheduledLaborFullDay : null,
     activeStaff: activeClock.length,
-    confirmedCovers, expectedCovers: null,
+    confirmedCovers,
+    expectedCovers: expectedRevenue && baselines.avgCheckMean && baselines.avgCheckMean > 0
+      ? Math.round((expectedRevenue / baselines.avgCheckMean) * 2.3)
+      : null,
     openOrders,
     outOfStockCount: outOfStock.length, lowStockCount: lowStock.length,
     active86Count: active86.length,

@@ -136,6 +136,18 @@ function project(i: HealthInput): Projection {
   // Revenue: extrapolate today's pace against the expected curve. With no
   // baseline, extrapolate by elapsed service time but conservatively — a tiny
   // early sample shouldn't blow up into a huge projected day.
+  // Tonight's reservations lift the expected revenue: booked covers imply a night,
+  // scaled up for the walk-ins that don't reserve. Take the higher of the learned
+  // baseline and the booking-implied revenue (capped so a few covers can't blow it
+  // up). This is why a well-booked night projects above the flat average.
+  const AVG_PARTY = 2.3, BOOKING_SHARE = 0.5;
+  let bookedExpected = i.expectedRevenue ?? 0;
+  if (i.expectedRevenue && i.expectedRevenue > 0 && i.confirmedCovers > 0 && i.avgCheckMean && i.avgCheckMean > 0) {
+    const perCover = i.avgCheckMean / AVG_PARTY;
+    const bookingImpliedRevenue = (i.confirmedCovers * perCover) / BOOKING_SHARE;
+    bookedExpected = Math.min(i.expectedRevenue * 2.5, Math.max(i.expectedRevenue, bookingImpliedRevenue));
+  }
+
   let projectedRevenue: number;
   if (i.expectedRevenue && i.expectedRevenue > 0) {
     // Prefer the LEARNED intraday curve ("how much is normally in by now") over a
@@ -143,8 +155,9 @@ function project(i: HealthInput): Projection {
     const elapsedFrac = i.expectedByNowFraction != null ? i.expectedByNowFraction : serviceElapsed;
     const expectedSoFar = i.expectedRevenue * elapsedFrac;
     const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
-    // Before service really gets going, trust the forecast; later, trust the pace.
-    projectedRevenue = elapsedFrac < 0.05 ? Math.max(i.salesToday, i.expectedRevenue) : i.expectedRevenue * paceRatio;
+    // Before service really gets going, trust the (booking-lifted) forecast; once
+    // sales are flowing, trust the live pace.
+    projectedRevenue = elapsedFrac < 0.05 ? Math.max(i.salesToday, bookedExpected) : i.expectedRevenue * paceRatio;
   } else {
     projectedRevenue = i.salesToday / clamp(serviceElapsed, 0.35, 1);
   }
