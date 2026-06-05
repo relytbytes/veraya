@@ -100,6 +100,19 @@ export default function SettingsPage() {
   const [simOrdersPerDay, setSimOrdersPerDay] = useState("25");
   const [simRunning, setSimRunning] = useState(false);
   const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number } | null>(null);
+  const [btRunning, setBtRunning] = useState(false);
+  const [backtest, setBacktest] = useState<{ model?: { mape: number; bias: number; n: number }; naive?: { mape: number }; improvementVsNaivePct?: number; error?: string } | null>(null);
+
+  async function runBacktest() {
+    setBtRunning(true);
+    setBacktest(null);
+    try {
+      const res = await fetch("/api/vera/forecast/backtest?evalDays=56");
+      setBacktest(await res.json());
+    } finally {
+      setBtRunning(false);
+    }
+  }
 
   async function runSimulation() {
     setSimRunning(true);
@@ -1226,6 +1239,41 @@ export default function SettingsPage() {
                 <Trash className="h-4 w-4 mr-1.5" />
                 Clear simulated
               </Button>
+            </div>
+
+            {/* Forecast accuracy — walk-forward backtest of the demand model */}
+            <div className="border-t border-purple-200 pt-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-purple-800">Forecast accuracy</p>
+                  <p className="text-xs text-purple-600">Replays the model against the last 56 days and scores it vs a naive average.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={runBacktest}
+                  disabled={btRunning}
+                  className="border-purple-200 text-purple-700 hover:bg-purple-50 shrink-0"
+                >
+                  {btRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                  Run backtest
+                </Button>
+              </div>
+              {backtest && (
+                <div className="rounded-md bg-white border border-purple-200 px-3 py-2 text-sm">
+                  {backtest.error ? (
+                    <span className="text-gray-500">No history yet — seed simulated data first.</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-purple-800">
+                      <span>Model error (MAPE): <strong>{backtest.model?.mape.toFixed(1)}%</strong></span>
+                      <span>Naive baseline: <strong>{backtest.naive?.mape.toFixed(1)}%</strong></span>
+                      <span className={(backtest.improvementVsNaivePct ?? 0) >= 0 ? "text-green-700" : "text-red-600"}>
+                        {(backtest.improvementVsNaivePct ?? 0) >= 0 ? "↓" : "↑"} {Math.abs(backtest.improvementVsNaivePct ?? 0).toFixed(1)}% vs naive
+                      </span>
+                      <span className="text-gray-500">n={backtest.model?.n} days</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
