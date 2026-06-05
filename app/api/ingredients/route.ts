@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold } = body;
+  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold, quantity } = body;
 
   if (!name || !unit || costPerUnit === undefined) {
     return Response.json({ error: "Name, unit, and cost are required" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       barcode: barcode || null,
       inventoryItem: {
         create: {
-          quantity: 0,
+          quantity: quantity != null ? Number(quantity) : 0, // initial on-hand
           minThreshold: minThreshold ?? 0,
           maxThreshold: maxThreshold ?? null,
         },
