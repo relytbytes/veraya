@@ -102,7 +102,7 @@ export default function SettingsPage() {
   const [simDays, setSimDays] = useState("30");
   const [simOrdersPerDay, setSimOrdersPerDay] = useState("25");
   const [simRunning, setSimRunning] = useState(false);
-  const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number } | null>(null);
+  const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number; reservationsCreated?: number; reservationsCleared?: number } | null>(null);
   const [btRunning, setBtRunning] = useState(false);
   const [backtest, setBacktest] = useState<{ model?: { mape: number; bias: number; n: number }; naive?: { mape: number }; improvementVsNaivePct?: number; error?: string } | null>(null);
 
@@ -1272,7 +1272,7 @@ export default function SettingsPage() {
               Simulate Sales Data
             </CardTitle>
             <p className="text-xs text-purple-600 -mt-1">
-              Generate realistic historical orders (with covers) plus a learning snapshot per day, so Reports, the Labor Forecast, and Vera have data to work with — and so Vera&apos;s model can train on it. All simulated orders are tagged and can be cleared at any time.
+              Generate realistic historical orders + a learning snapshot per day + a week of upcoming reservations, so Reports, the Forecast, and Vera have data to work with — and so Vera&apos;s model can train on it. Everything is tagged and can be cleared at any time.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1306,8 +1306,8 @@ export default function SettingsPage() {
             {simResult && (
               <div className="rounded-md bg-white border border-purple-200 px-3 py-2 text-sm text-purple-700">
                 {simResult.created !== undefined
-                  ? `✓ Created ${simResult.created} simulated orders${simResult.snapshotsCreated ? ` + ${simResult.snapshotsCreated} learning snapshots` : ""}`
-                  : `✓ Cleared ${simResult.cleared} simulated orders${simResult.snapshotsCleared ? ` + ${simResult.snapshotsCleared} snapshots` : ""}`}
+                  ? `✓ Created ${simResult.created} orders${simResult.snapshotsCreated ? ` + ${simResult.snapshotsCreated} snapshots` : ""}${simResult.reservationsCreated ? ` + ${simResult.reservationsCreated} reservations` : ""}`
+                  : `✓ Cleared ${simResult.cleared} orders${simResult.snapshotsCleared ? ` + ${simResult.snapshotsCleared} snapshots` : ""}${simResult.reservationsCleared ? ` + ${simResult.reservationsCleared} reservations` : ""}`}
               </div>
             )}
 

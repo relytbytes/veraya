@@ -56,11 +56,12 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { days = 30, ordersPerDay = 25, clear = false, snapshots = true } = body as {
+  const { days = 30, ordersPerDay = 25, clear = false, snapshots = true, reservations = true } = body as {
     days?: number;
     ordersPerDay?: number;
     clear?: boolean;
-    snapshots?: boolean; // also backfill VeraDaySnapshot rows so weight-learning has history
+    snapshots?: boolean;    // also backfill VeraDaySnapshot rows so weight-learning has history
+    reservations?: boolean; // also create upcoming reservations (covers feed Vera + the forecast)
   };
 
   // Safety caps
@@ -86,7 +87,8 @@ export async function POST(req: NextRequest) {
     cutoff.setDate(cutoff.getDate() - 90);
     const cutoffStr = localDateStr(cutoff, tz);
     const snapDel = await prisma.veraDaySnapshot.deleteMany({ where: { date: { gte: cutoffStr } } });
-    return Response.json({ cleared: ids.length, snapshotsCleared: snapDel.count });
+    const resDel = await prisma.reservation.deleteMany({ where: { notes: { startsWith: "[SIM]" } } });
+    return Response.json({ cleared: ids.length, snapshotsCleared: snapDel.count, reservationsCleared: resDel.count });
   }
 
   // Load tax rate, menu items, and first user id
@@ -200,5 +202,45 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return Response.json({ created, days: safeDays, ordersPerDay: safeOrdersPerDay, snapshotsCreated });
+  // Upcoming reservations — today + the next 6 days. These feed the Vera Forecast
+  // (reservedCovers / cover floor) and Vera's demand read for tonight.
+  let reservationsCreated = 0;
+  if (reservations) {
+    const FIRST = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Jamie", "Avery", "Quinn", "Drew", "Cameron", "Reese", "Parker", "Hayden", "Emerson", "Rowan", "Sasha", "Devon", "Logan"];
+    const LAST = ["Reyes", "Nguyen", "Patel", "Cohen", "Walsh", "Okafor", "Romano", "Park", "Khan", "Silva", "Brooks", "Hughes", "Castro", "Bauer", "Flynn", "Mercer", "Sato", "Lozano", "Ferris", "Webb"];
+    const DINNER = ["17:00", "17:30", "18:00", "18:00", "18:30", "18:30", "19:00", "19:00", "19:30", "19:30", "20:00", "20:30", "21:00"];
+    const LUNCH = ["11:30", "12:00", "12:30", "13:00"];
+    const dowMult = [0.7, 0.6, 0.7, 0.8, 1.0, 1.3, 1.2];
+
+    const toMake: { date: string; time: string; partySize: number; name: string; phone: string; status: string }[] = [];
+    for (let d = 0; d < 7; d++) {
+      const day = new Date();
+      day.setDate(day.getDate() + d);
+      const dateStr = localDateStr(day, tz);
+      const count = Math.round(8 * dowMult[day.getDay()] * (0.7 + Math.random() * 0.6));
+      for (let i = 0; i < count; i++) {
+        const lunch = Math.random() < 0.25;
+        toMake.push({
+          date: dateStr,
+          time: lunch ? pick(LUNCH) : pick(DINNER),
+          partySize: pick([2, 2, 2, 3, 4, 4, 5, 6, 8], [6, 6, 6, 3, 3, 3, 1, 1, 1]),
+          name: `${pick(FIRST)} ${pick(LAST)}`,
+          phone: `555${randInt(1000000, 9999999)}`,
+          status: Math.random() < 0.8 ? "CONFIRMED" : "PENDING",
+        });
+      }
+    }
+    const RBATCH = 10;
+    for (let b = 0; b < toMake.length; b += RBATCH) {
+      await Promise.all(
+        toMake.slice(b, b + RBATCH).map((r) =>
+          prisma.reservation.create({
+            data: { date: r.date, time: r.time, partySize: r.partySize, name: r.name, phone: r.phone, status: r.status as never, notes: "[SIM] Simulated reservation" },
+          }).then(() => { reservationsCreated++; }).catch(() => { /* skip dup slot */ }),
+        ),
+      );
+    }
+  }
+
+  return Response.json({ created, days: safeDays, ordersPerDay: safeOrdersPerDay, snapshotsCreated, reservationsCreated });
 }
