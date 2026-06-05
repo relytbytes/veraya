@@ -440,9 +440,6 @@ export function VeraCard() {
               </Text>
             </View>
           ))}
-          <Text style={{ fontSize: 10, color: C.smoke, marginTop: 4, lineHeight: 14 }}>
-            Weight = how much Vera leans on each dimension, learned from {data.learning.daysObserved} days. r = how tightly it tracked your margin.
-          </Text>
         </View>
       )}
 

@@ -512,9 +512,6 @@ export function VeraPanel() {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-gray-400 mt-2 leading-snug">
-            Weight = how much Vera leans on each dimension when scoring your day, learned from {data.learning.daysObserved} days. <span className="font-medium">r</span> = how tightly it tracked your actual margin.
-          </p>
         </div>
       )}
 
