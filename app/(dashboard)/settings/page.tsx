@@ -135,17 +135,30 @@ export default function SettingsPage() {
   const [geoQuery, setGeoQuery] = useState("");
   const [geoResults, setGeoResults] = useState<{ label: string; lat: number; lng: number }[]>([]);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [locSaving, setLocSaving] = useState(false);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
   const [weatherPreview, setWeatherPreview] = useState<{ configured?: boolean; summary?: string; tempMaxF?: number; precipMm?: number; multiplier?: number } | null>(null);
 
   async function searchLocation() {
-    if (!geoQuery.trim()) return;
+    const q = geoQuery.trim();
+    if (!q) return;
     setGeoLoading(true);
     setGeoResults([]);
+    setGeoError(null);
     try {
-      const res = await fetch(`/api/settings/geocode?q=${encodeURIComponent(geoQuery.trim())}`);
+      const res = await fetch(`/api/settings/geocode?q=${encodeURIComponent(q)}`);
+      if (!res.ok) {
+        setGeoError(`Search failed (${res.status}). Try again, or enter coordinates manually below.`);
+        return;
+      }
       const data = await res.json();
-      setGeoResults(data.results ?? []);
+      const results = data.results ?? [];
+      if (results.length === 0) setGeoError(`No matches for "${q}". Try "City, ST" or enter coordinates below.`);
+      setGeoResults(results);
+    } catch {
+      setGeoError("Couldn't reach the location service. Enter coordinates manually below.");
     } finally {
       setGeoLoading(false);
     }
@@ -153,25 +166,42 @@ export default function SettingsPage() {
 
   async function saveLocation(hit: { label: string; lat: number; lng: number }) {
     setLocSaving(true);
+    setGeoError(null);
     try {
-      await fetch("/api/settings", {
+      const res = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restaurantLat: String(hit.lat), restaurantLng: String(hit.lng), restaurantLocationLabel: hit.label }),
       });
+      if (!res.ok) { setGeoError(`Could not save location (${res.status}).`); return; }
       setSettings((prev) => ({ ...prev, restaurantLat: String(hit.lat), restaurantLng: String(hit.lng), restaurantLocationLabel: hit.label }));
       setGeoResults([]);
       setGeoQuery(hit.label);
-      const res = await fetch("/api/settings/weather");
-      setWeatherPreview(await res.json());
+      try {
+        const wres = await fetch("/api/settings/weather");
+        if (wres.ok) setWeatherPreview(await wres.json());
+      } catch { /* preview is best-effort */ }
+    } catch {
+      setGeoError("Could not save location — network error.");
     } finally {
       setLocSaving(false);
     }
   }
 
+  async function saveManualLocation() {
+    const lat = Number(manualLat), lng = Number(manualLng);
+    if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      setGeoError("Enter a valid latitude (-90..90) and longitude (-180..180).");
+      return;
+    }
+    await saveLocation({ label: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, lat, lng });
+  }
+
   async function previewWeather() {
-    const res = await fetch("/api/settings/weather");
-    setWeatherPreview(await res.json());
+    try {
+      const res = await fetch("/api/settings/weather");
+      if (res.ok) setWeatherPreview(await res.json());
+    } catch { /* best-effort */ }
   }
 
   async function runSimulation() {
@@ -1398,6 +1428,10 @@ export default function SettingsPage() {
               </Button>
             </div>
 
+            {geoError && (
+              <p className="text-xs text-amber-600">{geoError}</p>
+            )}
+
             {geoResults.length > 0 && (
               <div className="rounded-md border border-gray-200 divide-y divide-gray-100 overflow-hidden">
                 {geoResults.map((hit) => (
@@ -1413,6 +1447,25 @@ export default function SettingsPage() {
                 ))}
               </div>
             )}
+
+            {/* Manual coordinate fallback */}
+            <details className="text-sm">
+              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">Or enter coordinates manually</summary>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Latitude</Label>
+                  <Input value={manualLat} onChange={(e) => setManualLat(e.target.value)} placeholder="30.2672" className="bg-white w-32" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Longitude</Label>
+                  <Input value={manualLng} onChange={(e) => setManualLng(e.target.value)} placeholder="-97.7431" className="bg-white w-32" />
+                </div>
+                <Button variant="outline" onClick={saveManualLocation} disabled={locSaving} className="shrink-0">
+                  {locSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                  Save
+                </Button>
+              </div>
+            </details>
 
             {weatherPreview && (
               <div className="rounded-md bg-white border border-sky-200 px-3 py-2 text-sm text-sky-800">
