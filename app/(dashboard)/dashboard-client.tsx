@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  DollarSign, ShoppingBag, Package, AlertTriangle, TrendingUp, Clock, RefreshCw, ChevronRight,
+  Package, TrendingUp, RefreshCw, ChevronRight,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,7 @@ interface DashboardStats {
 export function DashboardClient({ role, name }: { role: string; name: string | null }) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [checkId, setCheckId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -175,48 +175,6 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
         {/* Vera — managers only */}
         {isManager && <VeraPanel />}
         {isManager && <VeraForecast />}
-
-        {/* Stat cards — compact row, always visible */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {isManager && (
-            <StatCard
-              href="/reports"
-              title="Today's Sales"
-              value={loading ? "—" : formatCurrency(stats?.salesTotal ?? 0)}
-              icon={<DollarSign className="h-5 w-5 text-green-600" />}
-              bg="bg-green-50"
-              sub={loading ? "" : `${stats?.salesCount ?? 0} orders`}
-            />
-          )}
-          <StatCard
-            href="/pos?view=floorplan"
-            title="Open Orders"
-            value={loading ? "—" : String(stats?.openOrders ?? 0)}
-            icon={<Clock className="h-5 w-5 text-blue-600" />}
-            bg="bg-blue-50"
-            sub="view floor plan"
-          />
-          {isManager && (
-            <StatCard
-              href="/menu"
-              title="Menu Items"
-              value={loading ? "—" : String(stats?.menuItemCount ?? 0)}
-              icon={<ShoppingBag className="h-5 w-5 text-amber-600" />}
-              bg="bg-amber-50"
-              sub="active"
-            />
-          )}
-          {isManager && (
-            <StatCard
-              href="/inventory"
-              title="Low Stock"
-              value={loading ? "—" : String(stats?.lowStockCount ?? 0)}
-              icon={<AlertTriangle className="h-5 w-5 text-red-600" />}
-              bg="bg-red-50"
-              sub={stats?.lowStockCount ? "need reorder" : "levels OK"}
-            />
-          )}
-        </div>
 
         {/* Navigation hub */}
         <div className="space-y-3">
@@ -356,36 +314,6 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
-
-function StatCard({
-  title, value, icon, bg, sub, href,
-}: {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  bg: string;
-  sub: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="block group">
-      <Card className="transition-shadow group-hover:shadow-md group-hover:border-amber-200">
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">{title}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
-            </div>
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${bg} transition-transform group-hover:scale-110`}>
-              {icon}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
