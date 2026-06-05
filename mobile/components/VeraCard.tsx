@@ -151,8 +151,10 @@ export function VeraCard() {
       <View style={{ height: 5, backgroundColor: hc.ring }} />
       {/* Vera header band (white, to match the web Vera panel) */}
       <View style={{ flexDirection: "row", alignItems: "flex-start", padding: 18, gap: 14, backgroundColor: C.surface }}>
-        {/* Vera mark — the face logo */}
-        <Image source={require("../assets/vera-avatar.png")} style={{ width: 44, height: 44, borderRadius: 12 }} />
+        {/* Vera mark — the face logo, on a white chip so it reads on any surface */}
+        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "#fff", padding: 3, alignItems: "center", justifyContent: "center", ...shadow.sm }}>
+          <Image source={require("../assets/vera-avatar.png")} style={{ width: "100%", height: "100%", borderRadius: 9 }} />
+        </View>
 
         {/* Identity + narrative */}
         <View style={{ flex: 1 }}>

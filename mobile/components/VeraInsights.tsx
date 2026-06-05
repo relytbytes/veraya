@@ -74,7 +74,9 @@ export function VeraSetupCard() {
   return (
     <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden", ...shadow.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#0C1A1E", padding: 14 }}>
-        <Image source={require("../assets/vera-avatar.png")} style={{ width: 36, height: 36, borderRadius: 10 }} />
+        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: "#fff", padding: 2.5, alignItems: "center", justifyContent: "center" }}>
+          <Image source={require("../assets/vera-avatar.png")} style={{ width: "100%", height: "100%", borderRadius: 8 }} />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: "#FFFFFF" }}>Let&apos;s set up Veraya</Text>
           <Text style={{ fontSize: 11, color: "#C7D2DE", marginTop: 1 }}>{data.doneCount} of {data.total} done — Vera starts working once you finish.</Text>

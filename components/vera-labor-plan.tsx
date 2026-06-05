@@ -58,10 +58,10 @@ export function VeraLaborPlan() {
       <p className="px-5 pb-3 text-sm leading-relaxed text-gray-700">{data.narrative}</p>
       <div className="space-y-2 px-5 pb-4">
         {data.dayparts.map((d) => (
-          <div key={d.name} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-            <span className="w-14 text-sm font-semibold text-gray-900">{d.name}</span>
+          <div key={d.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+            <span className="w-14 shrink-0 text-sm font-semibold text-gray-900">{d.name}</span>
             <span className="text-xs text-gray-500">${d.projectedSales.toLocaleString("en-US")} proj</span>
-            <span className="ml-auto text-xs text-gray-500 tabular-nums">{d.scheduledHours}h sched / {d.recommendedHours}h rec</span>
+            <span className="ml-auto text-xs text-gray-500 tabular-nums whitespace-nowrap">{d.scheduledHours}h sched / {d.recommendedHours}h rec</span>
             <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap", STATUS[d.status].cls)}>
               {STATUS[d.status].label}
             </span>

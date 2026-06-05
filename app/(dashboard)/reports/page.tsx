@@ -820,18 +820,18 @@ export default function ReportsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(s!.laborCost)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Total labor cost</p>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{formatCurrency(s!.laborCost)}</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Total labor cost</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(s!.totalRevenue)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Total revenue</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{formatCurrency(s!.totalRevenue)}</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Total revenue</p>
                 </div>
-                <div>
-                  <p className={`text-2xl font-bold ${laborColor}`}>{s!.laborPct?.toFixed(1)}%</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Labor %</p>
+                <div className="min-w-0">
+                  <p className={`text-lg sm:text-2xl font-bold ${laborColor}`}>{s!.laborPct?.toFixed(1)}%</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">Labor %</p>
                 </div>
               </div>
               <div className="mt-4 h-3 rounded-full bg-gray-100 overflow-hidden">
@@ -840,7 +840,7 @@ export default function ReportsPage() {
                   style={{ width: `${Math.min(100, s!.laborPct!)}%` }}
                 />
               </div>
-              <div className="flex gap-4 mt-2 text-xs text-gray-500">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
                 <span className="text-green-600">Below 25% excellent</span>
                 <span className="text-amber-600">25–35% acceptable</span>
                 <span className="text-red-600">Above 35% over budget</span>
@@ -855,7 +855,7 @@ export default function ReportsPage() {
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="font-semibold text-gray-900">Labor Breakdown</h3>
             </div>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[560px]">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Employee</th>

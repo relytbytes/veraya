@@ -30,7 +30,7 @@ export function VeraSetupGuide() {
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       {/* Header band */}
       <div className="flex items-center gap-3 bg-gradient-to-br from-[#0C1A1E] via-[#101f33] to-[#15293f] px-5 py-4">
-        <VeraAvatar className="h-11 w-11 shrink-0 drop-shadow-md" />
+        <VeraAvatar background className="h-11 w-11 shrink-0 drop-shadow-md" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-white inline-flex items-center gap-1">Let&apos;s set up Veraya <VeraSpark className="h-3 w-3" /></span>
