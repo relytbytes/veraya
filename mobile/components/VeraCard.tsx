@@ -82,6 +82,7 @@ export function VeraCard() {
   const [openDim, setOpenDim] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTuning, setShowTuning] = useState(false);
+  const [expanded, setExpanded] = useState(false); // progressive disclosure — keep the landing card tight
 
   function indicatorFeedback(ind: VeraIndicator, action: "dismissed" | "helpful") {
     if (action === "dismissed") setHiddenInd((prev) => new Set(prev).add(ind.text));
@@ -144,8 +145,10 @@ export function VeraCard() {
     (data.indicators ?? []).filter((ind) => !hiddenInd.has(ind.text)).map((ind) => norm(ind.text)),
   );
   const dedupedAlerts = data.alerts.filter((a) => !shownIndicatorKeys.has(norm(a.message)));
-  const highAlerts  = dedupedAlerts.filter(a => a.severity === "HIGH");
-  const otherAlerts = dedupedAlerts.filter(a => a.severity !== "HIGH");
+  // Collapsed view doesn't show the indicators, so don't hide their matching alerts there.
+  const alertsList = expanded ? dedupedAlerts : data.alerts;
+  const highAlerts  = alertsList.filter(a => a.severity === "HIGH");
+  const otherAlerts = alertsList.filter(a => a.severity !== "HIGH");
 
   return (
     <View style={{
@@ -206,9 +209,42 @@ export function VeraCard() {
         </View>
       )}
 
+      {/* Needs attention — the action items, always visible up top */}
+      {(data.alerts.length === 0 || alertsList.length > 0) && (
+        <>
+          <View style={{ height: 1, backgroundColor: C.rim, marginHorizontal: 18 }} />
+          <View style={{ padding: 14, gap: 9 }}>
+            {data.alerts.length === 0 ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={C.jade} />
+                <Text style={{ fontSize: 13.5, color: C.jade }}>All systems looking good.</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Needs attention</Text>
+                {[...highAlerts, ...otherAlerts].map((alert, i) => (
+                  <AlertRow key={i} alert={alert} onPress={() => router.push(linkToRoute(alert.link) as never)} />
+                ))}
+              </>
+            )}
+          </View>
+        </>
+      )}
+
+      {/* Show full breakdown — keeps the landing card tight; everything below is on tap */}
+      <TouchableOpacity
+        onPress={() => setExpanded((v) => !v)}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderTopWidth: 1, borderColor: C.rim }}
+      >
+        <Text style={{ fontSize: 12.5, fontWeight: "700", color: C.gold }}>{expanded ? "Hide breakdown" : "Show full breakdown"}</Text>
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={C.gold} />
+      </TouchableOpacity>
+
+      {expanded && (<>
+
       {/* Where the money goes — projected P&L waterfall explaining the net above */}
       {data.projection && (
-        <View style={{ borderBottomWidth: 1, borderColor: C.rim }}>
+        <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.rim }}>
           <TouchableOpacity
             onPress={() => setShowBreakdown((v) => !v)}
             style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 9 }}
@@ -385,27 +421,8 @@ export function VeraCard() {
         </View>
       )}
 
-      {/* Needs attention — action items (deduped against the indicators above) */}
-      {(data.alerts.length === 0 || dedupedAlerts.length > 0) && (
-        <>
-          <View style={{ height: 1, backgroundColor: C.rim, marginHorizontal: 18 }} />
-          <View style={{ padding: 14, gap: 9 }}>
-            {data.alerts.length === 0 ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
-                <Ionicons name="checkmark-circle-outline" size={16} color={C.jade} />
-                <Text style={{ fontSize: 13.5, color: C.jade }}>All systems looking good.</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Needs attention</Text>
-                {[...highAlerts, ...otherAlerts].map((alert, i) => (
-                  <AlertRow key={i} alert={alert} onPress={() => router.push(linkToRoute(alert.link) as never)} />
-                ))}
-              </>
-            )}
-          </View>
-        </>
-      )}
+      {/* end full breakdown */}
+      </>)}
 
       {/* What drives your profit — learned-weights detail */}
       {showTuning && data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 && (
