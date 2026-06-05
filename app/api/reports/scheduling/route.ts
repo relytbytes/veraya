@@ -176,16 +176,22 @@ export async function GET(req: NextRequest) {
     dowDailyMap.get(day)!.revenue += Number(order.total);
   }
   const dowBuckets = new Map<number, number[]>();
-  for (const { dow, revenue: rev } of dowDailyMap.values()) {
+  // Actual labor cost per day, bucketed by day-of-week alongside revenue, so the
+  // labor % reflects real staffing per DOW instead of a flat benchmark.
+  const dowLaborBuckets = new Map<number, number[]>();
+  for (const [day, { dow, revenue: rev }] of dowDailyMap) {
     if (!dowBuckets.has(dow)) dowBuckets.set(dow, []);
     dowBuckets.get(dow)!.push(rev);
+    if (!dowLaborBuckets.has(dow)) dowLaborBuckets.set(dow, []);
+    dowLaborBuckets.get(dow)!.push(dailyActualCostMap.get(day) ?? 0);
   }
 
   const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dowOptimal = Array.from({ length: 7 }, (_, i) => {
     const days = dowBuckets.get(i) ?? [];
+    const laborDays = dowLaborBuckets.get(i) ?? [];
     const avgRevenue = days.length > 0 ? days.reduce((a, b) => a + b, 0) / days.length : 0;
-    const avgLaborCost = avgRevenue * 0.28; // rough 28% labor benchmark
+    const avgLaborCost = laborDays.length > 0 ? laborDays.reduce((a, b) => a + b, 0) / laborDays.length : 0;
     const suggestedStaff = Math.max(1, Math.round(avgRevenue / 500));
     return {
       dow: DOW_NAMES[i],

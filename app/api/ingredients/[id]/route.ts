@@ -10,23 +10,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold } = body;
 
+  const data: Record<string, unknown> = {
+    ...(name !== undefined && { name }),
+    ...(unit !== undefined && { unit }),
+    ...(costPerUnit !== undefined && { costPerUnit: Number(costPerUnit) }),
+    ...(supplierId !== undefined && { supplierId: supplierId || null }),
+    ...(barcode !== undefined && { barcode: barcode || null }),
+  };
+
+  // Threshold fields live on the related InventoryItem. Each is applied
+  // independently (max-only edits used to be silently dropped), and we upsert so
+  // it works whether or not the ingredient already has an inventory row (a
+  // nested `update` against a missing row threw and 500'd the whole save).
+  if (minThreshold !== undefined || maxThreshold !== undefined) {
+    data.inventoryItem = {
+      upsert: {
+        create: {
+          quantity: 0,
+          minThreshold: minThreshold !== undefined ? Number(minThreshold) : 0,
+          ...(maxThreshold !== undefined && maxThreshold !== null && maxThreshold !== "" && { maxThreshold: Number(maxThreshold) }),
+        },
+        update: {
+          ...(minThreshold !== undefined && { minThreshold: Number(minThreshold) }),
+          ...(maxThreshold !== undefined && { maxThreshold: maxThreshold === null || maxThreshold === "" ? null : Number(maxThreshold) }),
+        },
+      },
+    };
+  }
+
   const ingredient = await prisma.ingredient.update({
     where: { id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(unit !== undefined && { unit }),
-      ...(costPerUnit !== undefined && { costPerUnit }),
-      ...(supplierId !== undefined && { supplierId: supplierId || null }),
-      ...(barcode !== undefined && { barcode: barcode || null }),
-      ...(minThreshold !== undefined && {
-        inventoryItem: {
-          update: {
-            minThreshold,
-            ...(maxThreshold !== undefined && { maxThreshold }),
-          },
-        },
-      }),
-    },
+    data,
     include: { inventoryItem: true, supplier: true },
   });
   return Response.json(ingredient);

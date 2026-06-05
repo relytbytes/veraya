@@ -485,20 +485,16 @@ export default function PurchasingPage() {
       maxThreshold: ingForm.maxThreshold ? parseFloat(ingForm.maxThreshold) : undefined,
     };
 
-    if (editIng) {
-      await fetch(`/api/ingredients/${editIng.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await fetch("/api/ingredients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    }
+    const res = editIng
+      ? await fetch(`/api/ingredients/${editIng.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+      : await fetch("/api/ingredients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setIngSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error((data as { error?: string }).error ?? "Couldn't save the item. Try again.");
+      return; // keep the dialog open with the user's edits
+    }
+    toast.success(editIng ? "Item updated." : "Item added.");
     setIngDialogOpen(false);
     loadAll();
   }
@@ -518,20 +514,16 @@ export default function PurchasingPage() {
 
   async function saveSupplier() {
     setSupplierSaving(true);
-    if (editSupplier) {
-      await fetch(`/api/suppliers/${editSupplier.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(supplierForm),
-      });
-    } else {
-      await fetch("/api/suppliers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(supplierForm),
-      });
-    }
+    const res = editSupplier
+      ? await fetch(`/api/suppliers/${editSupplier.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(supplierForm) })
+      : await fetch("/api/suppliers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(supplierForm) });
     setSupplierSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error((data as { error?: string }).error ?? "Couldn't save the supplier. Try again.");
+      return;
+    }
+    toast.success(editSupplier ? "Supplier updated." : "Supplier added.");
     setSupplierDialogOpen(false);
     setEditSupplier(null);
     setSupplierForm(EMPTY_SUPPLIER);
