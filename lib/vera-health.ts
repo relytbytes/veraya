@@ -152,16 +152,21 @@ function project(i: HealthInput): Projection {
 
   let projectedRevenue: number;
   if (i.expectedRevenue && i.expectedRevenue > 0) {
-    // Prefer the LEARNED intraday curve ("how much is normally in by now") over a
-    // flat clock fraction — far more accurate, since nights fill in non-linearly.
+    // Use the LEARNED intraday curve ("how much is normally in by now") — far more
+    // accurate than a flat clock, since revenue arrives non-linearly (a quiet
+    // afternoon, then a dinner rush).
     const elapsedFrac = i.expectedByNowFraction != null ? i.expectedByNowFraction : serviceElapsed;
     const expectedSoFar = i.expectedRevenue * elapsedFrac;
     const paceRatio = expectedSoFar > 5 ? clamp(i.salesToday / expectedSoFar, 0, 3) : 1;
-    // Before service really gets going, trust the forecast; once sales are flowing,
-    // trust the live pace (but never project below the forecast's floor).
-    projectedRevenue = elapsedFrac < 0.05
-      ? Math.max(i.salesToday, preServiceProjection)
-      : Math.max(i.salesToday, i.expectedRevenue * paceRatio);
+    const paceProjection = i.expectedRevenue * paceRatio;
+    // Blend the forecast with the live pace by how much of the DAY'S REVENUE has
+    // actually come in. Early (an empty afternoon before dinner) we trust the
+    // forecast; as the bulk of the day is observed, the live pace takes over. This
+    // stops a quiet lull from collapsing the projection to ~$0 while the booked
+    // dinner is still ahead.
+    const observed = clamp(elapsedFrac, 0, 1);
+    const blended = (1 - observed) * preServiceProjection + observed * paceProjection;
+    projectedRevenue = Math.max(i.salesToday, blended);
   } else if (i.forecastRevenue && i.forecastRevenue > 0) {
     projectedRevenue = Math.max(i.salesToday, i.forecastRevenue);
   } else {
