@@ -114,6 +114,20 @@ export default function SettingsPage() {
     }
   }
 
+  const [tuneRunning, setTuneRunning] = useState(false);
+  const [tuneResult, setTuneResult] = useState<{ ok?: boolean; adopted?: boolean; bestMape?: number; currentMape?: number; reason?: string } | null>(null);
+
+  async function runTune() {
+    setTuneRunning(true);
+    setTuneResult(null);
+    try {
+      const res = await fetch("/api/cron/forecast-tune", { method: "POST" });
+      setTuneResult(await res.json());
+    } finally {
+      setTuneRunning(false);
+    }
+  }
+
   async function runSimulation() {
     setSimRunning(true);
     setSimResult(null);
@@ -1248,15 +1262,26 @@ export default function SettingsPage() {
                   <p className="text-sm font-semibold text-purple-800">Forecast accuracy</p>
                   <p className="text-xs text-purple-600">Replays the model against the last 56 days and scores it vs a naive average.</p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={runBacktest}
-                  disabled={btRunning}
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50 shrink-0"
-                >
-                  {btRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                  Run backtest
-                </Button>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={runBacktest}
+                    disabled={btRunning}
+                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  >
+                    {btRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                    Run backtest
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={runTune}
+                    disabled={tuneRunning}
+                    className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                  >
+                    {tuneRunning ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                    Tune model
+                  </Button>
+                </div>
               </div>
               {backtest && (
                 <div className="rounded-md bg-white border border-purple-200 px-3 py-2 text-sm">
@@ -1274,6 +1299,18 @@ export default function SettingsPage() {
                   )}
                 </div>
               )}
+              {tuneResult && (
+                <div className="rounded-md bg-white border border-purple-200 px-3 py-2 text-sm text-purple-800">
+                  {tuneResult.reason === "insufficient_history"
+                    ? "Not enough history to tune yet — seed more simulated data first."
+                    : tuneResult.adopted
+                      ? `✓ Adopted better parameters — error ${tuneResult.bestMape?.toFixed(1)}% (was ${tuneResult.currentMape?.toFixed(1)}%).`
+                      : `Current parameters already optimal (${tuneResult.currentMape?.toFixed(1)}% error). No change.`}
+                </div>
+              )}
+              <p className="text-[11px] text-purple-500">
+                Tuning grid-searches the model against your history and keeps the lowest-error settings. Holiday signals work out of the box; weather needs the venue lat/long set.
+              </p>
             </div>
           </CardContent>
         </Card>

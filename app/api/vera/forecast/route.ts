@@ -2,7 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import OpenAI from "openai";
-import { groupSameDowSamples, forecastFromSamples, type OrderLite } from "@/lib/forecast";
+import { groupSameDowSamples, forecastFromSamples, forecastDayparts, type OrderLite } from "@/lib/forecast";
+import { loadForecastParams } from "@/lib/forecast-params";
+import { usHoliday, holidayMultiplier } from "@/lib/calendar";
+import { getWeatherSignal } from "@/lib/weather";
 
 // Vera Forecast — projects the upcoming service from same-weekday history,
 // recency-weighted with a damped trend, then folds in tonight's confirmed
@@ -28,7 +31,7 @@ export async function GET(_req: NextRequest) {
     const dowName = now.toLocaleDateString("en-US", { weekday: "long" });
     const since = new Date(now.getTime() - 84 * 24 * 60 * 60 * 1000); // 12 weeks for trend + recency
 
-    const [history, tonightRes, todayEvents] = await Promise.all([
+    const [history, tonightRes, todayEvents, params, weather] = await Promise.all([
       prisma.order.findMany({
         where: { status: "COMPLETED", createdAt: { gte: since, lt: new Date(todayStr + "T00:00:00") } },
         select: {
@@ -45,6 +48,8 @@ export async function GET(_req: NextRequest) {
         where: { date: todayStr, status: { in: ["CONFIRMED", "COMPLETED"] } },
         select: { guestCount: true, name: true },
       }),
+      loadForecastParams(),
+      getWeatherSignal(todayStr),
     ]);
 
     const orders: OrderLite[] = history.map((o) => ({
@@ -60,8 +65,13 @@ export async function GET(_req: NextRequest) {
     const reservedCovers = tonightRes.reduce((s, r) => s + r.partySize, 0);
     const eventCovers = todayEvents.reduce((s, e) => s + (e.guestCount ?? 0), 0);
 
+    // Exogenous adjustment: holiday prior × weather heuristic.
+    const holiday = usHoliday(now);
+    const adjustment = holidayMultiplier(holiday) * (weather?.multiplier ?? 1);
+
     const samples = groupSameDowSamples(orders, now);
-    const f = forecastFromSamples(samples, { reservedCovers, eventCovers, avgCheck });
+    const f = forecastFromSamples(samples, { reservedCovers, eventCovers, avgCheck, adjustment }, params);
+    const dayparts = forecastDayparts(orders, now, params, adjustment);
 
     const sampleCount = f.sampleCount;
     const projectedSales = f.projectedSales;
@@ -70,11 +80,13 @@ export async function GET(_req: NextRequest) {
     const prep = f.prep;
     const trendNote = f.trendPct > 0.02 ? " trending up" : f.trendPct < -0.02 ? " trending down" : "";
     const eventNote = eventCovers > 0 ? ` plus ${eventCovers} event guests (${todayEvents.map((e) => e.name).join(", ")})` : "";
+    const holidayNote = holiday ? ` It's ${holiday.name} (${holiday.tendency}).` : "";
+    const weatherNote = weather && weather.summary !== "mild" ? ` Weather: ${weather.summary}, ${weather.tempMaxF}°F.` : "";
 
     // Deterministic narrative (always valid).
     const deterministic = sampleCount === 0
       ? `Not enough ${dowName} history yet to project tonight. ${reservedCovers > 0 ? `${reservedCovers} covers are already booked.` : "No reservations booked yet."}`
-      : `Based on the last ${sampleCount} ${dowName}${sampleCount > 1 ? "s" : ""}${trendNote}, Vera projects about ${fmt(projectedSales)} across ~${projectedCovers} covers tonight${reservedCovers > 0 ? `, with ${reservedCovers} already booked` : ""}${eventNote}.`;
+      : `Based on the last ${sampleCount} ${dowName}${sampleCount > 1 ? "s" : ""}${trendNote}, Vera projects about ${fmt(projectedSales)} across ~${projectedCovers} covers tonight${reservedCovers > 0 ? `, with ${reservedCovers} already booked` : ""}${eventNote}.${holidayNote}${weatherNote}`;
 
     const payload = {
       projectedSales,
@@ -87,6 +99,11 @@ export async function GET(_req: NextRequest) {
       dowName,
       confidence,
       prep,
+      dayparts: dayparts.map((d) => ({ name: d.name, projectedSales: d.projectedSales, share: Math.round(d.share * 100) })),
+      holiday: holiday ? { name: holiday.name, tendency: holiday.tendency } : null,
+      weather: weather ? { summary: weather.summary, tempMaxF: weather.tempMaxF, precipMm: weather.precipMm } : null,
+      adjustmentPct: Math.round((adjustment - 1) * 100),
+      sansAdjustment: Math.round(f.baseSales),
       narrative: deterministic,
       aiPowered: false,
     };
