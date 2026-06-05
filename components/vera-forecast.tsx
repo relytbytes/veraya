@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { TrendingUp, Users, ChefHat } from "lucide-react";
 import { VeraSpark } from "@/components/brand/vera-mark";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface PrepItem { name: string; suggestedQty: number; basis: string }
 interface Daypart { name: string; projectedSales: number; share: number }
@@ -68,6 +69,9 @@ export function VeraForecast() {
           <span className="text-sm font-bold text-gray-900 inline-flex items-center gap-1">
             Vera Forecast <VeraSpark className="h-3 w-3" />
             <span className="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600">Looking ahead</span>
+            <InfoTip title="How the forecast works">
+              A recency-weighted model on your same-weekday history with a trend term, then lifted by tonight&apos;s reservations and events and nudged by weather/holidays. Prep quantities use a service-level target (the waste-vs-stockout sweet spot). Accuracy is backtested against your own history and the model re-tunes itself nightly.
+            </InfoTip>
           </span>
         </div>
         <span className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${CONF[data.confidence]}`}>

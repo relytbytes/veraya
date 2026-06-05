@@ -12,6 +12,7 @@ import { useRealtime } from "@/lib/use-realtime";
 import { toast } from "@/components/ui/toast";
 import { VeraWordmark, VeraSpark } from "@/components/brand/vera-mark";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
+import { InfoTip } from "@/components/ui/info-tip";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -333,6 +334,9 @@ export function VeraPanel() {
             <VeraWordmark className="text-base font-bold tracking-tight text-gray-900" />
             <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-teal-600">Right now</span>
             <span className="hidden sm:inline text-[11px] text-gray-400">live read on today&apos;s shift</span>
+            <InfoTip title="What Vera is">
+              Vera runs a live diagnosis of your shift across five areas — profitability, demand, labor, cost &amp; inventory, and service — every time this loads. It projects the day&apos;s P&amp;L before service ends and surfaces the one or two things worth acting on now.
+            </InfoTip>
           </div>
           <p className="text-sm leading-relaxed text-gray-600">{data.narrative}</p>
         </div>
@@ -343,7 +347,12 @@ export function VeraPanel() {
             <span className={cn("text-2xl font-bold leading-none", health!.text)}>{data.healthScore}</span>
             <span className="text-[8px] text-gray-400 font-medium uppercase tracking-wide mt-0.5">/ 100</span>
           </div>
-          <span className={cn("text-[10px] font-semibold text-center leading-tight", health!.labelColor)}>{health!.label}</span>
+          <span className={cn("inline-flex items-center gap-1 text-[10px] font-semibold text-center leading-tight", health!.labelColor)}>
+            {health!.label}
+            <InfoTip title="The health score">
+              A confidence-weighted blend of the five dimensions. Early in a shift it stays near neutral and sharpens as real data arrives. Vera learns which dimensions actually predict profit at <em>your</em> restaurant and weights the score accordingly.
+            </InfoTip>
+          </span>
         </div>
       </div>
 
@@ -497,7 +506,12 @@ export function VeraPanel() {
       {/* What drives your profit — expanded learned-weights detail */}
       {showTuning && data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 && (
         <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/60">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">What drives your profit</p>
+          <p className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+            What drives your profit
+            <InfoTip title="Learned weights">
+              Each night Vera records every dimension&apos;s score against that day&apos;s actual margin, then correlates them over time. The bars show how much it now leans on each dimension when scoring your day — learned from your own results, not a generic template.
+            </InfoTip>
+          </p>
           <div className="space-y-1.5">
             {[...data.learning.topDrivers].sort((a, b) => b.weight - a.weight).map((t) => (
               <div key={t.key} className="flex items-center gap-2">
