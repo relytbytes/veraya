@@ -1,6 +1,14 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getRestaurantTz } from "@/lib/restaurant-tz";
+import { localDateStr } from "@/lib/time";
+import { getBaselines } from "@/lib/vera-baselines";
+import { snapshotDay } from "@/lib/vera-snapshot";
+
+// Seeding a long window touches thousands of rows + a per-day learning snapshot,
+// so allow a long run (the platform caps this to the deployment's plan limit).
+export const maxDuration = 300;
 
 // Tax rate is loaded per-request from settings (fallback 8.75%)
 async function getTaxRate(): Promise<number> {
@@ -48,15 +56,17 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { days = 30, ordersPerDay = 25, clear = false } = body as {
+  const { days = 30, ordersPerDay = 25, clear = false, snapshots = true } = body as {
     days?: number;
     ordersPerDay?: number;
     clear?: boolean;
+    snapshots?: boolean; // also backfill VeraDaySnapshot rows so weight-learning has history
   };
 
   // Safety caps
   const safeDays = Math.min(days, 90);
   const safeOrdersPerDay = Math.min(ordersPerDay, 100);
+  const tz = await getRestaurantTz();
 
   if (clear) {
     // Delete simulated data — payments first (FK), then order items, then orders
@@ -70,7 +80,13 @@ export async function POST(req: NextRequest) {
       await prisma.orderItem.deleteMany({ where: { orderId: { in: ids } } });
       await prisma.order.deleteMany({ where: { id: { in: ids } } });
     }
-    return Response.json({ cleared: ids.length });
+    // Snapshots in the simulated window were derived from those orders, so drop
+    // them too — otherwise the learning history would reflect deleted revenue.
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoffStr = localDateStr(cutoff, tz);
+    const snapDel = await prisma.veraDaySnapshot.deleteMany({ where: { date: { gte: cutoffStr } } });
+    return Response.json({ cleared: ids.length, snapshotsCleared: snapDel.count });
   }
 
   // Load tax rate, menu items, and first user id
@@ -114,9 +130,13 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < count; i++) {
       const type = pick(types, typeWeights);
       const itemCount = randInt(1, 4);
+      // Pick distinct items weighted by price so mains/entrees show up more often
+      // than cheap sides — gives Vera's menu-mix insights a realistic distribution.
+      const menuIdx = menuItems.map((_, idx) => idx);
       const selected = new Set<number>();
-      while (selected.size < Math.min(itemCount, menuItems.length)) {
-        selected.add(Math.floor(Math.random() * menuItems.length));
+      let guard = 0;
+      while (selected.size < Math.min(itemCount, menuItems.length) && guard++ < 50) {
+        selected.add(pick(menuIdx, itemWeights));
       }
 
       const items = Array.from(selected).map((idx) => ({
@@ -157,5 +177,28 @@ export async function POST(req: NextRequest) {
     created += dayOrders.length;
   }
 
-  return Response.json({ created, days: safeDays, ordersPerDay: safeOrdersPerDay });
+  // Backfill a learning snapshot for each completed simulated day. This is what
+  // lets Vera's weight model leave its "learning" phase (needs 14+ days) — each
+  // snapshot pairs the day's dimension scores with its realized margin so the
+  // engine can correlate which signals predict profit for THIS venue.
+  let snapshotsCreated = 0;
+  if (snapshots) {
+    const baselines = await getBaselines(new Date(), tz); // compute once, reuse per day
+    for (let d = safeDays - 1; d >= 1; d--) {
+      const day = new Date();
+      day.setDate(day.getDate() - d);
+      const dateStr = localDateStr(day, tz);
+      // Vary assumed labor 22–36% of sales so the labor dimension and margins move
+      // day to day — flat inputs would give the correlation nothing to learn from.
+      const assumeLaborPct = 0.22 + Math.random() * 0.14;
+      try {
+        await snapshotDay(dateStr, tz, { baselines, assumeLaborPct });
+        snapshotsCreated++;
+      } catch {
+        /* skip a bad day rather than fail the whole seed */
+      }
+    }
+  }
+
+  return Response.json({ created, days: safeDays, ordersPerDay: safeOrdersPerDay, snapshotsCreated });
 }

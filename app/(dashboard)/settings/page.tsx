@@ -99,7 +99,7 @@ export default function SettingsPage() {
   const [simDays, setSimDays] = useState("30");
   const [simOrdersPerDay, setSimOrdersPerDay] = useState("25");
   const [simRunning, setSimRunning] = useState(false);
-  const [simResult, setSimResult] = useState<{ created?: number; cleared?: number } | null>(null);
+  const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number } | null>(null);
 
   async function runSimulation() {
     setSimRunning(true);
@@ -1169,7 +1169,7 @@ export default function SettingsPage() {
               Simulate Sales Data
             </CardTitle>
             <p className="text-xs text-purple-600 -mt-1">
-              Generate realistic historical orders so Reports and Labor Forecast have data to work with. All simulated orders are tagged and can be cleared at any time.
+              Generate realistic historical orders (with covers) plus a learning snapshot per day, so Reports, the Labor Forecast, and Vera have data to work with — and so Vera&apos;s model can train on it. All simulated orders are tagged and can be cleared at any time.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1203,8 +1203,8 @@ export default function SettingsPage() {
             {simResult && (
               <div className="rounded-md bg-white border border-purple-200 px-3 py-2 text-sm text-purple-700">
                 {simResult.created !== undefined
-                  ? `✓ Created ${simResult.created} simulated orders`
-                  : `✓ Cleared ${simResult.cleared} simulated orders`}
+                  ? `✓ Created ${simResult.created} simulated orders${simResult.snapshotsCreated ? ` + ${simResult.snapshotsCreated} learning snapshots` : ""}`
+                  : `✓ Cleared ${simResult.cleared} simulated orders${simResult.snapshotsCleared ? ` + ${simResult.snapshotsCleared} snapshots` : ""}`}
               </div>
             )}
 
