@@ -70,10 +70,11 @@ export function VeraCard() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["vera"],
     queryFn: getVeraData,
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
+    staleTime: 45 * 1000,
+    refetchInterval: 2 * 60 * 1000,
+    refetchOnMount: true,
   });
-  const { data: predData } = useQuery({ queryKey: ["vera-predicted"], queryFn: getPredictedRunouts, staleTime: 5 * 60_000, refetchInterval: 10 * 60_000 });
+  const { data: predData } = useQuery({ queryKey: ["vera-predicted"], queryFn: getPredictedRunouts, staleTime: 60_000, refetchInterval: 3 * 60_000 });
   const { data: anomData } = useQuery({ queryKey: ["vera-anomalies"], queryFn: getVeraAnomalies, staleTime: 10 * 60_000 });
   const predictions = (predData?.predictions ?? []).filter((p) => p.severity !== "ok").slice(0, 3);
   const anomalies = anomData?.anomalies ?? [];

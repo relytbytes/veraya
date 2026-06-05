@@ -62,7 +62,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   const [barcodeScanned, setBarcodeScanned] = useState("");
   const [barcodeMeta, setBarcodeMeta] = useState<{ brand: string | null; quantity: string | null; category: string | null } | null>(null);
   const [barcodeForm, setBarcodeForm] = useState({
-    name: "", unit: "unit", costPerUnit: "", minThreshold: "",
+    name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "",
   });
   const [barcodeSaving, setBarcodeSaving] = useState(false);
 
@@ -73,7 +73,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
     setMode("choose");
     setPhotoLoading(false); setPhotoError(null); setImportRows([]);
     setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned(""); setBarcodeAiFallback(false); setBarcodeMeta(null);
-    setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "" });
+    setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "" });
     setSuggestions([]);
   }
 
@@ -160,6 +160,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
         unit: barcodeForm.unit,
         costPerUnit: parseFloat(barcodeForm.costPerUnit),
         minThreshold: parseFloat(barcodeForm.minThreshold) || 0,
+        quantity: parseFloat(barcodeForm.quantity) || 0,
         barcode: barcodeScanned || undefined,
       });
       onSaved(1);
@@ -504,6 +505,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
                     {[
                       { label: "Name *", key: "name" as const, placeholder: "Ingredient name", multiline: false },
                       { label: "Cost / Unit *", key: "costPerUnit" as const, placeholder: "0.00", multiline: false, keyboard: true },
+                      { label: "On hand (current stock)", key: "quantity" as const, placeholder: "0", multiline: false, keyboard: true },
                       { label: "Min Level", key: "minThreshold" as const, placeholder: "0", multiline: false, keyboard: true },
                     ].map(({ label, key, placeholder, keyboard }) => (
                       <View key={key}>

@@ -165,7 +165,7 @@ export const patchIngredient = (id: string, body: { supplierId?: string | null; 
 export const getIngredients = () => request<IngredientFull[]>("/api/ingredients");
 export const createIngredient = (body: {
   name: string; unit: string; costPerUnit: number;
-  supplierId?: string | null; minThreshold?: number; barcode?: string;
+  supplierId?: string | null; minThreshold?: number; barcode?: string; quantity?: number;
 }) => request<IngredientFull>("/api/ingredients", { method: "POST", body: JSON.stringify(body) });
 export const createPurchaseOrder = (body: object) =>
   request<PurchaseOrder>("/api/purchase-orders", { method: "POST", body: JSON.stringify(body) });

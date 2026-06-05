@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   Modal, RefreshControl, Alert, ActivityIndicator, Animated,
+  Keyboard, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
@@ -118,6 +119,10 @@ export default function InventoryScreen() {
       const res = await adjustInventory({ ingredientId: editItem.ingredient.id, quantity: qty, type: adjType, notes: adjNote.trim() || undefined });
       await qc.invalidateQueries({ queryKey: ["inventory"] });
       await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      // Stock changes flip Vera's Cost & Inventory read (and 86 status) — refresh
+      // it now instead of waiting for the poll.
+      qc.invalidateQueries({ queryKey: ["vera"] });
+      qc.invalidateQueries({ queryKey: ["vera-predicted"] });
       setEditItem((prev) => prev ? { ...prev, quantity: Number(res.updatedItem.quantity) } : prev);
       setAdjQty(""); setAdjNote("");
     } catch (e: unknown) {
@@ -150,6 +155,7 @@ export default function InventoryScreen() {
       await patchInventoryItem(editItem.id, { minThreshold: par, maxThreshold: max });
       await qc.invalidateQueries({ queryKey: ["inventory"] });
       await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["vera"] });
       setEditItem(null);
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to save");
@@ -251,24 +257,35 @@ export default function InventoryScreen() {
       {/* Par-level edit modal — bottom sheet */}
       {editItem && (
         <Modal transparent animationType="fade" onRequestClose={() => setEditItem(null)}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ flex: 1 }}
+          >
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" }}
             activeOpacity={1}
             onPress={() => setEditItem(null)}
           >
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-              <View
+            {/* Tapping anywhere on the sheet (not an input) dismisses the keyboard —
+                the numeric keypads have no Done key, so this is the way out. */}
+            <TouchableOpacity activeOpacity={1} onPress={() => Keyboard.dismiss()}>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
                 style={{
+                  maxHeight: "88%",
                   backgroundColor: C.surface,
                   borderTopLeftRadius: 24,
                   borderTopRightRadius: 24,
+                  borderTopWidth: 1,
+                  borderColor: C.rim,
+                  ...shadow.md,
+                }}
+                contentContainerStyle={{
                   paddingHorizontal: 20,
                   paddingTop: 20,
                   paddingBottom: 36,
                   gap: 16,
-                  borderTopWidth: 1,
-                  borderColor: C.rim,
-                  ...shadow.md,
                 }}
               >
                 {/* Drag handle */}
@@ -323,7 +340,7 @@ export default function InventoryScreen() {
                   </View>
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <View style={{ flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim, borderRadius: 10, paddingHorizontal: 12 }}>
-                      <TextInput value={adjQty} onChangeText={setAdjQty} placeholder={adjType === "ADJUSTED" ? "± qty" : "qty"} placeholderTextColor={C.smoke} keyboardType="numbers-and-punctuation" style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: C.pearl }} />
+                      <TextInput value={adjQty} onChangeText={setAdjQty} placeholder={adjType === "ADJUSTED" ? "± qty" : "qty"} placeholderTextColor={C.smoke} keyboardType={adjType === "ADJUSTED" ? "numbers-and-punctuation" : "decimal-pad"} returnKeyType="done" onSubmitEditing={() => Keyboard.dismiss()} style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: C.pearl }} />
                       <Text style={{ fontSize: 12, color: C.mist }}>{editItem.ingredient.unit}</Text>
                     </View>
                     <TouchableOpacity onPress={applyAdjust} disabled={adjusting} style={{ paddingHorizontal: 18, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: C.gold, opacity: adjusting ? 0.6 : 1 }}>
@@ -477,9 +494,10 @@ export default function InventoryScreen() {
                     </>
                   )}
                 </TouchableOpacity>
-              </View>
+              </ScrollView>
             </TouchableOpacity>
           </TouchableOpacity>
+          </KeyboardAvoidingView>
         </Modal>
       )}
 
@@ -489,6 +507,7 @@ export default function InventoryScreen() {
         onSaved={(count) => {
           setIngredientImportOpen(false);
           qc.invalidateQueries({ queryKey: ["inventory"] });
+          qc.invalidateQueries({ queryKey: ["vera"] });
           if (count > 0) {
             Alert.alert(
               "Ingredients Added",
