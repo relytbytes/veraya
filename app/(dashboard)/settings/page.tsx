@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign } from "lucide-react";
+import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign, CloudSun, Search } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,9 @@ export default function SettingsPage() {
     timezone: "",
     leadNotifyPhone: "",
     servedDayparts: JSON.stringify({ breakfast: true, lunch: true, dinner: true }),
+    restaurantLat: "",
+    restaurantLng: "",
+    restaurantLocationLabel: "",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -126,6 +129,49 @@ export default function SettingsPage() {
     } finally {
       setTuneRunning(false);
     }
+  }
+
+  // ── Weather location (for weather-aware forecasting) ──
+  const [geoQuery, setGeoQuery] = useState("");
+  const [geoResults, setGeoResults] = useState<{ label: string; lat: number; lng: number }[]>([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [locSaving, setLocSaving] = useState(false);
+  const [weatherPreview, setWeatherPreview] = useState<{ configured?: boolean; summary?: string; tempMaxF?: number; precipMm?: number; multiplier?: number } | null>(null);
+
+  async function searchLocation() {
+    if (!geoQuery.trim()) return;
+    setGeoLoading(true);
+    setGeoResults([]);
+    try {
+      const res = await fetch(`/api/settings/geocode?q=${encodeURIComponent(geoQuery.trim())}`);
+      const data = await res.json();
+      setGeoResults(data.results ?? []);
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
+  async function saveLocation(hit: { label: string; lat: number; lng: number }) {
+    setLocSaving(true);
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantLat: String(hit.lat), restaurantLng: String(hit.lng), restaurantLocationLabel: hit.label }),
+      });
+      setSettings((prev) => ({ ...prev, restaurantLat: String(hit.lat), restaurantLng: String(hit.lng), restaurantLocationLabel: hit.label }));
+      setGeoResults([]);
+      setGeoQuery(hit.label);
+      const res = await fetch("/api/settings/weather");
+      setWeatherPreview(await res.json());
+    } finally {
+      setLocSaving(false);
+    }
+  }
+
+  async function previewWeather() {
+    const res = await fetch("/api/settings/weather");
+    setWeatherPreview(await res.json());
   }
 
   async function runSimulation() {
@@ -1309,9 +1355,72 @@ export default function SettingsPage() {
                 </div>
               )}
               <p className="text-[11px] text-purple-500">
-                Tuning grid-searches the model against your history and keeps the lowest-error settings. Holiday signals work out of the box; weather needs the venue lat/long set.
+                Tuning grid-searches the model against your history and keeps the lowest-error settings. Holiday signals work out of the box; weather needs the venue location set below.
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Weather location — activates weather-aware forecasting */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CloudSun className="h-4 w-4 text-sky-500" />
+              Weather location
+            </CardTitle>
+            <p className="text-xs text-gray-500 -mt-1">
+              Set your venue&apos;s location to fold weather into the demand forecast. Search a city, then pick the match.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {settings.restaurantLat && settings.restaurantLng ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md bg-sky-50 border border-sky-200 px-3 py-2 text-sm text-sky-800">
+                <span>📍 {settings.restaurantLocationLabel || `${settings.restaurantLat}, ${settings.restaurantLng}`}</span>
+                <Button variant="ghost" size="sm" className="ml-auto h-7 text-sky-700 hover:bg-sky-100" onClick={previewWeather}>
+                  Preview conditions
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">No location set — weather signals are dormant until you add one.</p>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                placeholder="City, state (e.g. Austin, TX)"
+                value={geoQuery}
+                onChange={(e) => setGeoQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") searchLocation(); }}
+                className="bg-white"
+              />
+              <Button variant="outline" onClick={searchLocation} disabled={geoLoading || !geoQuery.trim()} className="shrink-0">
+                {geoLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Search className="h-4 w-4 mr-1.5" />}
+                Search
+              </Button>
+            </div>
+
+            {geoResults.length > 0 && (
+              <div className="rounded-md border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                {geoResults.map((hit) => (
+                  <button
+                    key={`${hit.lat},${hit.lng}`}
+                    onClick={() => saveLocation(hit)}
+                    disabled={locSaving}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center justify-between"
+                  >
+                    <span className="text-gray-800">{hit.label}</span>
+                    <span className="text-xs text-gray-400">{hit.lat.toFixed(2)}, {hit.lng.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {weatherPreview && (
+              <div className="rounded-md bg-white border border-sky-200 px-3 py-2 text-sm text-sky-800">
+                {weatherPreview.configured
+                  ? `Today: ${weatherPreview.summary}, ${weatherPreview.tempMaxF}°F${weatherPreview.precipMm ? `, ${weatherPreview.precipMm}mm rain` : ""} → demand ×${weatherPreview.multiplier?.toFixed(2)}`
+                  : "Location not set yet — pick a match above."}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
