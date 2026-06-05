@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import {
   Plus, Search, AlertTriangle, ArrowUp, Loader2, Package,
-  Camera, Barcode, Sparkles, Check, ChevronRight, AlertCircle, Upload,
+  Camera, Barcode, Sparkles, Check, ChevronRight, AlertCircle, Upload, Trash2,
 } from "lucide-react";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ interface InventoryItem {
   maxThreshold: string | null;
   ingredient: {
     id: string; name: string; unit: string; costPerUnit: string;
+    category?: string;
     supplier: Supplier | null;
   };
 }
@@ -135,6 +137,22 @@ export default function InventoryPage() {
 
   function openAdj(item: InventoryItem) {
     setAdjItem(item); setAdjType("RECEIVED"); setAdjQty(""); setAdjNotes(""); setAdjOpen(true);
+  }
+
+  async function deleteItem(item: InventoryItem) {
+    if (!(await confirmDialog({ title: "Delete item?", message: `Remove "${item.ingredient.name}" from inventory? This can't be undone.`, confirmText: "Delete", destructive: true }))) return;
+    const res = await fetch(`/api/ingredients/${item.ingredient.id}`, { method: "DELETE" });
+    if (!res.ok) { toast.error("Couldn't delete that item."); return; }
+    toast.success(`Deleted ${item.ingredient.name}.`);
+    loadAll();
+  }
+
+  async function setItemCategory(item: InventoryItem, category: string) {
+    const res = await fetch(`/api/ingredients/${item.ingredient.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category }),
+    });
+    if (!res.ok) { toast.error("Couldn't update section."); return; }
+    loadAll();
   }
 
   async function saveAdj() {
@@ -324,6 +342,12 @@ export default function InventoryPage() {
     return matchSearch && (filter === "all" || (filter === "low" && isLow) || (filter === "ok" && !isLow));
   });
 
+  // Group inventory into sections: Kitchen / Bar & Beer / Wine.
+  const CAT_LABEL: Record<string, string> = { KITCHEN: "Kitchen", BAR: "Bar & Beer", WINE: "Wine" };
+  const grouped = (["KITCHEN", "BAR", "WINE"] as const)
+    .map((cat) => ({ cat, label: CAT_LABEL[cat], rows: filtered.filter((i) => (i.ingredient.category ?? "KITCHEN") === cat) }))
+    .filter((g) => g.rows.length > 0);
+
   const lowCount  = items.filter(i => Number(i.quantity) <= Number(i.minThreshold)).length;
   const totalValue = items.reduce((s, i) => s + Number(i.quantity) * Number(i.ingredient.costPerUnit), 0);
   const selectedCount = importRows.filter(r => r.selected).length;
@@ -409,32 +433,56 @@ export default function InventoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(item => {
-                    const qty = Number(item.quantity), min = Number(item.minThreshold);
-                    const isLow = qty <= min, isEmpty = qty === 0;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell><p className="font-medium text-gray-900">{item.ingredient.name}</p></TableCell>
-                        <TableCell><span className="text-sm text-gray-500">{item.ingredient.supplier?.name ?? "—"}</span></TableCell>
-                        <TableCell className="text-right">
-                          <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-warning-600" : "text-gray-900"}`}>
-                            {fmtQty(qty)} {item.ingredient.unit}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right text-gray-500">{min} {item.ingredient.unit}</TableCell>
-                        <TableCell className="text-right text-gray-500">{formatCurrency(Number(item.ingredient.costPerUnit))}/{item.ingredient.unit}</TableCell>
-                        <TableCell className="text-right text-gray-700 font-medium">{formatCurrency(qty * Number(item.ingredient.costPerUnit))}</TableCell>
-                        <TableCell>
-                          {isEmpty ? <Badge variant="destructive">Out of Stock</Badge>
-                            : isLow ? <Badge variant="warning">Low Stock</Badge>
-                            : <Badge variant="success">OK</Badge>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" onClick={() => openAdj(item)}>Adjust</Button>
+                  {grouped.map(group => (
+                    <Fragment key={group.cat}>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableCell colSpan={8} className="py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                          {group.label} ({group.rows.length})
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
+                      {group.rows.map(item => {
+                        const qty = Number(item.quantity), min = Number(item.minThreshold);
+                        const isLow = qty <= min, isEmpty = qty === 0;
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell><p className="font-medium text-gray-900">{item.ingredient.name}</p></TableCell>
+                            <TableCell><span className="text-sm text-gray-500">{item.ingredient.supplier?.name ?? "—"}</span></TableCell>
+                            <TableCell className="text-right">
+                              <span className={`font-semibold ${isEmpty ? "text-red-600" : isLow ? "text-warning-600" : "text-gray-900"}`}>
+                                {fmtQty(qty)} {item.ingredient.unit}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-gray-500">{min} {item.ingredient.unit}</TableCell>
+                            <TableCell className="text-right text-gray-500">{formatCurrency(Number(item.ingredient.costPerUnit))}/{item.ingredient.unit}</TableCell>
+                            <TableCell className="text-right text-gray-700 font-medium">{formatCurrency(qty * Number(item.ingredient.costPerUnit))}</TableCell>
+                            <TableCell>
+                              {isEmpty ? <Badge variant="destructive">Out of Stock</Badge>
+                                : isLow ? <Badge variant="warning">Low Stock</Badge>
+                                : <Badge variant="success">OK</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <select
+                                  value={item.ingredient.category ?? "KITCHEN"}
+                                  onChange={(e) => setItemCategory(item, e.target.value)}
+                                  className="h-8 rounded-md border border-gray-200 bg-white px-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                  title="Section"
+                                >
+                                  <option value="KITCHEN">Kitchen</option>
+                                  <option value="BAR">Bar &amp; Beer</option>
+                                  <option value="WINE">Wine</option>
+                                </select>
+                                <Button variant="outline" size="sm" onClick={() => openAdj(item)}>Adjust</Button>
+                                <Button variant="ghost" size="icon" aria-label="Delete item" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50" onClick={() => deleteItem(item)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
                 </TableBody>
               </Table>
             )}
