@@ -69,7 +69,6 @@ export function VeraForecast() {
             Vera Forecast <VeraSpark className="h-3 w-3" />
             <span className="ml-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600">Looking ahead</span>
           </span>
-          <p className="text-[11px] text-gray-400 leading-tight">What to expect tonight &amp; how to prep for it</p>
         </div>
         <span className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${CONF[data.confidence]}`}>
           {data.confidence} confidence

@@ -87,7 +87,7 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
   const [checkId, setCheckId] = useState<string | null>(null);
   const [, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -148,12 +148,11 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
         actions={
           <button
             onClick={() => load(true)}
+            aria-label="Refresh"
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            {lastUpdated
-              ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-              : "Refreshing…"}
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
         }
       />

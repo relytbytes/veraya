@@ -141,7 +141,7 @@ export function VeraPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setLastUpdated] = useState<Date | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [busy86, setBusy86] = useState<string | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
@@ -333,11 +333,6 @@ export function VeraPanel() {
             <VeraWordmark className="text-base font-bold tracking-tight text-gray-900" />
             <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-teal-600">Right now</span>
             <span className="hidden sm:inline text-[11px] text-gray-400">live read on today&apos;s shift</span>
-            {lastUpdated && (
-              <span className="ml-auto text-[10px] text-gray-400">
-                updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
           </div>
           <p className="text-sm leading-relaxed text-gray-600">{data.narrative}</p>
         </div>
