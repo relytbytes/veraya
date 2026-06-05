@@ -592,6 +592,50 @@ export function ShiftHandoff({ visible, onClose }: Props) {
                 </Card>
               )}
 
+              {/* Receiving & PO approvals */}
+              {digest.purchasing && (digest.purchasing.pendingApproval.length > 0 || digest.purchasing.received.length > 0) && (
+                <Card>
+                  <SectionHeader
+                    icon="cube-outline"
+                    label="Receiving & POs"
+                    count={digest.purchasing.pendingApproval.length + digest.purchasing.received.length}
+                    color={C.ember}
+                  />
+                  {digest.purchasing.pendingApproval.length > 0 && (
+                    <View style={{ gap: 6, marginBottom: digest.purchasing.received.length ? 10 : 0 }}>
+                      <Text style={{ fontSize: 10, color: C.coral, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                        Awaiting your approval
+                      </Text>
+                      {digest.purchasing.pendingApproval.map((p) => (
+                        <View key={p.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: T.coral, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: C.coral + "44" }}>
+                          <Ionicons name="alert-circle-outline" size={15} color={C.coral} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl }}>{p.supplier}</Text>
+                            <Text style={{ fontSize: 11, color: C.mist }}>{p.itemCount} item{p.itemCount === 1 ? "" : "s"} · {fmtCurrency(p.total)}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {digest.purchasing.received.length > 0 && (
+                    <View style={{ gap: 6 }}>
+                      <Text style={{ fontSize: 10, color: C.smoke, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                        Received this shift
+                      </Text>
+                      {digest.purchasing.received.map((p) => (
+                        <View key={p.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: T.jade, borderRadius: 10, padding: 10 }}>
+                          <Ionicons name="checkmark-circle-outline" size={15} color={C.jade} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: C.pearl }}>{p.supplier}{p.invoiceNumber ? ` · #${p.invoiceNumber}` : ""}</Text>
+                            <Text style={{ fontSize: 11, color: C.mist }}>{p.itemCount} item{p.itemCount === 1 ? "" : "s"} · {fmtCurrency(p.total)}</Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </Card>
+              )}
+
               {/* Upcoming reservations */}
               {digest.reservations.upcoming.length > 0 && (
                 <Card>

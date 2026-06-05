@@ -743,6 +743,10 @@ export interface HandoffDigest {
   kitchen: { eightySixed: { item: string; reason: string | null }[] };
   inventory: { lowStock: { name: string; qty: number; unit: string; par: number }[] };
   reservations: { upcoming: { time: string; name: string; partySize: number; notes: string | null }[] };
+  purchasing: {
+    received: { id: string; supplier: string; total: number; itemCount: number; invoiceNumber: string | null }[];
+    pendingApproval: { id: string; supplier: string; total: number; itemCount: number }[];
+  };
   logEntries: { type: string; shift: string | null; title: string; severity: string | null; followUp: string | null }[];
   watchFor: string[];
   narrative: string;

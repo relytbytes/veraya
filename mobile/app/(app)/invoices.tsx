@@ -313,32 +313,57 @@ export default function InvoicesScreen() {
     try {
       const res = await extractInvoice(invoicePhoto);
       let supplierNote = "";
+      // Track the supplier locally — setCreateSupplier is async, so the state
+      // var is stale within this function; we need the id now to link new items.
+      let linkedSupplier: Supplier | null = createSupplier;
       if (res.matchedSupplierId && !createSupplier) {
         const s = suppliers.find((x) => x.id === res.matchedSupplierId);
-        if (s) setCreateSupplier(s);
+        if (s) { setCreateSupplier(s); linkedSupplier = s; }
       } else if (!res.matchedSupplierId && res.vendor && !createSupplier) {
         // New vendor → build the supplier database straight from the invoice.
         try {
           const s = await createSupplierApi({ name: res.vendor, phone: res.vendorPhone, email: res.vendorEmail, address: res.vendorAddress });
           setCreateSupplier(s);
+          linkedSupplier = s;
           qc.invalidateQueries({ queryKey: ["suppliers"] });
           supplierNote = `Added new supplier "${s.name}".`;
         } catch { supplierNote = `Couldn't auto-add supplier "${res.vendor}" — pick or create one.`; }
       }
       if (res.invoiceNumber && !createInvoiceNum.trim()) setCreateInvoiceNum(res.invoiceNumber);
+
       const added: DraftItem[] = [];
+      let createdCount = 0;
+      let skipped = 0;
       for (const l of res.lines) {
-        if (!l.matchedIngredientId || l.quantity == null) continue;
-        const ing = ingredients.find((i) => i.id === l.matchedIngredientId);
-        if (!ing) continue;
-        added.push({ ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: l.quantity, unitCost: l.unitCost ?? 0 });
+        if (l.quantity == null) { skipped++; continue; }
+        // 1) Matched to an existing ingredient.
+        if (l.matchedIngredientId) {
+          const ing = ingredients.find((i) => i.id === l.matchedIngredientId);
+          if (ing) {
+            added.push({ ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: l.quantity, unitCost: l.unitCost ?? 0 });
+            continue;
+          }
+        }
+        // 2) Unmatched but the invoice gave us a name + cost → auto-create the
+        //    ingredient (linked to this supplier) so the scan actually pulls the
+        //    item + cost and grows the ingredient database.
+        if (l.description?.trim() && l.unitCost != null) {
+          try {
+            const ing = await createIngredient({ name: l.description.trim(), unit: l.unit ?? "ea", costPerUnit: l.unitCost, supplierId: linkedSupplier?.id ?? null });
+            added.push({ ingredientId: ing.id, name: ing.name, unit: ing.unit, quantity: l.quantity, unitCost: l.unitCost });
+            createdCount++;
+            continue;
+          } catch { /* fall through to skipped */ }
+        }
+        skipped++;
       }
       if (added.length) setDraftItems((prev) => [...prev, ...added]);
-      const needsReview = res.lines.length - added.length;
+      if (createdCount > 0) qc.invalidateQueries({ queryKey: ["ingredients"] });
+
       const parts = [];
       if (supplierNote) parts.push(supplierNote);
-      parts.push(`Added ${added.length} matched item${added.length === 1 ? "" : "s"}.`);
-      if (needsReview > 0) parts.push(`${needsReview} line${needsReview === 1 ? "" : "s"} need manual matching — add them by search.`);
+      parts.push(`Added ${added.length} item${added.length === 1 ? "" : "s"}${createdCount > 0 ? ` (${createdCount} new)` : ""}.`);
+      if (skipped > 0) parts.push(`${skipped} line${skipped === 1 ? "" : "s"} couldn't be read — add them by search.`);
       if (res.totalsMatch === false && res.total != null) parts.push(`Heads up: line totals ($${res.computedTotal}) don't match the invoice total ($${res.total}).`);
       Alert.alert("Vera read the invoice", parts.join("\n\n"));
     } catch (e) {

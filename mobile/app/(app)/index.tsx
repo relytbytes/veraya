@@ -150,7 +150,7 @@ export default function HomeScreen() {
       <ShiftHandoff visible={handoffOpen} onClose={() => setHandoffOpen(false)} />
 
       <CollapsingHeader
-        title={`${greeting}, ${firstName}`}
+        title="Dashboard"
         scrollY={scrollY}
         right={
           <TouchableOpacity
@@ -175,6 +175,13 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >
+        {/* Full greeting lives in the body so longer messages wrap and aren't
+            clipped behind the sign-out button in the header (#1). */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <Text style={{ fontSize: 24, fontWeight: "800", color: C.pearl, lineHeight: 30 }}>
+            {greeting}, {firstName}
+          </Text>
+        </View>
 
         {/* ── Vera + Shift Handoff (managers/admins only) ──── */}
         {(user?.role === "ADMIN" || user?.role === "MANAGER") && (
