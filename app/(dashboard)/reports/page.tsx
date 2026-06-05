@@ -289,7 +289,10 @@ interface OvertimeAlert {
   name: string;
   role: string;
   weekHours: number;
+  scheduledHours: number;
+  projectedHours: number;
   overtimeHours: number;
+  level: "overtime" | "projected" | "approaching";
 }
 interface RoleBreakdown {
   role: string;
@@ -1301,17 +1304,24 @@ function SchedulingTab({ data, loading }: { data: SchedData | null; loading: boo
 
   return (
     <div className="space-y-6">
-      {/* OT Alert Banner */}
+      {/* OT Alert Banner — hourly staff only; admin/managers + salaried are exempt */}
       {data.overtimeAlerts.length > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">Overtime Alert</p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              {data.overtimeAlerts
-                .map((a) => `${a.name} (${a.weekHours.toFixed(1)}h, ${a.overtimeHours.toFixed(1)}h OT)`)
-                .join(" · ")}
-            </p>
+            <p className="text-sm font-semibold text-amber-800">Overtime watch</p>
+            <ul className="text-xs text-amber-700 mt-1 space-y-0.5">
+              {data.overtimeAlerts.map((a) => (
+                <li key={a.userId}>
+                  <span className="font-medium">{a.name}</span>{" — "}
+                  {a.level === "overtime"
+                    ? `in overtime: ${a.weekHours.toFixed(1)}h worked (${a.overtimeHours.toFixed(1)}h OT)`
+                    : a.level === "projected"
+                    ? `projected to hit OT: ${a.weekHours.toFixed(1)}h worked, ${a.scheduledHours.toFixed(1)}h scheduled (${a.projectedHours.toFixed(1)}h)`
+                    : `approaching OT: ${a.weekHours.toFixed(1)}h worked`}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}

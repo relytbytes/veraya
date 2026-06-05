@@ -229,19 +229,22 @@ export function computePayrollLines(
 
   for (const emp of employees) {
     const weeks = weekHours.get(emp.id);
+    const isSalary = emp.employmentType === "SALARY";
+    // Admin/managers and salaried staff are overtime-exempt (#6) — all their
+    // hours are paid as regular, no 1.5× split.
+    const otExempt = isSalary || ["ADMIN", "MANAGER"].includes(emp.role);
     let totalHours = 0;
     let otHours = 0;
     if (weeks) {
       for (const wkHrs of weeks.values()) {
         totalHours += wkHrs;
-        if (wkHrs > cfg.otThresholdHours) otHours += wkHrs - cfg.otThresholdHours;
+        if (!otExempt && wkHrs > cfg.otThresholdHours) otHours += wkHrs - cfg.otThresholdHours;
       }
     }
     totalHours = round2(totalHours);
     otHours = round2(otHours);
     const regularHours = round2(Math.max(0, totalHours - otHours));
 
-    const isSalary = emp.employmentType === "SALARY";
     const rate = Number(emp.hourlyRate ?? 0);
     const rateCents = cents(rate);
 

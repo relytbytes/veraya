@@ -33,11 +33,11 @@ export async function GET(req: NextRequest) {
   const [shifts, clockEntries, orders, dowOrders] = await Promise.all([
     prisma.shift.findMany({
       where: { date: { gte: fromStr, lte: toStr } },
-      include: { user: { select: { id: true, name: true, role: true, hourlyRate: true } } },
+      include: { user: { select: { id: true, name: true, role: true, hourlyRate: true, employmentType: true } } },
     }),
     prisma.clockEntry.findMany({
       where: { clockIn: { gte: from, lte: to } },
-      include: { user: { select: { id: true, name: true, role: true, hourlyRate: true } } },
+      include: { user: { select: { id: true, name: true, role: true, hourlyRate: true, employmentType: true } } },
     }),
     prisma.order.findMany({
       where: { status: "COMPLETED", createdAt: { gte: from, lte: to } },
@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     userId: string;
     name: string;
     role: string;
+    employmentType: string;
     hourlyRate: number;
     scheduledHours: number;
     actualHours: number;
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
         userId: uid,
         name: shift.user.name,
         role: shift.user.role,
+        employmentType: shift.user.employmentType,
         hourlyRate: shift.user.hourlyRate ? Number(shift.user.hourlyRate) : 0,
         scheduledHours: 0,
         actualHours: 0,
@@ -86,6 +88,7 @@ export async function GET(req: NextRequest) {
         userId: uid,
         name: entry.user.name,
         role: entry.user.role,
+        employmentType: entry.user.employmentType,
         hourlyRate: entry.user.hourlyRate ? Number(entry.user.hourlyRate) : 0,
         scheduledHours: 0,
         actualHours: 0,
@@ -203,16 +206,37 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // Overtime: users with >40h actual in the period
+  // Overtime alerts. Admin/managers and salaried staff are EXEMPT — their hours
+  // vary and overtime doesn't apply (#6). For hourly staff we flag three levels
+  // (#7): already in OT (>40 worked), projected OT (worked + still-scheduled, or
+  // scheduled, would exceed 40), and approaching (>32 worked).
+  const OT_EXEMPT_ROLES = ["ADMIN", "MANAGER"];
   const overtimeAlerts = users
-    .filter((u) => u.actualHours > 40)
-    .map((u) => ({
-      userId: u.userId,
-      name: u.name,
-      role: u.role,
-      weekHours: u.actualHours,
-      overtimeHours: Math.max(0, u.actualHours - 40),
-    }));
+    .map((u) => {
+      const exempt = OT_EXEMPT_ROLES.includes(u.role) || u.employmentType === "SALARY";
+      if (exempt) return null;
+      // Projected hours for the week: the larger of what they've already worked
+      // and what they're scheduled for (covers both "worked extra unscheduled"
+      // and "scheduled past 40").
+      const projectedHours = Math.max(u.actualHours, u.scheduledHours);
+      let level: "overtime" | "projected" | "approaching" | null = null;
+      if (u.actualHours > 40) level = "overtime";
+      else if (projectedHours > 40) level = "projected";
+      else if (u.actualHours > 32) level = "approaching";
+      if (!level) return null;
+      return {
+        userId: u.userId,
+        name: u.name,
+        role: u.role,
+        weekHours: Math.round(u.actualHours * 10) / 10,
+        scheduledHours: Math.round(u.scheduledHours * 10) / 10,
+        projectedHours: Math.round(projectedHours * 10) / 10,
+        overtimeHours: Math.max(0, Math.round((u.actualHours - 40) * 10) / 10),
+        level,
+      };
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null)
+    .sort((a, b) => b.projectedHours - a.projectedHours);
 
   // Role breakdown
   const roleMap = new Map<
