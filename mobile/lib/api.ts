@@ -621,6 +621,19 @@ export interface VeraForecast {
 }
 export const getVeraForecast = () => request<VeraForecast>("/api/vera/forecast");
 
+export interface WeatherDisplay {
+  configured: boolean;
+  label?: string;
+  tempNowF?: number;
+  hiF?: number;
+  loF?: number;
+  condition?: string;
+  emoji?: string;
+  precipMm?: number;
+  multiplier?: number;
+}
+export const getWeather = () => request<WeatherDisplay>("/api/weather");
+
 // Anomalies ("Vera caught")
 export interface VeraAnomaly { type: string; severity: "HIGH" | "MEDIUM"; title: string; link: string }
 export const getVeraAnomalies = () => request<{ anomalies: VeraAnomaly[] }>("/api/vera/anomalies");

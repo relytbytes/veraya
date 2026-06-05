@@ -16,6 +16,7 @@ import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { VeraCard } from "@/components/VeraCard";
 import { VeraForecastCard, VeraSetupCard } from "@/components/VeraInsights";
+import { WeatherStrip } from "@/components/WeatherStrip";
 import { ShiftHandoff } from "@/components/ShiftHandoff";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -144,6 +145,9 @@ export default function HomeScreen() {
             {greeting}, {firstName}
           </Text>
         </View>
+
+        {/* Current conditions — hidden until a venue location is set in Settings */}
+        <WeatherStrip />
 
         {/* ── Vera + Shift Handoff (managers/admins only) ──── */}
         {(user?.role === "ADMIN" || user?.role === "MANAGER") && (
