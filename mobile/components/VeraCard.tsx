@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { getVeraData, VeraAlert, VeraIndicator, getPredictedRunouts, getVeraAnomalies, sendVeraFeedback } from "@/lib/api";
 import { C, T, shadow } from "@/lib/theme";
+import { InfoTip } from "@/components/InfoTip";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -169,6 +170,11 @@ export function VeraCard() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Text style={{ fontSize: 18, fontWeight: "800", color: C.pearl, letterSpacing: -0.2 }}>Vera</Text>
               <Ionicons name="sparkles" size={12} color={C.ember} />
+              <InfoTip
+                title="What Vera is"
+                text="Vera runs a live diagnosis of your shift across five areas — profitability, demand, labor, cost & inventory, and service — every time this loads. It projects the day's P&L before service ends and surfaces the one or two things worth acting on now."
+                size={13}
+              />
             </View>
             <Text style={{ fontSize: 10, fontWeight: "700", color: C.gold, letterSpacing: 1.2, textTransform: "uppercase", marginTop: 2 }}>
               Right now
@@ -184,7 +190,14 @@ export function VeraCard() {
               <Text style={{ fontSize: 23, fontWeight: "800", color: hc.text, lineHeight: 26 }}>{data.healthScore}</Text>
               <Text style={{ fontSize: 8, color: C.smoke, fontWeight: "700" }}>/ 100</Text>
             </View>
-            <Text style={{ fontSize: 10, color: hc.text, fontWeight: "700", marginTop: 3 }}>{hc.label}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 }}>
+              <Text style={{ fontSize: 10, color: hc.text, fontWeight: "700" }}>{hc.label}</Text>
+              <InfoTip
+                title="The health score"
+                text="A confidence-weighted blend of the five dimensions. Early in a shift it stays near neutral and sharpens as real data arrives. Vera learns which dimensions actually predict profit at your restaurant and weights the score accordingly."
+                size={12}
+              />
+            </View>
           </View>
         </View>
         {/* Narrative — full width, larger, higher-contrast */}
@@ -427,7 +440,14 @@ export function VeraCard() {
       {/* What drives your profit — learned-weights detail */}
       {showTuning && data.learning && !data.learning.learning && data.learning.topDrivers.length > 0 && (
         <View style={{ borderTopWidth: 1, borderColor: C.rim, paddingHorizontal: 18, paddingVertical: 12, backgroundColor: C.surfaceHi }}>
-          <Text style={{ fontSize: 10, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>What drives your profit</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 8 }}>
+            <Text style={{ fontSize: 10, fontWeight: "800", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>What drives your profit</Text>
+            <InfoTip
+              title="Learned weights"
+              text="Each night Vera records every dimension's score against that day's actual margin, then correlates them over time. The bars show how much it now leans on each dimension when scoring your day — learned from your own results, not a generic template."
+              size={12}
+            />
+          </View>
           {[...data.learning.topDrivers].sort((a, b) => b.weight - a.weight).map((t) => (
             <View key={t.key} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <Text style={{ width: 78, fontSize: 11, color: C.mist }} numberOfLines={1}>{t.label}</Text>

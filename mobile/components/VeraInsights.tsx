@@ -1,4 +1,5 @@
 import { View, Text, Image } from "react-native";
+import { InfoTip } from "@/components/InfoTip";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,7 +21,14 @@ export function VeraForecastCard() {
           <Image source={require("../assets/vera-forecast.png")} style={{ width: "100%", height: "100%", borderRadius: 6 }} resizeMode="contain" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: C.pearl }}>Vera Forecast</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: C.pearl }}>Vera Forecast</Text>
+            <InfoTip
+              title="How the forecast works"
+              text="A recency-weighted model on your same-weekday history with a trend term, then lifted by tonight's reservations and events and nudged by weather/holidays. Prep quantities use a service-level target (the waste-vs-stockout sweet spot). Accuracy is backtested against your own history and the model re-tunes itself nightly."
+              size={13}
+            />
+          </View>
           <Text style={{ fontSize: 11, color: C.smoke, textTransform: "uppercase", letterSpacing: 0.6 }}>Tonight</Text>
         </View>
         <View style={{ backgroundColor: `${CONF[data.confidence]}1A`, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
