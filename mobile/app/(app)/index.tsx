@@ -7,8 +7,7 @@ import * as SecureStore from "expo-secure-store";
 
 // A dedicated station device auto-opens its mode once per app launch.
 let stationLaunched = false;
-import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
@@ -89,51 +88,14 @@ export default function HomeScreen() {
     }).catch(() => {});
   }, [router]);
 
-  const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: getDashboardStats,
-    refetchInterval: 120_000,
-  });
+  const queryClient = useQueryClient();
+  // Pull-to-refresh re-pulls the Vera + Forecast cards (the live data shown here).
+  const onRefresh = () => queryClient.invalidateQueries();
 
   const firstName = user?.name?.split(" ")[0] ?? "there";
   const [greeting] = useState(() => randomGreeting());
 
   const { scrollY, scrollHandler } = useCollapsingHeader();
-
-  const statTiles = [
-    {
-      label: "Today's Sales",
-      value: stats ? `$${Number(stats.salesTotal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—",
-      sub: `${stats?.salesCount ?? 0} orders`,
-      icon: "trending-up" as IoniconName,
-      color: C.jade,
-      href: "/(app)/pos",
-    },
-    {
-      label: "Open Orders",
-      value: String(stats?.openOrders ?? "—"),
-      sub: "active now",
-      icon: "flame" as IoniconName,
-      color: C.ember,
-      href: "/(app)/kitchen",
-    },
-    {
-      label: "Menu Items",
-      value: String(stats?.menuItemCount ?? "—"),
-      sub: "active items",
-      icon: "restaurant" as IoniconName,
-      color: C.gold,
-      href: "/(app)/menu",
-    },
-    {
-      label: "Low Stock",
-      value: String(stats?.lowStockCount ?? "—"),
-      sub: stats?.lowStockCount ? "need attention" : "all good",
-      icon: "alert-circle" as IoniconName,
-      color: stats?.lowStockCount ? C.coral : C.mist,
-      href: "/(app)/inventory",
-    },
-  ];
 
   const modMap = new Map(MODULES.map((m) => [m.label, m]));
 
@@ -169,7 +131,7 @@ export default function HomeScreen() {
       />
 
       <Animated.ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(refetch)} tintColor={C.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => run(onRefresh)} tintColor={C.gold} />}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -218,47 +180,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* ── Stat tiles ──────────────────────────────────────────────────── */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
-          <Text style={{ fontSize: 11, fontWeight: "600", color: C.smoke, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 12 }}>
-            At a Glance
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-            {statTiles.map((tile) => (
-              <TouchableOpacity
-                key={tile.label}
-                onPress={() => router.push(tile.href as never)}
-                activeOpacity={0.7}
-                style={{
-                  flex: 1, minWidth: "44%",
-                  backgroundColor: C.surface,
-                  borderWidth: 1, borderColor: C.rim,
-                  borderRadius: 20, padding: 18,
-                  ...shadow.sm,
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <View style={{
-                    width: 36, height: 36, borderRadius: 12,
-                    backgroundColor: `${tile.color}18`,
-                    alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Ionicons name={tile.icon} size={18} color={tile.color} />
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={C.smoke} />
-                </View>
-                <Text style={{ fontSize: 26, fontWeight: "700", color: C.pearl }}>
-                  {isLoading ? "—" : tile.value}
-                </Text>
-                <Text style={{ fontSize: 11, color: C.mist, marginTop: 3 }}>{tile.sub}</Text>
-                <Text style={{ fontSize: 10, fontWeight: "600", color: C.smoke, marginTop: 8, letterSpacing: 0.3 }}>
-                  {tile.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
         {/* ── Module sections (previously in More) ────────────────────────── */}
         <View style={{ paddingHorizontal: 16, paddingTop: 28, gap: 24 }}>
