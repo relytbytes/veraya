@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold, quantity } = body;
+  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold, quantity, category } = body;
 
   if (!name || !unit || costPerUnit === undefined) {
     return Response.json({ error: "Name, unit, and cost are required" }, { status: 400 });
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       costPerUnit,
       supplierId: supplierId || null,
       barcode: barcode || null,
+      category: ["KITCHEN", "BAR", "WINE"].includes(category) ? category : "KITCHEN",
       inventoryItem: {
         create: {
           quantity: quantity != null ? Number(quantity) : 0, // initial on-hand

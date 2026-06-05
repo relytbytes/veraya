@@ -8,7 +8,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold } = body;
+  const { name, unit, costPerUnit, supplierId, barcode, minThreshold, maxThreshold, category } = body;
 
   const data: Record<string, unknown> = {
     ...(name !== undefined && { name }),
@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ...(costPerUnit !== undefined && { costPerUnit: Number(costPerUnit) }),
     ...(supplierId !== undefined && { supplierId: supplierId || null }),
     ...(barcode !== undefined && { barcode: barcode || null }),
+    ...(category !== undefined && ["KITCHEN", "BAR", "WINE"].includes(category) && { category }),
   };
 
   // Threshold fields live on the related InventoryItem. Each is applied

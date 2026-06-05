@@ -160,12 +160,15 @@ export const getSuppliers = () => request<Supplier[]>("/api/suppliers");
 // Stock movement: RECEIVED/RETURNED add, WASTED/USED subtract, ADJUSTED signed.
 export const adjustInventory = (body: { ingredientId: string; quantity: number; type: "RECEIVED" | "WASTED" | "RETURNED" | "ADJUSTED" | "USED"; notes?: string }) =>
   request<{ updatedItem: InventoryItem }>("/api/inventory", { method: "POST", body: JSON.stringify(body) });
-export const patchIngredient = (id: string, body: { supplierId?: string | null; costPerUnit?: number; name?: string; unit?: string }) =>
+export type InventoryCategory = "KITCHEN" | "BAR" | "WINE";
+export const patchIngredient = (id: string, body: { supplierId?: string | null; costPerUnit?: number; name?: string; unit?: string; category?: InventoryCategory }) =>
   request<{ ok: boolean }>(`/api/ingredients/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+export const deleteIngredient = (id: string) =>
+  request<{ success: boolean }>(`/api/ingredients/${id}`, { method: "DELETE" });
 export const getIngredients = () => request<IngredientFull[]>("/api/ingredients");
 export const createIngredient = (body: {
   name: string; unit: string; costPerUnit: number;
-  supplierId?: string | null; minThreshold?: number; barcode?: string; quantity?: number;
+  supplierId?: string | null; minThreshold?: number; barcode?: string; quantity?: number; category?: InventoryCategory;
 }) => request<IngredientFull>("/api/ingredients", { method: "POST", body: JSON.stringify(body) });
 export const createPurchaseOrder = (body: object) =>
   request<PurchaseOrder>("/api/purchase-orders", { method: "POST", body: JSON.stringify(body) });
@@ -403,7 +406,7 @@ export interface VisionResult {
 export interface InventoryItem {
   id: string; quantity: number; minThreshold: number; maxThreshold: number | null;
   storageArea: string | null; shelfOrder: number | null;
-  ingredient: { id: string; name: string; unit: string; costPerUnit?: string; supplierId?: string | null; supplier?: { id: string; name: string } | null };
+  ingredient: { id: string; name: string; unit: string; costPerUnit?: string; supplierId?: string | null; category?: string; supplier?: { id: string; name: string } | null };
 }
 
 export interface StorageArea {

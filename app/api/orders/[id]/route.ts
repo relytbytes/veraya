@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
+import { publish } from "@/lib/realtime";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
 import { depleteForFiredItems, restoreForVoidedItems } from "@/lib/inventory";
 import { verifyManagerPin } from "@/lib/manager-auth";
@@ -409,6 +410,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   emit({ type: "order.updated", orderId: id, status: updatedOrder.status });
+  // Payments, comps/voids, status changes all move Vera's profitability/labor
+  // read — push so the dashboard reflects it live across devices.
+  publish({ scope: "data", type: "order.changed", ids: [id] });
 
   // Write audit log for destructive actions
   if (status === "VOID" || status === "CANCELLED") {

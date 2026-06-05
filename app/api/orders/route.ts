@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
+import { publish } from "@/lib/realtime";
 import { inferStageFromItems, advanceStage } from "@/lib/stage-inference";
 import { depleteForFiredItems } from "@/lib/inventory";
 
@@ -188,6 +189,8 @@ export async function POST(req: NextRequest) {
     }
 
     emit({ type: "order.created", orderId: order.id });
+    // Sales coming in → refresh Vera's demand/profitability read across devices.
+    publish({ scope: "data", type: "order.changed", ids: [order.id] });
     return Response.json(order, { status: 201 });
   } catch (err) {
     console.error("[POST /api/orders]", err);

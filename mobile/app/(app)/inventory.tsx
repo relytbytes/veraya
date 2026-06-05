@@ -7,7 +7,7 @@ import {
 import { CollapsingHeader, useCollapsingHeader } from "@/components/CollapsingHeader";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getInventory, getStorageAreas, barcodeSearch, patchInventoryItem, adjustInventory, patchIngredient, getSuppliers } from "@/lib/api";
+import { getInventory, getStorageAreas, barcodeSearch, patchInventoryItem, adjustInventory, patchIngredient, deleteIngredient, getSuppliers, type InventoryCategory } from "@/lib/api";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import type { InventoryItem } from "@/lib/api";
 import { Scanner } from "@/components/Scanner";
@@ -72,8 +72,20 @@ export default function InventoryScreen() {
     !search || i.ingredient.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const lowStock = visible.filter((i) => Number(i.quantity) <= Number(i.minThreshold));
-  const okStock = visible.filter((i) => Number(i.quantity) > Number(i.minThreshold));
+  // Split inventory into sections: Kitchen / Bar & Beer / Wine. Within each,
+  // low-stock items sort to the top (and stay flagged red).
+  const SECTIONS: { key: "KITCHEN" | "BAR" | "WINE"; label: string; icon: string; color: string }[] = [
+    { key: "KITCHEN", label: "Kitchen", icon: "restaurant-outline", color: C.jade },
+    { key: "BAR", label: "Bar & Beer", icon: "beer-outline", color: C.gold },
+    { key: "WINE", label: "Wine", icon: "wine-outline", color: C.coral },
+  ];
+  const isLow = (i: InventoryItem) => Number(i.quantity) <= Number(i.minThreshold);
+  const sections = SECTIONS.map((s) => ({
+    ...s,
+    items: visible
+      .filter((i) => (i.ingredient.category ?? "KITCHEN") === s.key)
+      .sort((a, b) => (isLow(a) === isLow(b) ? a.ingredient.name.localeCompare(b.ingredient.name) : isLow(a) ? -1 : 1)),
+  })).filter((s) => s.items.length > 0);
 
   async function handleScan(barcode: string) {
     setScannerOpen(false);
@@ -140,6 +152,41 @@ export default function InventoryScreen() {
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to set supplier");
     }
+  }
+
+  async function setCategory(category: InventoryCategory) {
+    if (!editItem) return;
+    try {
+      await patchIngredient(editItem.ingredient.id, { category });
+      setEditItem((prev) => prev ? { ...prev, ingredient: { ...prev.ingredient, category } } : prev);
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+    } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to set section");
+    }
+  }
+
+  function deleteItem() {
+    if (!editItem) return;
+    const item = editItem;
+    Alert.alert(
+      "Delete item?",
+      `Remove "${item.ingredient.name}" from inventory? This can't be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive", onPress: async () => {
+            try {
+              await deleteIngredient(item.ingredient.id);
+              setEditItem(null);
+              await qc.invalidateQueries({ queryKey: ["inventory"] });
+              qc.invalidateQueries({ queryKey: ["vera"] });
+            } catch (e: unknown) {
+              Alert.alert("Error", e instanceof Error ? e.message : "Failed to delete");
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function savePar() {
@@ -368,6 +415,21 @@ export default function InventoryScreen() {
                   </View>
                 </View>
 
+                {/* Section (inventory category) */}
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: C.smoke, letterSpacing: 1, textTransform: "uppercase" }}>Section</Text>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    {([["KITCHEN", "Kitchen"], ["BAR", "Bar & Beer"], ["WINE", "Wine"]] as const).map(([cat, lbl]) => {
+                      const sel = (editItem.ingredient.category ?? "KITCHEN") === cat;
+                      return (
+                        <TouchableOpacity key={cat} onPress={() => setCategory(cat)} style={{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center", backgroundColor: sel ? `${C.gold}1A` : C.surfaceHi, borderWidth: 1, borderColor: sel ? C.gold : C.rim }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: sel ? C.gold : C.mist }}>{lbl}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
                 <View className="flex-row gap-3">
                   {/* Par Level */}
                   <View style={{ flex: 1, gap: 6 }}>
@@ -493,6 +555,19 @@ export default function InventoryScreen() {
                       <Text style={{ color: C.void, fontWeight: "700", fontSize: 15 }}>Save Par Level</Text>
                     </>
                   )}
+                </TouchableOpacity>
+
+                {/* Delete item (for mis-imports / things that shouldn't be tracked) */}
+                <TouchableOpacity
+                  onPress={deleteItem}
+                  style={{
+                    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+                    paddingVertical: 12, borderRadius: 12,
+                    borderWidth: 1, borderColor: C.coral + "55", backgroundColor: C.coral + "12",
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={15} color={C.coral} />
+                  <Text style={{ color: C.coral, fontWeight: "700", fontSize: 13 }}>Delete item</Text>
                 </TouchableOpacity>
               </ScrollView>
             </TouchableOpacity>
@@ -681,71 +756,24 @@ export default function InventoryScreen() {
           </View>
         )}
 
-        {lowStock.length > 0 && (
-          <View>
-            {/* Low stock section header */}
-            <View className="flex-row items-center gap-1.5 mb-2">
-              <Ionicons name="warning-outline" size={13} color={C.coral} />
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: "600",
-                  color: C.coral,
-                  textTransform: "uppercase",
-                  letterSpacing: 1.2,
-                }}
-              >
-                Low Stock ({lowStock.length})
-              </Text>
+        {sections.map((sec) => {
+          const lowCount = sec.items.filter(isLow).length;
+          return (
+            <View key={sec.key} style={{ marginBottom: 16 }}>
+              <View className="flex-row items-center gap-1.5 mb-2">
+                <Ionicons name={sec.icon as never} size={13} color={sec.color} />
+                <Text style={{ fontSize: 10, fontWeight: "600", color: sec.color, textTransform: "uppercase", letterSpacing: 1.2 }}>
+                  {sec.label} ({sec.items.length}{lowCount > 0 ? ` · ${lowCount} low` : ""})
+                </Text>
+              </View>
+              <View style={{ backgroundColor: C.surface, borderRadius: 18, borderWidth: 1, borderColor: C.rim, overflow: "hidden" }}>
+                {sec.items.map((item, i) => (
+                  <StockRow key={item.id} item={item} last={i === sec.items.length - 1} low={isLow(item)} onEdit={openEdit} />
+                ))}
+              </View>
             </View>
-            <View
-              style={{
-                backgroundColor: C.surface,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: C.rim,
-                overflow: "hidden",
-              }}
-            >
-              {lowStock.map((item, i) => (
-                <StockRow key={item.id} item={item} last={i === lowStock.length - 1} low onEdit={openEdit} />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {okStock.length > 0 && (
-          <View>
-            {/* In stock section header */}
-            <View className="flex-row items-center gap-1.5 mb-2">
-              <Ionicons name="checkmark-circle-outline" size={13} color={C.jade} />
-              <Text
-                style={{
-                  fontSize: 10,
-                  fontWeight: "600",
-                  color: C.jade,
-                  textTransform: "uppercase",
-                  letterSpacing: 1.2,
-                }}
-              >
-                In Stock ({okStock.length})
-              </Text>
-            </View>
-            <View
-              style={{
-                backgroundColor: C.surface,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: C.rim,
-                overflow: "hidden",
-              }}
-            >
-              {okStock.map((item, i) => (
-                <StockRow key={item.id} item={item} last={i === okStock.length - 1} onEdit={openEdit} />
-              ))}
-            </View>
-          </View>
-        )}
+          );
+        })}
       </Animated.ScrollView>
     </SafeAreaView>
   );

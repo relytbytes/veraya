@@ -61,8 +61,8 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
   const [barcodeAiFallback, setBarcodeAiFallback] = useState(false);
   const [barcodeScanned, setBarcodeScanned] = useState("");
   const [barcodeMeta, setBarcodeMeta] = useState<{ brand: string | null; quantity: string | null; category: string | null } | null>(null);
-  const [barcodeForm, setBarcodeForm] = useState({
-    name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "",
+  const [barcodeForm, setBarcodeForm] = useState<{ name: string; unit: string; costPerUnit: string; minThreshold: string; quantity: string; category: "KITCHEN" | "BAR" | "WINE" }>({
+    name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "", category: "KITCHEN",
   });
   const [barcodeSaving, setBarcodeSaving] = useState(false);
 
@@ -73,7 +73,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
     setMode("choose");
     setPhotoLoading(false); setPhotoError(null); setImportRows([]);
     setBarcodeLoading(false); setBarcodeError(null); setBarcodeScanned(""); setBarcodeAiFallback(false); setBarcodeMeta(null);
-    setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "" });
+    setBarcodeForm({ name: "", unit: "unit", costPerUnit: "", minThreshold: "", quantity: "", category: "KITCHEN" });
     setSuggestions([]);
   }
 
@@ -161,6 +161,7 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
         costPerUnit: parseFloat(barcodeForm.costPerUnit),
         minThreshold: parseFloat(barcodeForm.minThreshold) || 0,
         quantity: parseFloat(barcodeForm.quantity) || 0,
+        category: barcodeForm.category,
         barcode: barcodeScanned || undefined,
       });
       onSaved(1);
@@ -543,6 +544,25 @@ export function IngredientImport({ visible, onClose, onSaved }: Props) {
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
+                    </View>
+
+                    {/* Section selector */}
+                    <View>
+                      <Text style={{ fontSize: 12, color: C.mist, marginBottom: 6 }}>Section</Text>
+                      <View style={{ flexDirection: "row", gap: 6 }}>
+                        {([["KITCHEN", "Kitchen"], ["BAR", "Bar & Beer"], ["WINE", "Wine"]] as const).map(([cat, lbl]) => {
+                          const sel = barcodeForm.category === cat;
+                          return (
+                            <TouchableOpacity
+                              key={cat}
+                              onPress={() => setBarcodeForm(f => ({ ...f, category: cat }))}
+                              style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: sel ? C.gold : C.surfaceHi, borderWidth: 1, borderColor: sel ? C.gold : C.rim }}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: "600", color: sel ? "white" : C.mist }}>{lbl}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
 
                     <TouchableOpacity
