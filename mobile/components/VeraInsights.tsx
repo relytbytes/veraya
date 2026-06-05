@@ -39,6 +39,39 @@ export function VeraForecastCard() {
         </View>
       </View>
 
+      {data.dayparts && data.dayparts.filter((d) => d.projectedSales > 0).length > 0 && (
+        <View style={{ paddingHorizontal: 14, paddingTop: 12 }}>
+          <View style={{ flexDirection: "row", height: 8, borderRadius: 4, overflow: "hidden", backgroundColor: C.surfaceHi }}>
+            {data.dayparts.map((d, i) => (
+              <View key={d.name} style={{ width: `${Math.max(0, d.share * 100)}%`, backgroundColor: i === 0 ? C.ember : C.gold }} />
+            ))}
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
+            {data.dayparts.map((d, i) => (
+              <View key={d.name} style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: i === 0 ? C.ember : C.gold }} />
+                <Text style={{ fontSize: 11, color: C.smoke }}>{d.name} ${d.projectedSales.toLocaleString("en-US")} ({Math.round(d.share * 100)}%)</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {(data.holiday || (data.weather && data.weather.summary !== "mild")) && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingTop: 10 }}>
+          {data.holiday && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${C.coral}1A`, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: C.coral }}>🗓 {data.holiday.name}{typeof data.adjustmentPct === "number" && data.adjustmentPct !== 0 ? `  ${data.adjustmentPct > 0 ? "+" : ""}${data.adjustmentPct}%` : ""}</Text>
+            </View>
+          )}
+          {data.weather && data.weather.summary !== "mild" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: `${C.sky}1A`, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: C.sky }}>🌦 {data.weather.summary}, {data.weather.tempMaxF}°F</Text>
+            </View>
+          )}
+        </View>
+      )}
+
       <Text style={{ fontSize: 13, color: C.mist, lineHeight: 19, paddingHorizontal: 14, paddingTop: 10 }}>{data.narrative}</Text>
 
       {data.prep.length > 0 && (

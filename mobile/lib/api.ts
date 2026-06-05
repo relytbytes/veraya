@@ -614,6 +614,10 @@ export interface VeraForecast {
   confidence: "low" | "medium" | "high";
   prep: { name: string; suggestedQty: number; basis: string }[];
   narrative: string;
+  dayparts?: { name: string; projectedSales: number; share: number }[];
+  holiday?: { name: string; tendency: string } | null;
+  weather?: { summary: string; tempMaxF: number; precipMm: number } | null;
+  adjustmentPct?: number;
 }
 export const getVeraForecast = () => request<VeraForecast>("/api/vera/forecast");
 

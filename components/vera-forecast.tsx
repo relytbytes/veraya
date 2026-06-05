@@ -6,6 +6,7 @@ import { VeraSpark } from "@/components/brand/vera-mark";
 import { VeraAvatar } from "@/components/brand/vera-avatar";
 
 interface PrepItem { name: string; suggestedQty: number; basis: string }
+interface Daypart { name: string; projectedSales: number; share: number }
 interface Forecast {
   projectedSales: number;
   projectedCovers: number;
@@ -15,6 +16,10 @@ interface Forecast {
   confidence: "low" | "medium" | "high";
   prep: PrepItem[];
   narrative: string;
+  dayparts?: Daypart[];
+  holiday?: { name: string; tendency: string } | null;
+  weather?: { summary: string; tempMaxF: number; precipMm: number } | null;
+  adjustmentPct?: number;
 }
 
 const CONF: Record<string, string> = {
@@ -85,6 +90,49 @@ export function VeraForecast() {
           </div>
         </div>
       </div>
+
+      {/* Daypart split */}
+      {data.dayparts && data.dayparts.filter((d) => d.projectedSales > 0).length > 0 && (
+        <div className="px-5 pt-3">
+          <div className="flex h-2 overflow-hidden rounded-full bg-gray-100">
+            {data.dayparts.map((d, i) => (
+              <div
+                key={d.name}
+                className={i === 0 ? "bg-amber-400" : "bg-indigo-500"}
+                style={{ width: `${Math.max(0, d.share * 100)}%` }}
+                title={`${d.name}: $${d.projectedSales.toLocaleString("en-US")}`}
+              />
+            ))}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-gray-500">
+            {data.dayparts.map((d, i) => (
+              <span key={d.name} className="inline-flex items-center gap-1">
+                <span className={`h-2 w-2 rounded-full ${i === 0 ? "bg-amber-400" : "bg-indigo-500"}`} />
+                {d.name} ${d.projectedSales.toLocaleString("en-US")} ({Math.round(d.share * 100)}%)
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Exogenous signals: holiday + weather */}
+      {(data.holiday || (data.weather && data.weather.summary !== "mild")) && (
+        <div className="px-5 pt-2.5 flex flex-wrap gap-2">
+          {data.holiday && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+              🗓 {data.holiday.name}
+              {typeof data.adjustmentPct === "number" && data.adjustmentPct !== 0 && (
+                <span className="text-rose-400">{data.adjustmentPct > 0 ? "+" : ""}{data.adjustmentPct}%</span>
+              )}
+            </span>
+          )}
+          {data.weather && data.weather.summary !== "mild" && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-600">
+              🌦 {data.weather.summary}, {data.weather.tempMaxF}°F
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Narrative */}
       <p className="px-5 pt-3 text-sm leading-relaxed text-gray-700">{data.narrative}</p>
