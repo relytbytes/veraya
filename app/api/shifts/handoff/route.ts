@@ -36,6 +36,10 @@ export interface HandoffDigest {
   reservations: {
     upcoming: { time: string; name: string; partySize: number; notes: string | null }[];
   };
+  purchasing: {
+    received: { id: string; supplier: string; total: number; itemCount: number; invoiceNumber: string | null }[];
+    pendingApproval: { id: string; supplier: string; total: number; itemCount: number }[];
+  };
   logEntries: {
     type: string;
     shift: string | null;
@@ -74,6 +78,7 @@ export async function POST(req: NextRequest) {
     inventoryItems,
     reservations,
     logEntries,
+    purchaseOrders,
   ] = await Promise.all([
     // Orders completed in the window
     prisma.order.findMany({
@@ -131,6 +136,24 @@ export async function POST(req: NextRequest) {
       },
       orderBy: { createdAt: "desc" },
       take: 10,
+    }),
+
+    // Purchase orders: received in the window + anything awaiting approval (so
+    // the incoming GM/admin knows what arrived and what still needs sign-off).
+    prisma.purchaseOrder.findMany({
+      where: {
+        OR: [
+          { status: "RECEIVED", receivedAt: { gte: windowStart } },
+          { status: "PENDING_APPROVAL" },
+        ],
+      },
+      include: {
+        supplier: { select: { name: true } },
+        vendor: { select: { name: true } },
+        items: { select: { id: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 25,
     }),
   ]);
 
@@ -196,6 +219,16 @@ export async function POST(req: NextRequest) {
     notes: r.notes ?? null,
   }));
 
+  // Purchasing — received this window + awaiting approval
+  const poName = (p: { supplier: { name: string } | null; vendor: { name: string } | null }) =>
+    p.supplier?.name ?? p.vendor?.name ?? "Supplier";
+  const received = purchaseOrders
+    .filter((p) => p.status === "RECEIVED")
+    .map((p) => ({ id: p.id, supplier: poName(p), total: Number(p.totalAmount), itemCount: p.items.length, invoiceNumber: p.invoiceNumber ?? null }));
+  const pendingApproval = purchaseOrders
+    .filter((p) => p.status === "PENDING_APPROVAL")
+    .map((p) => ({ id: p.id, supplier: poName(p), total: Number(p.totalAmount), itemCount: p.items.length }));
+
   // Log entries
   const logs = logEntries.map(l => ({
     type: l.type,
@@ -234,6 +267,11 @@ export async function POST(req: NextRequest) {
   // All 86'd items (if any)
   if (eightySixedList.length > 0) {
     watchFor.push(`🚫 Still 86'd: ${eightySixedList.map(e => e.item).join(", ")}`);
+  }
+
+  // POs awaiting a manager/admin's approval before cost + inventory commit.
+  for (const p of pendingApproval) {
+    watchFor.push(`📦 PO from ${p.supplier} ($${p.total.toFixed(2)}) needs your approval`);
   }
 
   // ── Build narrative ────────────────────────────────────────────────────────
@@ -349,6 +387,7 @@ Write in first person ("We did...", "Watch out for..."). Be direct — no filler
     kitchen: { eightySixed: eightySixedList },
     inventory: { lowStock },
     reservations: { upcoming: upcomingRes },
+    purchasing: { received, pendingApproval },
     logEntries: logs,
     watchFor,
     narrative,
