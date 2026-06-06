@@ -68,24 +68,29 @@ export async function POST(req: NextRequest) {
           content: [
             {
               type: "text",
-              text: `You are reading a restaurant supplier invoice or delivery packing slip. Extract the structured data. Read every line item in the items table.
+              text: `You are an expert accounts-payable clerk reading a restaurant supplier invoice, distributor order guide, or delivery packing slip. Read the WHOLE document carefully, including the header, logo, and small print.
+
+CRITICAL:
+- The VENDOR is the SUPPLIER/distributor selling the goods (usually in the header or logo, e.g. "Southern Glazer's", "Sysco", "Breakthru Beverage"), NOT the restaurant being billed and NOT a product brand.
+- Extract EVERY line item in the items/products table — do not stop early, do not skip rows. A single product may wrap across two printed lines; treat it as one item. Wines often list producer + vintage + varietal — keep the full description.
+- For each line read the QUANTITY, the UNIT (case/btl/ea/lb/kg/cs/each), the UNIT COST (price per unit), and the LINE TOTAL (extended price). If only a line total and quantity are visible, leave unitCost null (the server computes it).
 
 Return ONLY JSON, no markdown:
 {
-  "vendor": "supplier/company name on the invoice or null",
+  "vendor": "the SUPPLIER/distributor company name (header/logo) or null",
   "vendorPhone": "supplier phone or null",
   "vendorEmail": "supplier email or null",
   "vendorAddress": "supplier street address or null",
   "invoiceNumber": "invoice or order number or null",
   "invoiceDate": "YYYY-MM-DD or null",
   "items": [
-    { "description": "the product description as printed", "quantity": number or null, "unit": "case|lb|kg|ea|... or null", "unitCost": number or null, "lineTotal": number or null }
+    { "description": "the full product description as printed", "quantity": number or null, "unit": "case|btl|ea|lb|kg|... or null", "unitCost": number or null, "lineTotal": number or null }
   ],
   "subtotal": number or null,
   "tax": number or null,
   "total": number or null
 }
-Numbers must be plain (no $ or commas). If a value isn't visible, use null. Do not invent line items.`,
+Numbers must be plain (no $ or commas). If a value isn't visible, use null. Do not invent line items, but do not miss any either.`,
             },
             { type: "image_url", image_url: { url: image, detail: "high" } },
           ],

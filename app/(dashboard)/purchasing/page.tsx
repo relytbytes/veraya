@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import {
   Plus, Truck, Loader2, Pencil, CheckCircle2,
   ChevronDown, ChevronRight, ClipboardList, X, Search,
-  FlaskConical, Hash, ScanBarcode, Sparkles,
+  FlaskConical, Hash, ScanBarcode, Sparkles, Receipt,
   TrendingUp, TrendingDown, Minus, AlertTriangle, BarChart2,
 } from "lucide-react";
 import { IngredientCombobox } from "@/components/purchasing/ingredient-combobox";
 import { ScanDialog, type ScannedIngredient } from "@/components/purchasing/scan-dialog";
+import { InvoiceScanDialog, type InvoiceResult } from "@/components/purchasing/invoice-scan-dialog";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -168,6 +169,34 @@ const STATUS_LABELS: Record<string, string> = {
 const EMPTY_SUPPLIER = { name: "", contactName: "", email: "", phone: "", address: "", notes: "" };
 const EMPTY_ING = { name: "", unit: "", costPerUnit: "", supplierId: "", barcode: "", minThreshold: "", maxThreshold: "" };
 
+// ─── Invoice-import helpers ─────────────────────────────────────────────────────
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// Normalize a free-text unit from an invoice to a tidy stock unit.
+function normalizeUnit(u: string | null): string {
+  const s = (u ?? "").toLowerCase().trim();
+  if (!s) return "each";
+  if (/^(cs|case|cases|ct|ct\.)$/.test(s)) return "case";
+  if (/^(btl|bottle|bottles|bt)$/.test(s)) return "bottle";
+  if (/^(ea|each|unit|units|pc|pcs)$/.test(s)) return "each";
+  if (/^(lb|lbs|pound|pounds|#)$/.test(s)) return "lb";
+  if (/^(kg|kilo|kilos)$/.test(s)) return "kg";
+  if (/^(oz|ounce|ounces)$/.test(s)) return "oz";
+  if (/^(gal|gallon|gallons)$/.test(s)) return "gallon";
+  if (/^(doz|dozen)$/.test(s)) return "dozen";
+  return s.slice(0, 16);
+}
+
+// Light category guess so new items land in the right inventory section.
+function guessCategory(desc: string, unit: string | null): "KITCHEN" | "BAR" | "WINE" {
+  const d = `${desc} ${unit ?? ""}`.toLowerCase();
+  const wine = /\b(wine|pinot|cabernet|sauvignon|chardonnay|merlot|syrah|shiraz|malbec|riesling|rosé|rose|champagne|prosecco|sangiovese|nebbiolo|barolo|zinfandel|grenache|tempranillo|vintage|vineyard|cellars|chianti|bordeaux|burgundy)\b/;
+  const bar = /\b(vodka|gin|rum|tequila|whiskey|whisky|bourbon|scotch|liqueur|beer|ale|lager|ipa|cocktail|bitters|vermouth|brandy|cognac|mezcal|spirit)\b/;
+  if (wine.test(d)) return "WINE";
+  if (bar.test(d)) return "BAR";
+  return "KITCHEN";
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PurchasingPage() {
@@ -202,6 +231,9 @@ export default function PurchasingPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [scanTargetLine, setScanTargetLine] = useState<number | null>(null); // which PO line is being scanned
   const [scanMode, setScanMode] = useState<"select" | "inventory">("select");
+
+  // Invoice scan (full-PO extraction)
+  const [invoiceScanOpen, setInvoiceScanOpen] = useState(false);
 
   // Invoice edit (inline on list)
   const [editingInvoice, setEditingInvoice] = useState<string | null>(null);
@@ -320,6 +352,94 @@ export default function PurchasingPage() {
     setPODialogOpen(false);
     resetPOForm();
     loadAll();
+  }
+
+  // Take the extracted invoice and build a complete draft PO: resolve/create the
+  // supplier, set the invoice #, and turn every line into a PO item — matched lines
+  // reuse the existing ingredient; new lines with a cost create the ingredient.
+  async function applyInvoice(inv: InvoiceResult) {
+    {
+      // 1) Supplier — use the match, else create from the read vendor.
+      let supplierId = inv.matchedSupplierId ?? "";
+      if (!supplierId && inv.vendor) {
+        try {
+          const res = await fetch("/api/suppliers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: inv.vendor,
+              phone: inv.vendorPhone || undefined,
+              email: inv.vendorEmail || undefined,
+              address: inv.vendorAddress || undefined,
+            }),
+          });
+          if (res.ok) {
+            const s = await res.json();
+            supplierId = s.id;
+            setSuppliers((prev) => prev.some((x) => x.id === s.id) ? prev : [...prev, s]);
+          }
+        } catch { /* fall through — manager can pick a supplier manually */ }
+      }
+      if (supplierId) setPOSupplierId(supplierId);
+      if (inv.invoiceNumber) setPOInvoice(inv.invoiceNumber);
+
+      // 2) Lines → PO items. Matched lines reuse the ingredient; unmatched lines
+      //    with a cost create a new ingredient (linked to this supplier).
+      const newIngredients: Ingredient[] = [];
+      const builtItems: { ingredientId: string; quantity: string; unitCost: string }[] = [];
+      let skipped = 0;
+
+      for (const l of inv.lines) {
+        const qty = l.quantity != null && l.quantity > 0 ? l.quantity : 1;
+        const cost = l.unitCost != null ? l.unitCost
+          : (l.lineTotal != null && qty > 0 ? l.lineTotal / qty : null);
+
+        if (l.matchedIngredientId) {
+          builtItems.push({
+            ingredientId: l.matchedIngredientId,
+            quantity: String(qty),
+            unitCost: cost != null ? String(round2(cost)) : "",
+          });
+          continue;
+        }
+        if (cost == null || !l.description) { skipped++; continue; }
+
+        // Create the new ingredient so the line can be ordered + costed.
+        try {
+          const res = await fetch("/api/ingredients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: l.description.slice(0, 120),
+              unit: normalizeUnit(l.unit),
+              costPerUnit: round2(cost),
+              supplierId: supplierId || undefined,
+              category: guessCategory(l.description, l.unit),
+            }),
+          });
+          if (res.ok) {
+            const ing = await res.json();
+            newIngredients.push(ing);
+            builtItems.push({ ingredientId: ing.id, quantity: String(qty), unitCost: String(round2(cost)) });
+          } else {
+            skipped++;
+          }
+        } catch { skipped++; }
+      }
+
+      if (newIngredients.length) {
+        setIngredients((prev) => [...prev, ...newIngredients]);
+      }
+      setPOItems(builtItems.length ? builtItems : [{ ingredientId: "", quantity: "", unitCost: "" }]);
+      setPONotes((n) => n || (inv.invoiceDate ? `Invoice dated ${inv.invoiceDate}` : ""));
+
+      // Make sure the PO dialog is open to show the filled draft.
+      setPODialogOpen(true);
+
+      const created = newIngredients.length ? ` · ${newIngredients.length} new item${newIngredients.length !== 1 ? "s" : ""} created` : "";
+      const dropped = skipped ? ` · ${skipped} line${skipped !== 1 ? "s" : ""} skipped (no cost)` : "";
+      toast.success(`Invoice read: ${builtItems.length} line${builtItems.length !== 1 ? "s" : ""} added${created}${dropped}. Review and create the order.`);
+    }
   }
 
   async function updatePOStatus(id: string, status: string) {
@@ -548,9 +668,18 @@ export default function PurchasingPage() {
         actions={
           <div className="flex gap-2">
             {tab === "orders" && (
-              <Button size="sm" onClick={() => { resetPOForm(); setPODialogOpen(true); }}>
-                <Plus className="h-4 w-4" /> New Order
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
+                  onClick={() => { resetPOForm(); setInvoiceScanOpen(true); }}
+                >
+                  <Receipt className="h-4 w-4" /> Scan Invoice
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { resetPOForm(); setPODialogOpen(true); }}>
+                  <Plus className="h-4 w-4" /> New Order
+                </Button>
+              </>
             )}
             {tab === "ingredients" && (
               <div className="flex gap-2">
@@ -696,10 +825,20 @@ export default function PurchasingPage() {
                   <Button
                     size="sm"
                     className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
+                    onClick={() => setInvoiceScanOpen(true)}
+                    type="button"
+                    title="Photograph a supplier invoice to fill the whole order"
+                  >
+                    <Receipt className="h-3.5 w-3.5" /> Scan Invoice
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => { addPOItem(); openScanForLine(poItems.length); }}
                     type="button"
+                    title="Scan one product's barcode or photo"
                   >
-                    <Sparkles className="h-3.5 w-3.5" /> Scan with AI
+                    <Sparkles className="h-3.5 w-3.5" /> Scan Item
                   </Button>
                   <Button size="sm" variant="outline" onClick={addPOItem} type="button">
                     <Plus className="h-3.5 w-3.5" /> Add Item
@@ -787,6 +926,13 @@ export default function PurchasingPage() {
           setIngDialogOpen(true);
         }}
         mode={scanMode}
+      />
+
+      {/* Invoice Scan Dialog — reads vendor + every line to fill the whole PO */}
+      <InvoiceScanDialog
+        open={invoiceScanOpen}
+        onClose={() => setInvoiceScanOpen(false)}
+        onApply={applyInvoice}
       />
 
       {/* Ingredient Dialog */}
