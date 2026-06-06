@@ -241,8 +241,10 @@ export default function KitchenPage() {
       prev.map((o) =>
         o.id === orderId
           ? {
+              // Don't invent a status transition here — the server's `complete`
+              // action only stamps completedAt (only `send` moves to IN_PROGRESS),
+              // so forcing IN_PROGRESS made the ticket jump sections then snap back.
               ...o,
-              status: "IN_PROGRESS",
               items: o.items.map((i) =>
                 i.id === itemId
                   ? { ...i, completedAt: completed ? new Date().toISOString() : null }

@@ -43,6 +43,7 @@ type ReservationStatus =
   | "ARRIVED"
   | "PARTIALLY_ARRIVED"
   | "SEATED"
+  | "COMPLETED"
   | "CANCELLED"
   | "NO_SHOW";
 
@@ -112,6 +113,7 @@ const STATUS_LABELS: Record<ReservationStatus, string> = {
   ARRIVED: "Arrived",
   PARTIALLY_ARRIVED: "Partially Arrived",
   SEATED: "Seated",
+  COMPLETED: "Completed",
   CANCELLED: "Cancelled",
   NO_SHOW: "No Show",
 };
@@ -124,6 +126,7 @@ const STATUS_CLS: Record<ReservationStatus, string> = {
   ARRIVED: "bg-teal-100 text-teal-700 border-teal-200",
   PARTIALLY_ARRIVED: "bg-indigo-100 text-indigo-700 border-indigo-200",
   SEATED: "bg-green-100 text-green-700 border-green-200",
+  COMPLETED: "bg-slate-100 text-slate-600 border-slate-200",
   CANCELLED: "bg-red-100 text-red-700 border-red-200",
   NO_SHOW: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -135,6 +138,7 @@ const STATUS_DOT: Record<ReservationStatus, string> = {
   ARRIVED: "bg-teal-500",
   PARTIALLY_ARRIVED: "bg-indigo-500",
   SEATED: "bg-green-500",
+  COMPLETED: "bg-slate-400",
   CANCELLED: "bg-red-500",
   NO_SHOW: "bg-rose-500",
 };
@@ -640,7 +644,7 @@ function ReservationRow({ reservation, tables, onRefresh, showDate }: Reservatio
     onRefresh();
   }
 
-  const isTerminal = reservation.status === "SEATED" || reservation.status === "CANCELLED" || reservation.status === "NO_SHOW";
+  const isTerminal = reservation.status === "SEATED" || reservation.status === "COMPLETED" || reservation.status === "CANCELLED" || reservation.status === "NO_SHOW";
   const isActive = !isTerminal;
 
   return (
@@ -930,7 +934,7 @@ export default function ReservationsPage() {
         ) : (
           <div className="max-w-3xl mx-auto space-y-2">
             {(() => {
-              const removedStatuses = new Set(["CANCELLED", "NO_SHOW"]);
+              const removedStatuses = new Set(["COMPLETED", "CANCELLED", "NO_SHOW"]);
               const active = reservations.filter((r) => !removedStatuses.has(r.status));
               const removed = reservations.filter((r) => removedStatuses.has(r.status));
               return (
@@ -945,7 +949,7 @@ export default function ReservationsPage() {
                     <details className="mt-4 group">
                       <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 flex items-center gap-2 py-2">
                         <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-                        Cancelled &amp; removed ({removed.length})
+                        Completed &amp; cancelled ({removed.length})
                       </summary>
                       <div className="space-y-2 mt-1 opacity-70">
                         {removed.map((r) => (

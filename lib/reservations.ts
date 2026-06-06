@@ -23,8 +23,12 @@ export { toMinutes, isTableBlockedAt, type TableBlock };
 /** Minutes a reservation is assumed to hold a table. */
 export const SLOT_DURATION_MINS = 90;
 
-/** Reservation statuses that occupy a table. CANCELLED / NO_SHOW free the slot. */
-export const ACTIVE_RESERVATION_STATUSES = ["PENDING", "CONFIRMED", "SEATED"] as const;
+/** Reservation statuses that occupy a table / hold the slot. Only CANCELLED and
+ *  NO_SHOW free it — the pre-seating "arrived / late" states still hold the table,
+ *  so they must count in overlap + availability checks or the slot double-books. */
+export const ACTIVE_RESERVATION_STATUSES = [
+  "PENDING", "CONFIRMED", "ARRIVED", "PARTIALLY_ARRIVED", "RUNNING_LATE", "SEATED",
+] as const;
 
 /** Fallback slots when the restaurant has no configured reservationHours. */
 const DEFAULT_SLOTS = [

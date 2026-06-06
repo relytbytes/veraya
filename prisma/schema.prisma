@@ -590,6 +590,7 @@ enum ReservationStatus {
   PARTIALLY_ARRIVED  // some of the party has checked in
   RUNNING_LATE       // guest called / flagged as late
   SEATED
+  COMPLETED          // party dined and left — frees the table, releases the hold, no fee
   CANCELLED
   NO_SHOW
 }

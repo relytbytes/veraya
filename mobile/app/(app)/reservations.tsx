@@ -65,7 +65,7 @@ function formatDayShort(ymd: string): { day: string; num: string } {
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
-type StatusKey = "PENDING" | "CONFIRMED" | "RUNNING_LATE" | "ARRIVED" | "PARTIALLY_ARRIVED" | "SEATED" | "CANCELLED" | "NO_SHOW";
+type StatusKey = "PENDING" | "CONFIRMED" | "RUNNING_LATE" | "ARRIVED" | "PARTIALLY_ARRIVED" | "SEATED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
 
 const VIOLET = "#7C5CBF";
 const ORANGE = "#E07B2E";
@@ -76,6 +76,7 @@ const STATUS_CONFIG: Record<StatusKey, { color: string; tint: string; label: str
   ARRIVED:           { color: C.gold,   tint: T.gold,              label: "Arrived",      bar: C.gold   },
   PARTIALLY_ARRIVED: { color: VIOLET,   tint: "rgba(124,92,191,0.12)", label: "Partially In", bar: VIOLET },
   SEATED:            { color: C.jade,   tint: T.jade,              label: "Seated",       bar: C.jade   },
+  COMPLETED:         { color: C.smoke,  tint: T.mist,              label: "Completed",    bar: C.jade   },
   CANCELLED:         { color: C.smoke,  tint: T.mist,              label: "Cancelled",    bar: C.smoke  },
   NO_SHOW:           { color: C.coral,  tint: T.coral,             label: "No Show",      bar: C.coral  },
 };
@@ -837,7 +838,7 @@ function DetailSheet({
                       </View>
                     )}
                     {reservation.status === "SEATED" && (
-                      <StatusActionButton label="Mark Complete" icon="checkmark-done-circle-outline" color={C.smoke} onPress={() => handleStatusAction("CANCELLED")} loading={saving} />
+                      <StatusActionButton label="Mark Complete" icon="checkmark-done-circle-outline" color={C.smoke} onPress={() => handleStatusAction("COMPLETED")} loading={saving} />
                     )}
                   </View>
 

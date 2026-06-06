@@ -149,8 +149,6 @@ function project(i: HealthInput): Projection {
     const bookingImpliedRevenue = (i.confirmedCovers * perCover) / BOOKING_SHARE;
     bookedExpected = Math.min(i.expectedRevenue * 2.5, Math.max(i.expectedRevenue, bookingImpliedRevenue));
   }
-  const preServiceProjection = i.forecastRevenue && i.forecastRevenue > 0 ? i.forecastRevenue : bookedExpected;
-
   // Projection = actual sales so far + the rest of the day at the forecast rate.
   // `observed` is the share of the day's revenue normally in by now (learned
   // intraday curve), so the remaining slice is forecast × (1 − observed). This
@@ -177,7 +175,7 @@ function project(i: HealthInput): Projection {
       ? i.laborSoFar / serviceElapsed
       : Math.max(i.laborSoFar, projectedRevenue * (LABOR_TARGET_PCT / 100));
 
-  const cogsRate = i.cogsTargetPct && i.cogsTargetPct > 0 ? i.cogsTargetPct : COGS_TARGET;
+  const cogsRate = Math.min(0.85, i.cogsTargetPct && i.cogsTargetPct > 0 ? i.cogsTargetPct : COGS_TARGET);
   const projectedCOGS = projectedRevenue * cogsRate;
   const otherOpex = projectedRevenue * OTHER_OPEX_PCT;
   // Fixed overhead: configured daily figure if set, else anchored to a NORMAL
@@ -188,7 +186,10 @@ function project(i: HealthInput): Projection {
 
   const projectedNet = projectedRevenue - projectedCOGS - otherOpex - projectedLabor - fixedDaily;
   const projectedMarginPct = projectedRevenue > 0 ? (projectedNet / projectedRevenue) * 100 : (projectedNet < 0 ? -100 : 0);
-  const breakEvenRevenue = (projectedLabor + fixedDaily) / (1 - cogsRate - OTHER_OPEX_PCT);
+  // Contribution margin = 1 − variable-cost rates. Guard against a misconfigured
+  // food-cost % that would push the denominator to ≤0 (Infinity / negative break-even).
+  const contributionMargin = Math.max(0.05, 1 - cogsRate - OTHER_OPEX_PCT);
+  const breakEvenRevenue = (projectedLabor + fixedDaily) / contributionMargin;
   const breakEvenProgressPct = breakEvenRevenue > 0 ? (projectedRevenue / breakEvenRevenue) * 100 : null;
 
   return {

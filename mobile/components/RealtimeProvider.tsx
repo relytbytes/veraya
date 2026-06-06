@@ -8,11 +8,13 @@ const DEBOUNCE_MS = 250;
 // Which React Query caches each realtime scope should refresh. `["reservations"]`
 // matches `["reservations", date]` too — React Query invalidation is prefix-based.
 const SCOPE_KEYS: Record<RealtimeScope, string[][]> = {
-  kitchen: [["kitchen"], ["bar"], ["openOrders"], ["dashboard"]],
+  // 86 add/clear bridges to the kitchen scope, so refresh the 86 list + menu here
+  // too — otherwise a server keeps ringing an 86'd item until the 2-min poll.
+  kitchen: [["kitchen"], ["bar"], ["openOrders"], ["dashboard"], ["eightysix"], ["menuItems"]],
   floor: [["tables"], ["waitlist"], ["reservations"], ["openOrders"], ["dashboard"]],
   // Data changes (inventory adjust, 86, receiving) → refresh stock lists, Vera's
-  // Cost & Inventory read, and the dashboard, everywhere at once.
-  data: [["inventory"], ["reorder"], ["vera"], ["vera-predicted"], ["dashboard"]],
+  // Cost & Inventory read, the 86 list/menu, and the dashboard, everywhere at once.
+  data: [["inventory"], ["reorder"], ["vera"], ["vera-predicted"], ["dashboard"], ["eightysix"], ["menuItems"]],
 };
 
 /**

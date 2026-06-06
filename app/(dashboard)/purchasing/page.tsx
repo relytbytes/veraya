@@ -332,26 +332,39 @@ export default function PurchasingPage() {
   }
 
   async function createPO() {
-    setPOSaving(true);
     const validItems = poItems.filter((i) => i.ingredientId && i.quantity && i.unitCost);
-    await fetch("/api/purchase-orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        supplierId: poSupplierId,
-        notes: poNotes || undefined,
-        invoiceNumber: poInvoice || undefined,
-        items: validItems.map((i) => ({
-          ingredientId: i.ingredientId,
-          quantity: parseFloat(i.quantity),
-          unitCost: parseFloat(i.unitCost),
-        })),
-      }),
-    });
-    setPOSaving(false);
-    setPODialogOpen(false);
-    resetPOForm();
-    loadAll();
+    if (!validItems.length) { toast.error("Add at least one line item with a quantity and cost."); return; }
+    setPOSaving(true);
+    try {
+      const res = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierId: poSupplierId,
+          notes: poNotes || undefined,
+          invoiceNumber: poInvoice || undefined,
+          items: validItems.map((i) => ({
+            ingredientId: i.ingredientId,
+            quantity: parseFloat(i.quantity),
+            unitCost: parseFloat(i.unitCost),
+          })),
+        }),
+      });
+      if (!res.ok) {
+        // Keep the dialog open with the draft intact so nothing is lost.
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error ?? "Could not create the order. Please review and try again.");
+        return;
+      }
+      toast.success("Draft order created.");
+      setPODialogOpen(false);
+      resetPOForm();
+      loadAll();
+    } catch {
+      toast.error("Network error creating the order. Your draft is still here.");
+    } finally {
+      setPOSaving(false);
+    }
   }
 
   // Take the extracted invoice and build a complete draft PO: resolve/create the
@@ -395,10 +408,14 @@ export default function PurchasingPage() {
           : (l.lineTotal != null && qty > 0 ? l.lineTotal / qty : null);
 
         if (l.matchedIngredientId) {
+          // If the invoice didn't show a cost for a matched item, fall back to the
+          // ingredient's current cost so the line isn't silently dropped later.
+          const known = ingredients.find((x) => x.id === l.matchedIngredientId)?.costPerUnit;
+          const lineCost = cost != null ? cost : (known != null ? Number(known) : null);
           builtItems.push({
             ingredientId: l.matchedIngredientId,
             quantity: String(qty),
-            unitCost: cost != null ? String(round2(cost)) : "",
+            unitCost: lineCost != null ? String(round2(lineCost)) : "",
           });
           continue;
         }

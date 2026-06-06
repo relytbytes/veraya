@@ -45,7 +45,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(err.error ?? `HTTP ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  // 204 No Content (and any empty body) has nothing to parse — calling res.json()
+  // on it throws "Unexpected end of input" under RN fetch, which made successful
+  // DELETEs (reservation, waitlist, customer, modifier, event, shift, un-86) look
+  // like failures. Short-circuit empty bodies instead.
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 // Auth

@@ -32,8 +32,10 @@ export async function PATCH(
   const reservation = await prisma.reservation.findUnique({ where: { id } });
   if (!reservation) return Response.json({ error: "Not found" }, { status: 404 });
 
-  // Cancelling/no-showing frees the table slot so it can be rebooked.
-  const freeingSlot = status === "CANCELLED" || status === "NO_SHOW";
+  // Cancelling / no-showing / completing all free the table slot. COMPLETED means
+  // the party dined and left — the table is released (to DIRTY for bussing) and the
+  // card hold is released with NO fee (settleReservationHold treats it as a release).
+  const freeingSlot = status === "CANCELLED" || status === "NO_SHOW" || status === "COMPLETED";
 
   // The (table, date, time) this reservation will hold after the patch.
   const effectiveTableId = freeingSlot ? null : (tableId !== undefined ? tableId : reservation.tableId);
@@ -127,12 +129,28 @@ export async function PATCH(
     });
   }
 
+  // Clearing the seat fields alongside any release so a freed/handed-off table
+  // doesn't keep showing the old guest's name + dining timer on the floor.
+  const CLEARED_SEAT_FIELDS = {
+    guestName: null, partySize: null, seatedAt: null,
+    serviceStage: null, stageUpdatedAt: null, serverId: null, customerId: null,
+  };
+
+  // Re-seating an already-seated party to a DIFFERENT table: release the old one,
+  // otherwise it stays OCCUPIED forever (the host "move" flow handles its own path).
+  if (status === "SEATED" && updated.tableId && priorTableId && priorTableId !== updated.tableId) {
+    await prisma.table.update({
+      where: { id: priorTableId },
+      data: { status: "DIRTY", ...CLEARED_SEAT_FIELDS },
+    });
+  }
+
   // When cancelling or marking no-show after seating, release the physical table.
   // (updated.tableId may now be null since cancelling frees the slot, so use the prior table.)
   if (freeingSlot && reservation.status === "SEATED" && priorTableId) {
     await prisma.table.update({
       where: { id: priorTableId },
-      data: { status: "DIRTY" },
+      data: { status: "DIRTY", ...CLEARED_SEAT_FIELDS },
     });
   }
 

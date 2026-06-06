@@ -712,8 +712,13 @@ export default function StaffPage() {
 
           {/* OT Warning Banner */}
           {(() => {
-            const otStaff = activeStaff.filter((m) => weeklyHours(m.id) >= 40);
-            const warnStaff = activeStaff.filter((m) => weeklyHours(m.id) >= 35 && weeklyHours(m.id) < 40);
+            // OT-exempt: salaried staff + admins/managers don't accrue overtime,
+            // so they should never trip the banner (matches the scheduling report).
+            const otEligible = activeStaff.filter(
+              (m) => !["ADMIN", "MANAGER"].includes(m.role) && m.employmentType !== "SALARY"
+            );
+            const otStaff = otEligible.filter((m) => weeklyHours(m.id) >= 40);
+            const warnStaff = otEligible.filter((m) => weeklyHours(m.id) >= 32 && weeklyHours(m.id) < 40);
             if (otStaff.length === 0 && warnStaff.length === 0) return null;
             return (
               <div className={cn(
@@ -839,23 +844,29 @@ export default function StaffPage() {
                       })}
 
                       {/* Weekly hours */}
+                      {(() => {
+                        const otExempt = ["ADMIN", "MANAGER"].includes(member.role) || member.employmentType === "SALARY";
+                        const wh = weeklyHours(member.id);
+                        return (
                       <td className="px-2 py-3 text-center">
                         <div className="flex flex-col items-center gap-0.5">
                           <span className={cn(
                             "text-xs font-semibold",
-                            weeklyHours(member.id) >= 40 ? "text-red-500" :
-                            weeklyHours(member.id) >= 35 ? "text-amber-500" : "text-gray-600"
+                            !otExempt && wh >= 40 ? "text-red-500" :
+                            !otExempt && wh >= 32 ? "text-amber-500" : "text-gray-600"
                           )}>
-                            {weeklyHours(member.id).toFixed(1)}h
+                            {wh.toFixed(1)}h
                           </span>
-                          {weeklyHours(member.id) >= 40 && (
+                          {!otExempt && wh >= 40 && (
                             <span className="text-[9px] font-bold bg-red-500 text-white px-1 py-0 rounded leading-4">OT</span>
                           )}
-                          {weeklyHours(member.id) >= 35 && weeklyHours(member.id) < 40 && (
-                            <span className="text-[9px] font-bold bg-amber-400 text-white px-1 py-0 rounded leading-4">35h</span>
+                          {!otExempt && wh >= 32 && wh < 40 && (
+                            <span className="text-[9px] font-bold bg-amber-400 text-white px-1 py-0 rounded leading-4">32h</span>
                           )}
                         </div>
                       </td>
+                        );
+                      })()}
                     </tr>
                   ))}
                 </tbody>

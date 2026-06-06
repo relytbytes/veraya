@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
   };
 
   if (!supplierId) return Response.json({ error: "Supplier required" }, { status: 400 });
-  if (!invoiceNumber?.trim()) return Response.json({ error: "Invoice number required" }, { status: 400 });
   if (!items?.length) return Response.json({ error: "At least one item required" }, { status: 400 });
+  // Invoice number is optional: packing slips and distributor order guides often
+  // have none, and it can be filled in later via the inline edit on the PO list.
 
   // Round to 2 decimal places to avoid floating-point accumulation errors
   const totalAmount = Math.round(items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0) * 100) / 100;
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
         supplierId,
         userId: session.user?.id ?? null,
         notes,
-        invoiceNumber: invoiceNumber.trim(),
+        invoiceNumber: invoiceNumber?.trim() || null,
         invoiceImageUrl: invoiceImageUrl || null,
         totalAmount,
         status: "DRAFT",

@@ -378,7 +378,11 @@ export async function GET(req: NextRequest) {
 
   // The day forecast (same engine as the Forecast card) is Vera's pre-service
   // revenue projection, so the dashboard projection agrees with the forecast.
-  const dayForecast = await computeDayForecast(now).catch(() => null);
+  // Retry once on a transient failure (e.g. SQLite contention) before falling back
+  // to baseline-only — otherwise Vera and the Forecast card can show different
+  // covers when one request happens to fail and the other succeeds.
+  let dayForecast = await computeDayForecast(now).catch(() => null);
+  if (!dayForecast) dayForecast = await computeDayForecast(now).catch(() => null);
 
   const diag = buildDiagnosis({
     nowHour: localHourFloat(now, tz), openHour, closeHour,
