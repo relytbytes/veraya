@@ -42,6 +42,17 @@ function demandMultiplier(precipMm: number, tempMaxF: number): { multiplier: num
   return { multiplier, summary: reasons.length ? reasons.join(" + ") : "mild" };
 }
 
+export interface ForecastDay {
+  date: string;            // YYYY-MM-DD
+  label: string;           // "Today", "Wed", "Thu" …
+  hiF: number;
+  loF: number;
+  emoji: string;
+  condition: string;
+  precipMm: number;
+  multiplier: number;      // weather demand nudge for that day
+}
+
 export interface WeatherDisplay {
   configured: boolean;
   label?: string;          // saved location label
@@ -53,7 +64,17 @@ export interface WeatherDisplay {
   precipMm?: number;
   multiplier?: number;     // demand adjustment fed into the forecast
   demandSummary?: string;  // e.g. "rain + heat" — shared with the forecast signal
+  days?: ForecastDay[];    // today + next few days, for the dashboard snapshot strip
 }
+
+/** Add N days to a YYYY-MM-DD string (UTC-noon anchored to dodge DST edges). */
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Richer current-conditions read for the dashboard widget.
 export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay> {
@@ -64,14 +85,16 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
     const lng = Number(cfg.restaurantLng);
     if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return { configured: false };
 
+    // One call covers today + the next few days for the snapshot strip.
+    const endDate = addDays(dateStr, 4);
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
       `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code` +
-      `&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+      `&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${endDate}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
     if (!res.ok) return { configured: false };
     const data = (await res.json()) as {
       current?: { temperature_2m?: number; weather_code?: number };
-      daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_sum?: number[]; weather_code?: number[] };
+      daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; precipitation_sum?: number[]; weather_code?: number[] };
     };
     const hiF = data.daily?.temperature_2m_max?.[0] ?? 70;
     const loF = data.daily?.temperature_2m_min?.[0] ?? 55;
@@ -79,6 +102,27 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
     const code = data.current?.weather_code ?? data.daily?.weather_code?.[0] ?? 0;
     const cond = codeToCondition(code);
     const { multiplier, summary } = demandMultiplier(precipMm, hiF);
+
+    // Build the per-day strip (today + next 4) with each day's own demand nudge.
+    const times = data.daily?.time ?? [];
+    const days: ForecastDay[] = times.map((t, i) => {
+      const dHi = data.daily?.temperature_2m_max?.[i] ?? hiF;
+      const dLo = data.daily?.temperature_2m_min?.[i] ?? loF;
+      const dPrecip = data.daily?.precipitation_sum?.[i] ?? 0;
+      const dCond = codeToCondition(data.daily?.weather_code?.[i] ?? 0);
+      const dow = new Date(`${t}T12:00:00Z`).getUTCDay();
+      return {
+        date: t,
+        label: i === 0 ? "Today" : DOW_SHORT[dow],
+        hiF: Math.round(dHi),
+        loF: Math.round(dLo),
+        emoji: dCond.emoji,
+        condition: dCond.label,
+        precipMm: Math.round(dPrecip * 10) / 10,
+        multiplier: demandMultiplier(dPrecip, dHi).multiplier,
+      };
+    });
+
     return {
       configured: true,
       label: cfg.restaurantLocationLabel || undefined,
@@ -88,6 +132,7 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
       precipMm: Math.round(precipMm * 10) / 10,
       multiplier,
       demandSummary: summary,
+      days,
     };
   } catch {
     return { configured: false };

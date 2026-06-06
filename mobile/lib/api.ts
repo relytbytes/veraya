@@ -627,6 +627,16 @@ export interface VeraForecast {
 }
 export const getVeraForecast = () => request<VeraForecast>("/api/vera/forecast");
 
+export interface ForecastDay {
+  date: string;
+  label: string;
+  hiF: number;
+  loF: number;
+  emoji: string;
+  condition: string;
+  precipMm: number;
+  multiplier: number;
+}
 export interface WeatherDisplay {
   configured: boolean;
   label?: string;
@@ -637,6 +647,7 @@ export interface WeatherDisplay {
   emoji?: string;
   precipMm?: number;
   multiplier?: number;
+  days?: ForecastDay[];
 }
 export const getWeather = () => request<WeatherDisplay>("/api/weather");
 
