@@ -210,24 +210,10 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
         return;
       }
 
-      // Auto-select ONLY when the single match is clearly the SAME specific product
-      // — i.e. the producer/brand appears in the inventory item's name. Otherwise a
-      // scan of "Ken Wright Cellars Pinot Noir" would silently collapse into a
-      // generic "Pinot Noir" already in inventory. When it's not a clear match we
-      // show the identification and let the user pick an existing item or add new.
-      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const brand = norm(data.identified.brand ?? "");
-      const only = data.matches[0];
-      const sameProduct =
-        data.matches.length === 1 &&
-        brand.length >= 4 &&
-        norm(only.name).includes(brand.slice(0, Math.min(brand.length, 10)));
-      if (sameProduct && data.identified.confidence === "high") {
-        onSelect(only);
-        onClose();
-        return;
-      }
-
+      // NEVER auto-select on a photo scan. Two specific wines can share a varietal
+      // (a generic "Pinot Noir" vs "Ken Wright Cellars Pinot Noir"), and even the
+      // same wine differs by vintage — so the human always confirms: show the exact
+      // identification, then pick an existing item or add the scanned one as new.
       setVisionResult(data);
     } catch (err) {
       setVisionError(err instanceof Error ? err.message : "Request failed");
