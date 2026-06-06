@@ -210,9 +210,20 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
         return;
       }
 
-      // Auto-select only if single high-confidence match
-      if (data.matches.length === 1 && data.identified.confidence === "high") {
-        onSelect(data.matches[0]);
+      // Auto-select ONLY when the single match is clearly the SAME specific product
+      // — i.e. the producer/brand appears in the inventory item's name. Otherwise a
+      // scan of "Ken Wright Cellars Pinot Noir" would silently collapse into a
+      // generic "Pinot Noir" already in inventory. When it's not a clear match we
+      // show the identification and let the user pick an existing item or add new.
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const brand = norm(data.identified.brand ?? "");
+      const only = data.matches[0];
+      const sameProduct =
+        data.matches.length === 1 &&
+        brand.length >= 4 &&
+        norm(only.name).includes(brand.slice(0, Math.min(brand.length, 10)));
+      if (sameProduct && data.identified.confidence === "high") {
+        onSelect(only);
         onClose();
         return;
       }
@@ -521,15 +532,26 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
 
               {visionResult.matches.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Matches in your inventory</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Already in your inventory?</p>
                   {visionResult.matches.map((ing) => (
                     <IngredientCard
                       key={ing.id}
                       ingredient={ing}
-                      label={mode === "inventory" ? "Add Stock" : "Select"}
+                      label={mode === "inventory" ? "Add Stock" : "Use this"}
                       onSelect={handleSelect}
                     />
                   ))}
+                  {/* None of these is the right one → add the scanned item as new */}
+                  {onCreateFromExternal && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={() => { onCreateFromExternal({ name: visionResult.identified.name, barcode: "" }); onClose(); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> None of these — add &quot;{visionResult.identified.name}&quot; as new
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-4 text-center text-sm text-gray-600">

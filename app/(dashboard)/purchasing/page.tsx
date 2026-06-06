@@ -773,9 +773,18 @@ export default function PurchasingPage() {
       <ScanDialog
         open={scanOpen}
         onClose={() => { setScanOpen(false); setScanTargetLine(null); }}
-        onSelect={scanMode === "select" ? handleScanSelect : (ing) => {
-          // inventory mode: open the ingredient detail or just close
+        onSelect={scanMode === "select" ? handleScanSelect : () => {
+          // inventory mode: just close
           setScanOpen(false);
+        }}
+        onCreateFromExternal={({ name, barcode }) => {
+          // Scanned item isn't in inventory yet → open the Add Ingredient dialog
+          // pre-filled so the manager creates the exact product (then selects it).
+          setScanOpen(false);
+          setScanTargetLine(null);
+          setEditIng(null);
+          setIngForm({ ...EMPTY_ING, name, barcode: barcode || "" });
+          setIngDialogOpen(true);
         }}
         mode={scanMode}
       />
