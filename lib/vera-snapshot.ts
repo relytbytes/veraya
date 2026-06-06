@@ -36,10 +36,17 @@ export async function snapshotDay(dateStr: string, tz: string, opts: SnapshotOpt
   const dayEnd = endOfLocalDay(dateStr, tz);
   const dow = localDow(dayStart, tz);
 
-  const [sales, clock, audit, inv, e86] = await Promise.all([
+  const [sales, clock, flaggedItems, inv, e86] = await Promise.all([
     prisma.order.aggregate({ where: { status: "COMPLETED", createdAt: { gte: dayStart, lte: dayEnd } }, _sum: { total: true }, _count: true }),
     prisma.clockEntry.findMany({ where: { clockIn: { gte: dayStart, lte: dayEnd } }, include: { user: { select: { hourlyRate: true } } } }),
-    prisma.auditLog.findMany({ where: { createdAt: { gte: dayStart, lte: dayEnd } } }),
+    // Void/comp dollars from the actually-flagged order items — the SAME source the
+    // live /api/vera route uses (audit `amount` can be null on legacy rows and a
+    // comped check zeroes the order total), so the learned weights train on the same
+    // numbers the dashboard shows.
+    prisma.orderItem.findMany({
+      where: { order: { createdAt: { gte: dayStart, lte: dayEnd } }, OR: [{ comped: true }, { voided: true }] },
+      select: { unitPrice: true, quantity: true, comped: true, voided: true },
+    }),
     prisma.inventoryItem.findMany({ take: 200 }),
     prisma.eightySixItem.count(),
   ]);
@@ -55,9 +62,9 @@ export async function snapshotDay(dateStr: string, tz: string, opts: SnapshotOpt
     laborSoFar = salesToday * opts.assumeLaborPct;
   }
 
-  const voids = audit.filter((a) => a.action === "VOID");
-  const voidTotal = voids.reduce((s, a) => s + Number(a.amount ?? 0), 0);
-  const compTotal = audit.filter((a) => a.action === "COMP").reduce((s, a) => s + Number(a.amount ?? 0), 0);
+  const compTotal = flaggedItems.filter((i) => i.comped).reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
+  const voidedOnly = flaggedItems.filter((i) => i.voided && !i.comped);
+  const voidTotal = voidedOnly.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
   const low = inv.filter((i) => Number(i.quantity) <= Number(i.minThreshold) && Number(i.quantity) > 0).length;
   const oos = inv.filter((i) => Number(i.quantity) <= 0).length;
 
@@ -75,7 +82,7 @@ export async function snapshotDay(dateStr: string, tz: string, opts: SnapshotOpt
     laborSoFar, scheduledLaborFullDay: laborSoFar > 0 ? laborSoFar : null,
     activeStaff: clock.length, confirmedCovers: 0, expectedCovers: null, openOrders: 0,
     outOfStockCount: oos, lowStockCount: low, active86Count: e86,
-    voidTotal, voidCount: voids.length, compTotal, priceChangeCount: 0,
+    voidTotal, voidCount: voidedOnly.length, compTotal, priceChangeCount: 0,
     fixedDailyOverride: fixedMonthly > 0 ? fixedMonthly / 30.4 : null,
     cogsTargetPct: foodPct > 0 ? foodPct / 100 : null,
     avgCheckToday: sales._count > 0 ? salesToday / sales._count : null,

@@ -72,7 +72,15 @@ export async function computeDayForecast(now: Date = new Date()): Promise<DayFor
   const eventCovers = todayEvents.reduce((s, e) => s + (e.guestCount ?? 0), 0);
 
   const holiday = usHoliday(now);
-  const adjustment = holidayMultiplier(holiday) * (weather?.multiplier ?? 1);
+  // A holiday the generic calendar marks "closed" (e.g. Thanksgiving, Christmas)
+  // but with reservations/events on the books means THIS venue is actually open for
+  // special holiday service. Don't collapse the projection to ~5% (which trips a
+  // false "on pace to lose money" alarm) — treat it as a strong reduction instead.
+  const venueLikelyOpen = reservedCovers + eventCovers > 0;
+  const holidayMult = holiday?.tendency === "closed" && venueLikelyOpen
+    ? 0.6
+    : holidayMultiplier(holiday);
+  const adjustment = holidayMult * (weather?.multiplier ?? 1);
 
   const samples = groupSameDowSamples(orders, now);
   const f = forecastFromSamples(samples, { reservedCovers, eventCovers, avgCheck, adjustment }, params);

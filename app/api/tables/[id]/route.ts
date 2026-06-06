@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { publish } from "@/lib/realtime";
+import { applyAutoTags } from "@/lib/customer-tags";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -88,6 +89,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
     include: { server: { select: { id: true, name: true } } },
   });
+
+  // Walk-in seated directly onto a table with a linked guest: accrue the visit so
+  // recognition (Regular/VIP) + loyalty stay accurate. Reservation/waitlist seating
+  // already bump this; the direct walk-in path didn't. Gated to a fresh seat
+  // (status OCCUPIED + a new seatedAt) so repeated PATCHes don't double-count.
+  if (status === "OCCUPIED" && seatedAt !== undefined && customerId) {
+    try {
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: { visitCount: { increment: 1 }, lastVisitAt: new Date() },
+      });
+      await applyAutoTags(customerId);
+    } catch { /* non-fatal — never block seating on CRM accrual */ }
+  }
 
   publish({ scope: "floor", type: "table.updated", ids: [id] });
   return Response.json(updated);

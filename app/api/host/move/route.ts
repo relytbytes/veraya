@@ -36,6 +36,14 @@ export async function POST(req: NextRequest) {
   if (to.status === "OCCUPIED") {
     return Response.json({ error: "Target table is already occupied" }, { status: 409 });
   }
+  // A combined-table member is physically part of another table group — seating a
+  // party onto it would split the combo. Block it.
+  if (to.primaryTableId) {
+    return Response.json({ error: "That table is linked into a combined group — pick a standalone table." }, { status: 409 });
+  }
+  if (to.status === "DIRTY") {
+    return Response.json({ error: "Target table needs bussing first." }, { status: 409 });
+  }
 
   await prisma.$transaction(async (tx) => {
     // Occupy the target with the source's party

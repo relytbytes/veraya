@@ -52,6 +52,7 @@ export interface WeatherDisplay {
   emoji?: string;
   precipMm?: number;
   multiplier?: number;     // demand adjustment fed into the forecast
+  demandSummary?: string;  // e.g. "rain + heat" — shared with the forecast signal
 }
 
 // Richer current-conditions read for the dashboard widget.
@@ -77,7 +78,7 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
     const precipMm = data.daily?.precipitation_sum?.[0] ?? 0;
     const code = data.current?.weather_code ?? data.daily?.weather_code?.[0] ?? 0;
     const cond = codeToCondition(code);
-    const { multiplier } = demandMultiplier(precipMm, hiF);
+    const { multiplier, summary } = demandMultiplier(precipMm, hiF);
     return {
       configured: true,
       label: cfg.restaurantLocationLabel || undefined,
@@ -86,6 +87,7 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
       condition: cond.label, emoji: cond.emoji,
       precipMm: Math.round(precipMm * 10) / 10,
       multiplier,
+      demandSummary: summary,
     };
   } catch {
     return { configured: false };
@@ -93,25 +95,18 @@ export async function getWeatherDisplay(dateStr: string): Promise<WeatherDisplay
 }
 
 export async function getWeatherSignal(dateStr: string): Promise<WeatherSignal | null> {
+  // Derive the forecast's weather signal from the SAME computation the dashboard
+  // widget shows (getWeatherDisplay), so the "↓5% demand" badge on the widget can
+  // never disagree with the adjustment the forecast actually applied.
   try {
-    const rows = await prisma.restaurantSettings.findMany({ where: { key: { in: ["restaurantLat", "restaurantLng"] } } });
-    const cfg = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    const lat = Number(cfg.restaurantLat);
-    const lng = Number(cfg.restaurantLng);
-    if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) return null;
-
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-      `&daily=precipitation_sum,temperature_2m_max&temperature_unit=fahrenheit&timezone=auto` +
-      `&start_date=${dateStr}&end_date=${dateStr}`;
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { daily?: { precipitation_sum?: number[]; temperature_2m_max?: number[] } };
-    const precipMm = data.daily?.precipitation_sum?.[0] ?? 0;
-    const tempMaxF = data.daily?.temperature_2m_max?.[0] ?? 70;
-
-    const { multiplier, summary } = demandMultiplier(precipMm, tempMaxF);
-    return { tempMaxF: Math.round(tempMaxF), precipMm: Math.round(precipMm * 10) / 10, summary, multiplier };
+    const d = await getWeatherDisplay(dateStr);
+    if (!d.configured || d.multiplier == null) return null;
+    return {
+      tempMaxF: d.hiF ?? 70,
+      precipMm: d.precipMm ?? 0,
+      summary: d.demandSummary ?? "mild",
+      multiplier: d.multiplier,
+    };
   } catch {
     return null;
   }

@@ -257,7 +257,7 @@ export default function TimeClockPage() {
 
   // ── Loading states ──────────────────────────────────────────────────────────
 
-  if (status === "loading" || loading) {
+  if (loading) {
     return (
       <div>
         <Header title="Time Clock" description="Track your shift" />
