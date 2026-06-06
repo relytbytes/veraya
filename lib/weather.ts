@@ -34,11 +34,23 @@ function codeToCondition(code: number): { label: string; emoji: string } {
 function demandMultiplier(precipMm: number, tempMaxF: number): { multiplier: number; summary: string } {
   let multiplier = 1;
   const reasons: string[] = [];
-  if (precipMm >= 25) { multiplier *= 0.9; reasons.push("heavy rain"); }
-  else if (precipMm >= 10) { multiplier *= 0.95; reasons.push("rain"); }
-  if (tempMaxF >= 95) { multiplier *= 0.95; reasons.push("heat"); }
-  else if (tempMaxF <= 25) { multiplier *= 0.95; reasons.push("cold"); }
-  multiplier = Math.max(0.85, Math.min(1.05, multiplier));
+
+  // Rain suppresses walk-in + patio demand, scaled by intensity (mm of daily total).
+  if (precipMm >= 25) { multiplier *= 0.86; reasons.push("heavy rain"); }
+  else if (precipMm >= 12) { multiplier *= 0.92; reasons.push("rain"); }
+  else if (precipMm >= 4) { multiplier *= 0.97; reasons.push("light rain"); }
+
+  // Temperature comfort curve: pleasant weather draws people out, extremes keep
+  // them home. Only one band applies (highest-priority first).
+  const dry = precipMm < 2;
+  if (tempMaxF >= 100) { multiplier *= 0.90; reasons.push("extreme heat"); }
+  else if (tempMaxF >= 92) { multiplier *= 0.95; reasons.push("heat"); }
+  else if (tempMaxF <= 20) { multiplier *= 0.90; reasons.push("hard freeze"); }
+  else if (tempMaxF <= 34) { multiplier *= 0.95; reasons.push("cold"); }
+  else if (tempMaxF >= 64 && tempMaxF <= 84 && dry) { multiplier *= 1.06; reasons.push("pleasant"); }
+  else if (tempMaxF >= 55 && tempMaxF <= 88 && dry) { multiplier *= 1.03; reasons.push("nice"); }
+
+  multiplier = Math.max(0.82, Math.min(1.08, multiplier));
   return { multiplier, summary: reasons.length ? reasons.join(" + ") : "mild" };
 }
 
