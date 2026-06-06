@@ -36,6 +36,12 @@ function randInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// Names for simulated guests — used on dine-in checks and reservations so the
+// check lookup and guest search have something to find.
+const NAMES_FIRST = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Jamie", "Avery", "Quinn", "Drew", "Cameron", "Reese", "Parker", "Hayden", "Emerson", "Rowan", "Sasha", "Devon", "Logan", "Blake", "Harper", "Kai", "Noah", "Mia"];
+const NAMES_LAST = ["Reyes", "Nguyen", "Patel", "Cohen", "Walsh", "Okafor", "Romano", "Park", "Khan", "Silva", "Brooks", "Hughes", "Castro", "Bauer", "Flynn", "Mercer", "Sato", "Lozano", "Ferris", "Webb", "Diaz", "Hart", "Cole", "Yang", "Owens"];
+function randomName() { return `${pick(NAMES_FIRST)} ${pick(NAMES_LAST)}`; }
+
 // Realistic hourly traffic distribution (0–23)
 const HOUR_WEIGHTS = [
   0, 0, 0, 0, 0, 0,   // 12a–5a  — closed
@@ -158,6 +164,7 @@ export async function POST(req: NextRequest) {
         type,
         status: "COMPLETED",
         notes: "[SIM] Simulated order",
+        guestName: type === "DINE_IN" ? randomName() : null,
         subtotal,
         tax,
         total,
@@ -206,8 +213,6 @@ export async function POST(req: NextRequest) {
   // (reservedCovers / cover floor) and Vera's demand read for tonight.
   let reservationsCreated = 0;
   if (reservations) {
-    const FIRST = ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Jamie", "Avery", "Quinn", "Drew", "Cameron", "Reese", "Parker", "Hayden", "Emerson", "Rowan", "Sasha", "Devon", "Logan"];
-    const LAST = ["Reyes", "Nguyen", "Patel", "Cohen", "Walsh", "Okafor", "Romano", "Park", "Khan", "Silva", "Brooks", "Hughes", "Castro", "Bauer", "Flynn", "Mercer", "Sato", "Lozano", "Ferris", "Webb"];
     const DINNER = ["17:00", "17:30", "18:00", "18:00", "18:30", "18:30", "19:00", "19:00", "19:30", "19:30", "20:00", "20:30", "21:00"];
     const LUNCH = ["11:30", "12:00", "12:30", "13:00"];
     const dowMult = [0.7, 0.6, 0.7, 0.8, 1.0, 1.3, 1.2];
@@ -224,7 +229,7 @@ export async function POST(req: NextRequest) {
           date: dateStr,
           time: lunch ? pick(LUNCH) : pick(DINNER),
           partySize: pick([2, 2, 2, 3, 4, 4, 5, 6, 8], [6, 6, 6, 3, 3, 3, 1, 1, 1]),
-          name: `${pick(FIRST)} ${pick(LAST)}`,
+          name: randomName(),
           phone: `555${randInt(1000000, 9999999)}`,
           status: Math.random() < 0.8 ? "CONFIRMED" : "PENDING",
         });

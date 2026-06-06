@@ -231,7 +231,9 @@ export function DashboardClient({ role, name }: { role: string; name: string | n
                           </p>
                           <p className="text-xs text-gray-400">
                             {order.items.length} item{order.items.length !== 1 ? "s" : ""} ·{" "}
-                            {new Date(order.createdAt).toLocaleTimeString("en-US", {
+                            {new Date(order.createdAt).toLocaleString("en-US", {
+                              month: "short",
+                              day: "numeric",
                               hour: "2-digit",
                               minute: "2-digit",
                             })}

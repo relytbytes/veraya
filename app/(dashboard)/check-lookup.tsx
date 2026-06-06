@@ -135,7 +135,7 @@ export function CheckDetailModal({ orderId, onClose }: { orderId: string; onClos
   );
 }
 
-interface LookupOrder { id: string; total: number | string; createdAt: string; seatedAt?: string | null; guestName?: string | null; status: string; type: string; table: { number: number } | null; items: { id: string }[] }
+interface LookupOrder { id: string; total: number | string; createdAt: string; seatedAt?: string | null; guestName?: string | null; status: string; type: string; table: { number: number } | null; items: { id: string }[]; server?: { name: string } | null; reservation?: { name: string } | null }
 
 /** A "look up a check" button + search over recent orders, opening the detail modal. */
 export function CheckLookup() {
@@ -148,8 +148,8 @@ export function CheckLookup() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Recent completed checks (today) — newest first.
-      const res = await fetch("/api/orders?status=COMPLETED,PAID,CLOSED");
+      // Last 30 days of checks (completed/paid/closed/cancelled) — newest first.
+      const res = await fetch("/api/orders?status=COMPLETED,PAID,CLOSED,CANCELLED&recent=30");
       if (res.ok) setOrders(await res.json());
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
@@ -159,10 +159,14 @@ export function CheckLookup() {
   const filtered = orders.filter((o) => {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
+    const dateStr = new Date(o.seatedAt ?? o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
     return (o.table ? `table ${o.table.number}` : o.type).toLowerCase().includes(s)
       || (o.guestName ?? "").toLowerCase().includes(s)
+      || (o.reservation?.name ?? "").toLowerCase().includes(s)
+      || (o.server?.name ?? "").toLowerCase().includes(s)
       || o.id.slice(-6).includes(s)
-      || num(o.total).toFixed(2).includes(s);
+      || num(o.total).toFixed(2).includes(s)
+      || dateStr.includes(s);
   });
 
   return (
@@ -181,7 +185,7 @@ export function CheckLookup() {
             <div className="p-3 border-b border-gray-100">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest name, table, check #, or amount…"
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, server, table, check #, amount, or date…"
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
               </div>
             </div>
@@ -199,7 +203,7 @@ export function CheckLookup() {
                           {o.table ? `Table ${o.table.number}` : o.type === "TAKEOUT" ? "Takeout" : "Dine In"}
                           {o.guestName ? ` · ${o.guestName}` : ""}
                         </p>
-                        <p className="text-xs text-gray-400">#{o.id.slice(-6)} · {o.items.length} items · {new Date(o.seatedAt ?? o.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+                        <p className="text-xs text-gray-400">#{o.id.slice(-6)} · {o.items.length} items · {new Date(o.seatedAt ?? o.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}{o.server?.name ? ` · ${o.server.name}` : ""}</p>
                       </div>
                       <span className="text-sm font-semibold tabular-nums">{formatCurrency(num(o.total))}</span>
                     </button>

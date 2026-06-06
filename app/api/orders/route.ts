@@ -14,14 +14,18 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const date = searchParams.get("date");
   const tableId = searchParams.get("tableId");
+  // ?recent=N — return the last N days instead of a single day (used by check lookup).
+  const recent = searchParams.get("recent");
+  const recentDays = recent ? Math.min(180, Math.max(1, Number(recent) || 0)) : 0;
 
   // When filtering by tableId we skip the date window — we need all active orders
   // for that table regardless of when they were created (handles cross-midnight shifts).
-  const applyDateFilter = !tableId;
+  const applyDateFilter = !tableId && !recentDays;
   const whereDate = date ? new Date(date) : new Date();
   whereDate.setHours(0, 0, 0, 0);
   const endDate = new Date(whereDate);
   endDate.setHours(23, 59, 59, 999);
+  const recentSince = recentDays ? new Date(Date.now() - recentDays * 86400_000) : null;
 
   // status param supports a single value OR comma-separated list (e.g. "OPEN,IN_PROGRESS,READY")
   const statuses = status ? status.split(",").map((s) => s.trim()) : null;
@@ -35,7 +39,9 @@ export async function GET(req: NextRequest) {
         : {}),
       ...(tableId ? { tableId } : {}),
       ...(applyDateFilter ? { createdAt: { gte: whereDate, lte: endDate } } : {}),
+      ...(recentSince ? { createdAt: { gte: recentSince } } : {}),
     },
+    ...(recentDays ? { take: 800 } : {}),
     include: {
       table: true,
       server: { select: { id: true, name: true } },
