@@ -47,12 +47,12 @@ export async function POST(req: NextRequest) {
               type: "text",
               text: `You are helping a restaurant build its ingredient library by scanning delivery photos, invoices, pantry shelves, and product labels.
 
-Identify ALL distinct food/beverage ingredients visible in this image. For each one:
-- Use a clean, generic ingredient name (e.g. "Chicken Breast" not "Tyson Fresh Chicken Tenders")
-- Suggest the most appropriate inventory unit from this list: ${COMMON_UNITS.join(", ")}
-- Note any helpful context (pack size, format, etc.)
+Read EVERY line of text on each label, including small print. Identify ALL distinct food/beverage products visible in this image. For each one:
+- For FOOD: use a clean, generic ingredient name (e.g. "Chicken Breast" not "Tyson Fresh Chicken Tenders"), suggestedUnit from the list, brand if visible.
+- For WINE / SPIRITS / BEER: do NOT collapse to a bare varietal. Use the FULL specific name a sommelier would list — producer + vintage + varietal/expression + vineyard, e.g. "Foxen 2018 Pinot Noir Block 8 Bien Nacido Vineyard", "Caymus Cabernet Sauvignon". Put producer in brand, and put the vintage, region/appellation, and ABV in notes (e.g. "2018 · Santa Maria Valley · 14.1%"). suggestedUnit "bottle".
+- Note any helpful context (pack size, format, vintage, region).
 
-Do NOT list the same ingredient twice. Do NOT include non-food items (packaging materials, cleaning supplies, etc.).
+Do NOT list the same product twice. Do NOT include non-food items (packaging materials, cleaning supplies, etc.). If you can read multiple labeled cases/boxes, list each distinct product.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {

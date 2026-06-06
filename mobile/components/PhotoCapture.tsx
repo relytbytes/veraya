@@ -30,7 +30,7 @@ export function PhotoCapture({
     try {
       const photo = await cameraRef.current.takePictureAsync({
         base64: true,
-        quality: 0.6,
+        quality: 0.85, // sharper text so the AI can read fine print (vintage, vineyard)
         exif: false,
       });
       if (photo?.base64) {
