@@ -135,7 +135,7 @@ export function CheckDetailModal({ orderId, onClose }: { orderId: string; onClos
   );
 }
 
-interface LookupOrder { id: string; total: number | string; createdAt: string; seatedAt?: string | null; guestName?: string | null; status: string; type: string; table: { number: number } | null; items: { id: string }[]; server?: { name: string } | null; reservation?: { name: string } | null }
+interface LookupOrder { id: string; total: number | string; createdAt: string; seatedAt?: string | null; guestName?: string | null; status: string; type: string; table: { number: number } | null; items: { id: string }[]; server?: { name: string } | null; reservation?: { name: string; phone?: string | null; email?: string | null } | null; customer?: { name?: string | null; phone?: string | null; email?: string | null } | null }
 
 /** A "look up a check" button + search over recent orders, opening the detail modal. */
 export function CheckLookup() {
@@ -160,10 +160,15 @@ export function CheckLookup() {
     if (!q.trim()) return true;
     const s = q.trim().toLowerCase();
     const dateStr = new Date(o.seatedAt ?? o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toLowerCase();
+    const digits = s.replace(/\D/g, "");
+    const phone = (o.reservation?.phone ?? o.customer?.phone ?? "").replace(/\D/g, "");
     return (o.table ? `table ${o.table.number}` : o.type).toLowerCase().includes(s)
       || (o.guestName ?? "").toLowerCase().includes(s)
       || (o.reservation?.name ?? "").toLowerCase().includes(s)
+      || (o.customer?.name ?? "").toLowerCase().includes(s)
       || (o.server?.name ?? "").toLowerCase().includes(s)
+      || (o.reservation?.email ?? o.customer?.email ?? "").toLowerCase().includes(s)
+      || (!!digits && phone.includes(digits))
       || o.id.slice(-6).includes(s)
       || num(o.total).toFixed(2).includes(s)
       || dateStr.includes(s);
@@ -185,7 +190,7 @@ export function CheckLookup() {
             <div className="p-3 border-b border-gray-100">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, server, table, check #, amount, or date…"
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Guest, phone, email, server, table, check #, amount, or date…"
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
               </div>
             </div>

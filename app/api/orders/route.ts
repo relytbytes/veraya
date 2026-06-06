@@ -45,7 +45,8 @@ export async function GET(req: NextRequest) {
     include: {
       table: true,
       server: { select: { id: true, name: true } },
-      reservation: { select: { id: true, name: true, date: true, time: true } },
+      reservation: { select: { id: true, name: true, date: true, time: true, phone: true, email: true } },
+      customer: { select: { name: true, phone: true, email: true } },
       items: { include: { menuItem: { include: { category: true } } } },
       payments: true,
     },
