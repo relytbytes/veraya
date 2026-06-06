@@ -278,7 +278,7 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden">
+      <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col sm:max-h-[92vh] max-sm:inset-0 max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:max-h-none max-sm:rounded-none max-sm:border-0">
         <DialogHeader className="px-5 pt-5 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-amber-500" />
@@ -305,10 +305,10 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
           ))}
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
           {/* Camera / captured image */}
           {!capturedImage ? (
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-[3/4] max-h-[58vh]">
+            <div className="relative rounded-xl overflow-hidden bg-black h-[62vh] sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]">
               {cameraError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-2">
                   <AlertCircle className="h-8 w-8 text-red-400" />
@@ -350,9 +350,9 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
               )}
             </div>
           ) : (
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-[3/4] max-h-[58vh]">
+            <div className="relative rounded-xl overflow-hidden bg-black h-[62vh] sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={capturedImage} alt="captured" className="w-full h-full object-cover" />
+              <img src={capturedImage} alt="captured" className="w-full h-full object-contain" />
               {analyzing && (
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 text-white">
                   <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
