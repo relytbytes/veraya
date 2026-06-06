@@ -22,6 +22,7 @@ import { Scanner } from "@/components/Scanner";
 import { TableCanvas } from "@/components/TableCanvas";
 import { HostStandMode } from "@/components/HostStandMode";
 import { SwipeSheet } from "@/components/SwipeSheet";
+import { ManagerAuthSheet, type ManagerAuthRequest } from "@/components/ManagerAuthSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { C, T, shadow } from "@/lib/theme";
 
@@ -200,6 +201,7 @@ export default function POSScreen() {
   const [tick, setTick] = useState(0);
   const [seatModal, setSeatModal] = useState<Table | null>(null);
   const [tableInfoModal, setTableInfoModal] = useState<Table | null>(null);
+  const [managerAuth, setManagerAuth] = useState<ManagerAuthRequest | null>(null);
   const [addWaitlistVisible, setAddWaitlistVisible] = useState(false);
   const [addReservationVisible, setAddReservationVisible] = useState(false);
   const [pickTableFor, setPickTableFor] = useState<{ entry?: WaitlistEntry; reservation?: Reservation } | null>(null);
@@ -553,7 +555,17 @@ export default function POSScreen() {
     try {
       const tipAmt = Math.round(Number(ord.subtotal) * tipPct) / 100;
       const redeemDiscount = checkRedeemPts > 0 ? checkRedeemPts / 100 : 0; // 100 pts = $1
-      const chargeAmount = Math.max(0, Number(ord.total) + tipAmt - redeemDiscount);
+      // Apply the loyalty redemption as an order-level discount FIRST so the order's
+      // stored total reflects the amount actually owed. Otherwise the payment would
+      // fall short of order.total (check never marks fully paid; books don't balance).
+      let owed = Number(ord.total);
+      if (redeemDiscount > 0) {
+        const discounted = await patchOrder(ord.id, {
+          discount: { amount: redeemDiscount, reason: "Loyalty redemption" },
+        }) as Order | undefined;
+        owed = Number(discounted?.total ?? Math.max(0, owed - redeemDiscount));
+      }
+      const chargeAmount = Math.max(0, owed + tipAmt);
       await patchOrder(ord.id, {
         status: "COMPLETED",
         payment: {
@@ -2031,6 +2043,7 @@ export default function POSScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.void }}>
         {toastOverlay}
+        <ManagerAuthSheet request={managerAuth} onClose={() => setManagerAuth(null)} />
         <View style={{ backgroundColor: C.surface, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, borderBottomWidth: 1, borderColor: C.rim, flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
             onPress={() => { setScreen("floor"); setActiveOrder(null); }}
@@ -2229,14 +2242,22 @@ export default function POSScreen() {
                   <View style={{ flexDirection: "row", gap: 6, marginTop: 6 }}>
                     {!item.comped && (
                       <TouchableOpacity
-                        onPress={async () => {
-                          try {
-                            await patchOrder(liveOrder.id, { voidItem: { itemId: item.id } });
-                            qc.invalidateQueries({ queryKey: ["openOrders"] });
-                          } catch (e: unknown) {
-                            showToast(e instanceof Error ? e.message : "Failed", "error");
-                          }
-                        }}
+                        onPress={() => setManagerAuth({
+                          title: `Void ${item.menuItem.name}?`,
+                          description: "Voiding removes the item and returns any fired ingredients to stock. A manager must authorize.",
+                          reasons: ["Double ring", "Wrong item", "Server error", "Guest changed mind", "86'd item"],
+                          confirmLabel: "Void item",
+                          onConfirm: async (reason, managerPin) => {
+                            try {
+                              await patchOrder(liveOrder.id, { voidItem: { itemId: item.id, reason, managerPin } });
+                              qc.invalidateQueries({ queryKey: ["openOrders"] });
+                              showToast(`${item.menuItem.name} voided`, "success");
+                              return { ok: true };
+                            } catch (e: unknown) {
+                              return { ok: false, error: e instanceof Error ? e.message : "Failed to void" };
+                            }
+                          },
+                        })}
                         style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.rim }}
                       >
                         <Text style={{ fontSize: 11, color: C.smoke, fontWeight: "600" }}>Void</Text>
@@ -2244,15 +2265,22 @@ export default function POSScreen() {
                     )}
                     {!item.comped && (
                       <TouchableOpacity
-                        onPress={async () => {
-                          try {
-                            await patchOrder(liveOrder.id, { compItem: { itemId: item.id } });
-                            qc.invalidateQueries({ queryKey: ["openOrders"] });
-                            showToast(`${item.menuItem.name} comped`, "success");
-                          } catch (e: unknown) {
-                            showToast(e instanceof Error ? e.message : "Failed", "error");
-                          }
-                        }}
+                        onPress={() => setManagerAuth({
+                          title: `Comp ${item.menuItem.name}?`,
+                          description: "Comping gives the item to the guest at no charge (it stays in food cost). A manager must authorize.",
+                          reasons: ["Kitchen mistake", "Long wait", "Quality issue", "Manager goodwill", "Regular/VIP"],
+                          confirmLabel: "Comp item",
+                          onConfirm: async (reason, managerPin) => {
+                            try {
+                              await patchOrder(liveOrder.id, { compItem: { itemId: item.id, reason, managerPin } });
+                              qc.invalidateQueries({ queryKey: ["openOrders"] });
+                              showToast(`${item.menuItem.name} comped`, "success");
+                              return { ok: true };
+                            } catch (e: unknown) {
+                              return { ok: false, error: e instanceof Error ? e.message : "Failed to comp" };
+                            }
+                          },
+                        })}
                         style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: T.jade, borderWidth: 1, borderColor: C.jade }}
                       >
                         <Text style={{ fontSize: 11, color: C.jade, fontWeight: "600" }}>Comp</Text>

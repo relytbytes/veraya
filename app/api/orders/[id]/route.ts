@@ -40,6 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     compItem?: { itemId: string; reason?: string; managerPin?: string };
     compCheck?: { reason?: string; managerPin?: string };
     reopen?: { reason?: string; managerPin?: string };
+    discount?: { amount: number; reason?: string }; // order-level discount (e.g. loyalty redemption)
     holdFireMins?: number; // auto-fire newly held items after N minutes (0 = manual)
     addItems?: Array<{
       menuItemId: string;
@@ -50,20 +51,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       held?: boolean;
     }>;
   };
-  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems, reopen, holdFireMins } = body;
+  const { status, payment, fireItemIds, voidItem, compItem, compCheck, addItems, reopen, discount, holdFireMins } = body;
 
   // Helper: recalculate order subtotal/tax/total after item changes
   async function recalcTotals(orderId: string) {
-    const allItems = await prisma.orderItem.findMany({ where: { orderId } });
+    const [allItems, ord] = await Promise.all([
+      prisma.orderItem.findMany({ where: { orderId } }),
+      prisma.order.findUnique({ where: { id: orderId }, select: { discountAmount: true } }),
+    ]);
     const taxSetting = await prisma.restaurantSettings.findUnique({ where: { key: "taxRate" } });
     const TAX_RATE = taxSetting ? Number(taxSetting.value) / 100 : 0.0875;
     const newSubtotal = allItems
       .filter((i) => !i.voided)
       .reduce((sum, i) => (i.comped ? sum : sum + Number(i.unitPrice) * i.quantity), 0);
     const newTax = newSubtotal * TAX_RATE;
+    // An order-level discount (e.g. a loyalty redemption) reduces the amount owed,
+    // so the stored total matches what's actually collected and the books balance.
+    const discount = Math.min(newSubtotal + newTax, Math.max(0, Number(ord?.discountAmount ?? 0)));
+    const newTotal = Math.round((newSubtotal + newTax - discount) * 100) / 100;
     await prisma.order.update({
       where: { id: orderId },
-      data: { subtotal: newSubtotal, tax: newTax, total: newSubtotal + newTax },
+      data: { subtotal: newSubtotal, tax: newTax, total: newTotal },
     });
   }
 
@@ -98,6 +106,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id }, include: { table: true, items: { include: { menuItem: true } }, payments: true },
     });
     return Response.json(reopened);
+  }
+
+  // Apply an order-level discount (e.g. a loyalty redemption) so the stored total
+  // reflects the amount actually owed before payment — keeps the books balanced and
+  // the receipt accurate. Idempotent: sets (not increments) the discount amount.
+  if (discount !== undefined) {
+    const amt = Math.max(0, Number(discount.amount) || 0);
+    await prisma.order.update({ where: { id }, data: { discountAmount: amt } });
+    await recalcTotals(id);
+    if (amt > 0) {
+      await prisma.auditLog.create({
+        data: {
+          action: "DISCOUNT", orderId: id, amount: amt,
+          reason: discount.reason?.trim() || "Discount",
+          userId: session.user?.id ?? null,
+        },
+      }).catch(() => { /* non-fatal */ });
+    }
+    const updated = await prisma.order.findUnique({
+      where: { id }, include: { table: true, items: { include: { menuItem: true } }, payments: true },
+    });
+    emit({ type: "order.updated", orderId: id, status: order.status });
+    return Response.json(updated);
   }
 
   /** Re-read all order items (with categories) and auto-advance the table's serviceStage. */
