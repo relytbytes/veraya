@@ -306,9 +306,12 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
         </div>
 
         <div className="p-5 space-y-4 flex-1 overflow-y-auto">
-          {/* Camera / captured image */}
+          {/* Camera / captured image — shrink once a result is showing so it fits */}
           {!capturedImage ? (
-            <div className="relative rounded-xl overflow-hidden bg-black h-[62vh] sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]">
+            <div className={cn(
+              "relative rounded-xl overflow-hidden bg-black sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]",
+              lookupResult ? "h-[32vh]" : "h-[60vh]",
+            )}>
               {cameraError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-2">
                   <AlertCircle className="h-8 w-8 text-red-400" />
@@ -350,7 +353,10 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
               )}
             </div>
           ) : (
-            <div className="relative rounded-xl overflow-hidden bg-black h-[62vh] sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]">
+            <div className={cn(
+              "relative rounded-xl overflow-hidden bg-black sm:h-auto sm:aspect-[3/4] sm:max-h-[58vh]",
+              visionResult ? "h-[28vh]" : "h-[58vh]",
+            )}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={capturedImage} alt="captured" className="w-full h-full object-contain" />
               {analyzing && (
@@ -475,8 +481,15 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
                   {!lookupResult.external && (!lookupResult.suggestions || lookupResult.suggestions.length === 0) && (
                     <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
                       <AlertCircle className="h-5 w-5 mx-auto mb-1 text-gray-400" />
-                      Barcode <strong>{lookupResult.barcode}</strong> not found in your inventory or any public database.
-                      <p className="text-xs mt-1">You can assign this barcode when adding a new ingredient.</p>
+                      Barcode <strong>{lookupResult.barcode}</strong> isn&apos;t in any public database — common for wine &amp; spirits.
+                      <Button size="sm" className="w-full mt-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white" onClick={() => setTab("photo")}>
+                        <Sparkles className="h-3.5 w-3.5" /> Identify it with Photo AI instead
+                      </Button>
+                      {onCreateFromExternal && (
+                        <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => { onCreateFromExternal({ name: "", barcode: lookupResult.barcode }); onClose(); }}>
+                          <Plus className="h-3.5 w-3.5" /> Add manually with this barcode
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
