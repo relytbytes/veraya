@@ -34,28 +34,33 @@ export async function POST(req: NextRequest) {
     try {
       completion = await openai.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 300,
+        max_tokens: 400,
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `You are helping identify food/beverage products for a restaurant inventory system.
-Analyze this image and identify the product. Focus on any visible text, labels, or branding.
+                text: `You are a sommelier and chef identifying a food/beverage product for a restaurant inventory system. Read EVERY line of text on the label, including the small print.
+
+For WINE / SPIRITS / BEER, the name must be the FULL specific listing a sommelier would use — producer + vintage + varietal/expression + vineyard/block, e.g. "Foxen 2018 Pinot Noir Block 8 Bien Nacido Vineyard", "Caymus Cabernet Sauvignon", "Tito's Handmade Vodka". Do NOT return just the varietal. The vintage is often small — look carefully.
+For FOOD, use a clean generic name (e.g. "Chicken Breast", "Olive Oil").
 
 Return ONLY valid JSON in this exact format (no markdown, no explanation):
 {
-  "name": "primary product name (e.g. 'Cabernet Sauvignon', 'Chicken Breast', 'Olive Oil')",
-  "brand": "brand or winery name if visible, else null",
-  "type": "product category (e.g. 'red wine', 'poultry', 'condiment')",
-  "searchTerms": ["2-4 short terms to search for this item in a database"],
+  "name": "full specific product name",
+  "brand": "producer / winery / brand if visible, else null",
+  "type": "category (e.g. 'red wine - Pinot Noir', 'poultry', 'condiment')",
+  "vintage": "4-digit year if a wine and printed, else null",
+  "region": "appellation / region if printed, else null",
+  "searchTerms": ["3-5 terms incl. producer, varietal, and full name to find this in a database"],
   "confidence": "high|medium|low"
 }`,
               },
               {
+                // "high" detail keeps full resolution so vintage / vineyard fine print is legible.
                 type: "image_url",
-                image_url: { url: image, detail: "low" },
+                image_url: { url: image, detail: "high" },
               },
             ],
           },

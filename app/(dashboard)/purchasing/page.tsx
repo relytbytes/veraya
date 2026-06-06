@@ -690,11 +690,21 @@ export default function PurchasingPage() {
 
             {/* Line Items */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 gap-2">
                 <Label>Line Items</Label>
-                <Button size="sm" variant="outline" onClick={addPOItem}>
-                  <Plus className="h-3.5 w-3.5" /> Add Item
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm hover:from-amber-600 hover:to-amber-700"
+                    onClick={() => { addPOItem(); openScanForLine(poItems.length); }}
+                    type="button"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Scan with AI
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={addPOItem} type="button">
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 {/* Header row */}
@@ -725,7 +735,7 @@ export default function PurchasingPage() {
                     <Button
                       variant="ghost"
                       size="icon" aria-label="Scan barcode or photo"
-                      className="h-9 w-7 text-gray-400 hover:text-amber-600"
+                      className="h-9 w-7 text-amber-500 hover:text-amber-700 hover:bg-amber-50"
                       title="Scan barcode or photo"
                       onClick={() => openScanForLine(i)}
                       type="button"

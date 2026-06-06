@@ -169,7 +169,7 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     setCapturedImage(dataUrl);
     setAnalyzing(true);
     setVisionResult(null);
@@ -308,7 +308,7 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
         <div className="p-5 space-y-4">
           {/* Camera / captured image */}
           {!capturedImage ? (
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+            <div className="relative rounded-xl overflow-hidden bg-black aspect-[3/4] max-h-[58vh]">
               {cameraError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-2">
                   <AlertCircle className="h-8 w-8 text-red-400" />
@@ -336,20 +336,21 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
                     </div>
                   )}
 
-                  {/* Photo capture button */}
+                  {/* Photo capture button — large, obvious shutter */}
                   {tab === "photo" && (
                     <button
                       onClick={captureAndAnalyze}
-                      className="absolute bottom-3 left-1/2 -translate-x-1/2 h-12 w-12 rounded-full bg-white border-4 border-amber-500 hover:bg-amber-50 transition-colors flex items-center justify-center"
+                      aria-label="Capture and identify"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[72px] w-[72px] rounded-full bg-white ring-4 ring-white/60 border-[5px] border-amber-500 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center shadow-lg"
                     >
-                      <Camera className="h-5 w-5 text-amber-600" />
+                      <Camera className="h-7 w-7 text-amber-600" />
                     </button>
                   )}
                 </>
               )}
             </div>
           ) : (
-            <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+            <div className="relative rounded-xl overflow-hidden bg-black aspect-[3/4] max-h-[58vh]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={capturedImage} alt="captured" className="w-full h-full object-cover" />
               {analyzing && (
@@ -518,9 +519,21 @@ export function ScanDialog({ open, onClose, onSelect, onCreateFromExternal, mode
                   ))}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
-                  <p>No matches found for <strong>&quot;{visionResult.identified.name}&quot;</strong></p>
-                  <p className="text-xs mt-1">You can add it as a new ingredient from the Ingredients tab.</p>
+                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/50 p-4 text-center text-sm text-gray-600">
+                  <p>Not in your inventory yet:</p>
+                  <p className="font-semibold text-gray-900 mt-0.5">{visionResult.identified.name}</p>
+                  {onCreateFromExternal && (
+                    <Button
+                      size="sm"
+                      className="w-full mt-3"
+                      onClick={() => {
+                        onCreateFromExternal({ name: visionResult.identified.name, barcode: "" });
+                        onClose();
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add &quot;{visionResult.identified.name}&quot; as new item
+                    </Button>
+                  )}
                 </div>
               )}
 
