@@ -1,0 +1,23 @@
+Want your eyes on something I built: Veraya
+
+Kev,
+
+I’ve been quietly working on something for the better part of this year, and I finally want to show it to you. You’re honestly the first person I thought of, partly because you’re my Dad and partly because you’ve actually built and shipped software, so you’ll tell me the truth instead of just being nice about it.
+
+What it is. It’s called Veraya. The short version is that it’s a full operating system for restaurants. The register, the kitchen and bar screens, reservations and the host stand, inventory, purchasing, payroll, scheduling, all of it. It runs on the web and as a native mobile app, and it’s live right now at veraya.vercel.app if you want to poke around while you read this.
+
+Why it’s different. The part I’m actually excited about isn’t the restaurant plumbing. It’s a layer on top that I named Vera. Most of these systems just record what already happened. Vera predicts. It forecasts each day, projects the restaurant’s profit and loss in real time, and tells the operator how much to prep and what to reorder before they run short. And it learns each restaurant individually. It watches how every day actually plays out and quietly adjusts itself overnight to figure out what really drives that one venue’s numbers. Nobody big in this space leads with that, and I think it’s the whole reason there could be a real company here.
+
+The honest part, because you’d see through anything else. There are no customers and no revenue yet. No real restaurant has run a live shift on it, and I’ve been testing with simulated data, so any accuracy numbers I can show are demos, not proof. To be clear though, this is my idea and every decision in it is mine. I used AI tools to build it, which is how one person moved this fast and covered this much ground, and honestly I think that’s an edge, not an asterisk. It can already run multiple restaurants today, each as its own isolated and secure copy. The piece left to build is the shared layer that runs a lot of them from one place, with central accounts and billing, which is what turns a strong product into an efficient business at scale.
+
+I’m telling you all of that on purpose. I don’t want you to be impressed. I want you to be honest.
+
+Where you come in. You’ve done the thing I haven’t. You took working software and turned it into a real business, and I’m at the exact point where your gut would change what I do next. Do I try to sell the whole suite, or lead with just Vera as something that sits next to whatever register a place already uses? How do I get the first one or two real restaurants on it, which is what would make all of this real? And when does it make sense to start raising money instead of proving it out on my own a while longer?
+
+And just to be clear, I’m not asking you for money or to jump into anything. I genuinely just want your honest opinion. You’ve seen this from the inside, and I trust your read on it more than almost anyone’s.
+
+So would you take a look and tell me what you actually think? Is this worth chasing, and if it were yours, what would you do next?
+
+Love you. Thanks for always being the person I bring this stuff to.
+
+[Your name]

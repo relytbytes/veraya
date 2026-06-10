@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign, CloudSun, Search } from "lucide-react";
+import { Save, Loader2, Plus, Pencil, Trash2, LayoutGrid, FlaskConical, Trash, AlertTriangle, X, Clock, CreditCard, DollarSign, CloudSun, Search, Upload } from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/ui/confirm";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,12 @@ export default function SettingsPage() {
   const [simOrdersPerDay, setSimOrdersPerDay] = useState("70");
   const [simRunning, setSimRunning] = useState(false);
   const [simResult, setSimResult] = useState<{ created?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number; reservationsCreated?: number; reservationsCleared?: number } | null>(null);
+
+  // Real sales-history import
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importErr, setImportErr] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<{ created?: number; days?: number; cleared?: number; snapshotsCreated?: number; snapshotsCleared?: number; totalSales?: number; dateRange?: { from: string; to: string }; detected?: { date: string; sales: string; orders: string | null; covers: string | null } } | null>(null);
   const [btRunning, setBtRunning] = useState(false);
   const [backtest, setBacktest] = useState<{ model?: { mape: number; bias: number; n: number }; naive?: { mape: number }; improvementVsNaivePct?: number; error?: string } | null>(null);
 
@@ -234,6 +240,45 @@ export default function SettingsPage() {
       setSimResult(data);
     } finally {
       setSimRunning(false);
+    }
+  }
+
+  async function runImport(file: File) {
+    setImporting(true);
+    setImportResult(null);
+    setImportErr(null);
+    try {
+      const csv = await file.text();
+      const res = await fetch("/api/import/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setImportErr(data.error ?? "Import failed."); return; }
+      setImportResult(data);
+    } catch {
+      setImportErr("Couldn't read or upload that file.");
+    } finally {
+      setImporting(false);
+      if (importFileRef.current) importFileRef.current.value = "";
+    }
+  }
+
+  async function clearImport() {
+    if (!(await confirmDialog("Remove all imported sales history? This cannot be undone."))) return;
+    setImporting(true);
+    setImportResult(null);
+    setImportErr(null);
+    try {
+      const res = await fetch("/api/import/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clear: true }),
+      });
+      setImportResult(await res.json());
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -1259,6 +1304,74 @@ export default function SettingsPage() {
                     Save Card Policy
                   </>
                 )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Import real sales history ─────────────────────────────────── */}
+        <Card className="border-teal-200 bg-teal-50/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-teal-800">
+              <Upload className="h-4 w-4" />
+              Import Real Sales History
+            </CardTitle>
+            <p className="text-xs text-teal-700 -mt-1">
+              Upload a daily sales export from your current POS (Toast, Square, Clover, anything) and Vera&apos;s forecast and learning model run on your restaurant&apos;s actual numbers instead of demo data. This is the fastest way to make a pilot real.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md bg-white border border-teal-200 px-3 py-2.5 text-xs text-gray-600">
+              <p className="font-semibold text-gray-700 mb-1">CSV format</p>
+              <p>One row per day. We auto-detect the columns — at minimum a <span className="font-medium">date</span> and a <span className="font-medium">daily sales</span> column. Optional: order/check count and covers.</p>
+              <pre className="mt-2 bg-gray-50 border border-gray-100 rounded p-2 text-[11px] overflow-x-auto">Date,Net Sales,Orders,Covers
+2026-05-01,4820.50,86,142
+2026-05-02,5310.00,94,160
+2026-05-03,6740.25,121,205</pre>
+            </div>
+
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) runImport(f); }}
+            />
+
+            {importErr && (
+              <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{importErr}</div>
+            )}
+
+            {importResult && (
+              <div className="rounded-md bg-white border border-teal-200 px-3 py-2 text-sm text-teal-800">
+                {importResult.created !== undefined
+                  ? <>✓ Imported {importResult.created} orders across {importResult.days} day{importResult.days !== 1 ? "s" : ""}
+                      {importResult.dateRange ? ` (${importResult.dateRange.from} → ${importResult.dateRange.to})` : ""}
+                      {importResult.totalSales != null ? `, ${formatCurrency(importResult.totalSales)} total sales` : ""}
+                      {importResult.snapshotsCreated ? ` · ${importResult.snapshotsCreated} learning snapshots` : ""}.
+                      {importResult.detected ? <span className="block text-xs text-gray-500 mt-1">Read columns — date: “{importResult.detected.date}”, sales: “{importResult.detected.sales}”{importResult.detected.orders ? `, orders: “${importResult.detected.orders}”` : ""}{importResult.detected.covers ? `, covers: “${importResult.detected.covers}”` : ""}.</span> : null}
+                    </>
+                  : `✓ Cleared ${importResult.cleared} imported orders${importResult.snapshotsCleared ? ` + ${importResult.snapshotsCleared} snapshots` : ""}.`}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => importFileRef.current?.click()}
+                disabled={importing}
+                className="bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Upload className="h-4 w-4 mr-1.5" />}
+                Upload CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={clearImport}
+                disabled={importing}
+                className="border-red-200 text-red-600 hover:bg-red-50"
+              >
+                <Trash className="h-4 w-4 mr-1.5" />
+                Clear imported
               </Button>
             </div>
           </CardContent>
