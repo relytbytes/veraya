@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  { const s = await auth(); const r = (s?.user as { role?: string })?.role ?? ""; if (!s || !["ADMIN", "MANAGER"].includes(r)) return Response.json({ error: "Forbidden" }, { status: 403 }); }
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 

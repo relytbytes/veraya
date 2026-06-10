@@ -5,12 +5,20 @@ import bcrypt from "bcryptjs";
 import { UserRole } from "@/app/generated/prisma/enums";
 
 const SELECT = { id: true, name: true, email: true, role: true, isActive: true, hourlyRate: true, employmentType: true, annualSalary: true, createdAt: true } as const;
+// Non-managers (e.g. servers picking who to assign a table to) get names + roles
+// only — never compensation. Wages/salary are manager/admin-only.
+const SELECT_BASIC = { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } as const;
 
 export async function GET() {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const staff = await prisma.user.findMany({ select: SELECT, orderBy: { name: "asc" } });
+  const role = (session.user as { role?: string })?.role ?? "";
+  const isManager = ["ADMIN", "MANAGER"].includes(role);
+  const staff = await prisma.user.findMany({
+    select: isManager ? SELECT : SELECT_BASIC,
+    orderBy: { name: "asc" },
+  });
   return Response.json(staff);
 }
 
