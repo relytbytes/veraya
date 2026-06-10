@@ -141,11 +141,11 @@ export function VeraForecast() {
       <p className="px-5 pt-3 text-sm leading-relaxed text-gray-700">{data.narrative}</p>
 
       {/* Prep recommendations */}
-      {data.prep.length > 0 && (
-        <div className="px-5 pb-4 pt-3">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
-            <ChefHat className="h-3.5 w-3.5" /> Vera recommends prepping
-          </div>
+      <div className="px-5 pb-4 pt-3">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+          <ChefHat className="h-3.5 w-3.5" /> Vera recommends prepping
+        </div>
+        {data.prep.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {data.prep.map((p) => (
               <span key={p.name} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs" title={p.basis}>
@@ -154,7 +154,18 @@ export function VeraForecast() {
               </span>
             ))}
           </div>
-        </div>
+        ) : (
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Per-item prep quantities come online once menu-item sales are flowing — from live orders or an item-level import. The day&apos;s sales and covers forecast above already runs on your history.
+          </p>
+        )}
+      </div>
+
+      {/* Methodology footer — makes it explicit the forecast is grounded in their real days */}
+      {data.sampleCount > 0 && (
+        <p className="px-5 pb-4 -mt-1 text-[11px] text-gray-400">
+          Based on {data.sampleCount} {data.dowName}{data.sampleCount !== 1 ? "s" : ""} in your sales history.
+        </p>
       )}
     </div>
   );
