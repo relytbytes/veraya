@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/forecast-tune",
       "schedule": "10 7 * * *"
+    },
+    {
+      "path": "/api/cron/reservation-sweep",
+      "schedule": "0 * * * *"
     }
   ]
 }
