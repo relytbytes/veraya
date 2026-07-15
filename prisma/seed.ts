@@ -3,27 +3,35 @@ import { PrismaClient } from "../app/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
 
-const adapter = new PrismaLibSql({ url: "file:/Users/ty/restaurant-ops/prisma/dev.db" });
+const dbUrl = process.env.DATABASE_URL ?? process.env.TURSO_DATABASE_URL;
+if (!dbUrl) throw new Error("DATABASE_URL or TURSO_DATABASE_URL must be set before seeding.");
+const adapter = new PrismaLibSql({ url: dbUrl, authToken: process.env.TURSO_AUTH_TOKEN });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Seeding database...");
 
-  // Admin user
-  const adminPassword = await bcrypt.hash("admin123", 12);
-  const adminPin = await bcrypt.hash("1234", 10); // manager override PIN
+  // Admin credentials come from env so they're never hardcoded.
+  const seedAdminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@restaurant.com";
+  const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const seedAdminPin = process.env.SEED_ADMIN_PIN;
+  if (!seedAdminPassword || !seedAdminPin) {
+    throw new Error("Set SEED_ADMIN_PASSWORD and SEED_ADMIN_PIN env vars before seeding.");
+  }
+  const adminPassword = await bcrypt.hash(seedAdminPassword, 12);
+  const adminPin = await bcrypt.hash(seedAdminPin, 10);
   const admin = await prisma.user.upsert({
-    where: { email: "admin@restaurant.com" },
-    update: { managerPin: adminPin },
+    where: { email: seedAdminEmail },
+    update: { managerPin: adminPin, password: adminPassword },
     create: {
       name: "Admin User",
-      email: "admin@restaurant.com",
+      email: seedAdminEmail,
       password: adminPassword,
       role: "ADMIN",
       managerPin: adminPin,
     },
   });
-  console.log("✓ Admin user:", admin.email, "(manager PIN: 1234)");
+  console.log("✓ Admin user:", admin.email);
 
   // Categories
   const categories = await Promise.all([

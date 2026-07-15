@@ -1,16 +1,33 @@
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import { emit } from "@/lib/events";
 import { depleteForFiredItems } from "@/lib/inventory";
 
-// Auto-fire held courses whose timer has elapsed. Runs as a cron (server-side
-// safety net) and is also pokeable by the POS client interval during service.
-// Fires every held item with a fireAt in the past: clears the hold, stamps
-// firedAt (so it appears on the KDS as a new round), and depletes inventory.
-export async function POST() {
+// Auto-fire held courses whose timer has elapsed.
+// Accepts two callers:
+//   1. Vercel Cron — must supply Authorization: Bearer <CRON_SECRET>
+//   2. Authenticated POS client (session cookie) — fires only their own table's held items
+export async function POST(req: NextRequest) {
+  if (!verifyCron(req)) {
+    const session = await auth();
+    if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
   return run();
 }
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!verifyCron(req)) {
+    const session = await auth();
+    if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
   return run();
+}
+
+function verifyCron(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const auth = req.headers.get("authorization") ?? "";
+  return auth === `Bearer ${secret}`;
 }
 
 async function run() {

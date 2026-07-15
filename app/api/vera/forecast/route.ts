@@ -44,7 +44,9 @@ export async function GET(_req: NextRequest) {
       dowName,
       confidence,
       prep,
-      dayparts: fc.dayparts.map((d) => ({ name: d.name, projectedSales: d.projectedSales, share: Math.round(d.share * 100) })),
+      // share is a FRACTION (0..1) — both the web and mobile cards multiply by 100
+      // to render "(36%)"; sending a pre-multiplied percent here showed "3600%".
+      dayparts: fc.dayparts.map((d) => ({ name: d.name, projectedSales: d.projectedSales, share: Math.round(d.share * 1000) / 1000 })),
       holiday: fc.holiday ? { name: fc.holiday.name, tendency: fc.holiday.tendency } : null,
       weather: fc.weather ? { summary: fc.weather.summary, tempMaxF: fc.weather.tempMaxF, precipMm: fc.weather.precipMm } : null,
       adjustmentPct: Math.round((fc.adjustment - 1) * 100),

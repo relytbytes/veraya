@@ -6,6 +6,8 @@ import bcrypt from "bcryptjs";
 
 const SELECT = { id: true, name: true, email: true, role: true, isActive: true, hourlyRate: true, employmentType: true, annualSalary: true, createdAt: true } as const;
 
+const SELECT_BASIC = { id: true, name: true, role: true, isActive: true, createdAt: true } as const;
+
 // GET /api/staff/[id]  – fetch user detail
 export async function GET(
   _req: NextRequest,
@@ -14,8 +16,18 @@ export async function GET(
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const callerRole = (session.user as { role?: string })?.role ?? "";
+  const isManager = ["ADMIN", "MANAGER"].includes(callerRole);
+  const callerId = (session.user as { id?: string })?.id ?? "";
+
   const { id } = await props.params;
-  const user = await prisma.user.findUnique({ where: { id }, select: SELECT });
+
+  // Non-managers can only fetch their own record (stripped of compensation)
+  if (!isManager && callerId !== id) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id }, select: isManager ? SELECT : SELECT_BASIC });
   if (!user) return Response.json({ error: "Not found" }, { status: 404 });
   return Response.json(user);
 }
@@ -24,6 +36,10 @@ export async function GET(
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const callerRole = (session.user as { role?: string })?.role ?? "";
+  const callerId = (session.user as { id?: string })?.id ?? "";
+  const isManager = ["ADMIN", "MANAGER"].includes(callerRole);
 
   const { id } = await props.params;
   const body = await req.json();
@@ -36,6 +52,21 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     annualSalary?: number | null;
     managerPin?: string | null;
   };
+
+  // Privileged fields (role, pay, active status) require manager auth.
+  const wantsPrivileged = role !== undefined || isActive !== undefined ||
+    hourlyRate !== undefined || annualSalary !== undefined || employmentType !== undefined;
+  if (wantsPrivileged && !isManager) {
+    return Response.json({ error: "Only managers can change roles, pay, or active status." }, { status: 403 });
+  }
+  // Non-admins cannot elevate to ADMIN.
+  if (role === "ADMIN" && callerRole !== "ADMIN") {
+    return Response.json({ error: "Only admins can assign the admin role." }, { status: 403 });
+  }
+  // Non-managers can only update their own name.
+  if (!isManager && callerId !== id) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const data: Record<string, unknown> = {
     ...(name !== undefined && { name }),

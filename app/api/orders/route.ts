@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       type?: string;
       notes?: string;
       holdFireMins?: number; // auto-fire held items after N minutes (0/undefined = manual)
-      items: { menuItemId: string; quantity: number; unitPrice: number; notes?: string; modifierIds?: string[]; held?: boolean }[];
+      items: { menuItemId: string; quantity: number; notes?: string; modifierIds?: string[]; held?: boolean }[];
     };
     // Held items become a course; if a timer was chosen, stamp their auto-fire time.
     const holdFireAt = holdFireMins && holdFireMins > 0 ? new Date(Date.now() + holdFireMins * 60000) : null;
@@ -75,11 +75,23 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "At least one item is required" }, { status: 400 });
     }
 
+    // Fetch authoritative prices from the DB — never trust client-supplied prices.
+    const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds } },
+      select: { id: true, price: true },
+    });
+    const priceMap = new Map(menuItems.map((m) => [m.id, Number(m.price)]));
+    const unknownId = items.find((i) => !priceMap.has(i.menuItemId))?.menuItemId;
+    if (unknownId) {
+      return Response.json({ error: `Menu item not found: ${unknownId}` }, { status: 400 });
+    }
+
     // Fetch tax rate from settings, fall back to 8.75%
     const taxSetting = await prisma.restaurantSettings.findUnique({ where: { key: "taxRate" } });
     const TAX_RATE = taxSetting ? Number(taxSetting.value) / 100 : 0.0875;
 
-    const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+    const subtotal = items.reduce((sum, i) => sum + (priceMap.get(i.menuItemId) ?? 0) * i.quantity, 0);
     const tax = subtotal * TAX_RATE;
     const total = subtotal + tax;
 
@@ -141,7 +153,7 @@ export async function POST(req: NextRequest) {
           create: items.map((i) => ({
             menuItemId: i.menuItemId,
             quantity: i.quantity,
-            unitPrice: i.unitPrice,
+            unitPrice: priceMap.get(i.menuItemId) ?? 0,
             notes: i.notes,
             heldForFire: i.held ?? false,
             firedAt: i.held ? null : firedNow,

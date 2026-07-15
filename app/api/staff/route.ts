@@ -26,8 +26,18 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const callerRole = (session.user as { role?: string })?.role ?? "";
+  if (!["ADMIN", "MANAGER"].includes(callerRole)) {
+    return Response.json({ error: "Only managers can create staff accounts." }, { status: 403 });
+  }
+
   const body = await req.json();
   const { name, email, password, role, hourlyRate, employmentType, annualSalary } = body;
+
+  // Non-admins cannot create ADMIN accounts.
+  if (role === "ADMIN" && callerRole !== "ADMIN") {
+    return Response.json({ error: "Only admins can create admin accounts." }, { status: 403 });
+  }
 
   if (!name || !email || !password) {
     return Response.json({ error: "Name, email, and password are required" }, { status: 400 });

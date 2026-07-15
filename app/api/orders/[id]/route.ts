@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     compItem?: { itemId: string; reason?: string; managerPin?: string };
     compCheck?: { reason?: string; managerPin?: string };
     reopen?: { reason?: string; managerPin?: string };
-    discount?: { amount: number; reason?: string }; // order-level discount (e.g. loyalty redemption)
+    discount?: { amount: number; reason?: string; managerPin?: string }; // order-level discount (e.g. loyalty redemption)
     holdFireMins?: number; // auto-fire newly held items after N minutes (0 = manual)
     addItems?: Array<{
       menuItemId: string;
@@ -108,10 +108,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return Response.json(reopened);
   }
 
-  // Apply an order-level discount (e.g. a loyalty redemption) so the stored total
-  // reflects the amount actually owed before payment — keeps the books balanced and
-  // the receipt accurate. Idempotent: sets (not increments) the discount amount.
+  // Apply an order-level discount — manager PIN required (same as comp/void).
   if (discount !== undefined) {
+    const mgr = await verifyManagerPin(discount.managerPin ?? "");
+    if (!mgr) return Response.json({ error: "A valid manager PIN is required to apply a discount." }, { status: 403 });
     const amt = Math.max(0, Number(discount.amount) || 0);
     await prisma.order.update({ where: { id }, data: { discountAmount: amt } });
     await recalcTotals(id);
@@ -120,7 +120,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         data: {
           action: "DISCOUNT", orderId: id, amount: amt,
           reason: discount.reason?.trim() || "Discount",
-          userId: session.user?.id ?? null,
+          notes: `Authorized by ${mgr.name}; applied by ${session.user?.name ?? "staff"}`,
+          userId: mgr.id,
         },
       }).catch(() => { /* non-fatal */ });
     }

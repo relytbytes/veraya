@@ -568,7 +568,7 @@ function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preSe
   if (!preService && i.expectedRevenue && i.expectedRevenue > 0) {
     const pace = p.projectedRevenue / i.expectedRevenue;
     if (pace >= 1.08) out.push({ key: "pace_ahead", tone: "positive", text: `Running ${pct((pace - 1) * 100)} ahead of a normal ${day} — on pace for ${money(p.projectedRevenue)}.` });
-    else if (pace <= 0.85) out.push({ key: "pace_behind", tone: "concern", text: `Pacing ${pct(pace * 100)} of a normal ${day} (${money(p.projectedRevenue - i.expectedRevenue)} vs typical).` });
+    else if (pace <= 0.85) out.push({ key: "pace_behind", tone: "concern", text: `Pacing ${pct(pace * 100)} of a normal ${day} — ${money(Math.abs(p.projectedRevenue - i.expectedRevenue))} below typical.` });
   }
 
   // Average check vs the learned distribution (z-score).
@@ -598,10 +598,20 @@ function buildIndicators(i: HealthInput, p: Projection, dims: Dimension[], preSe
     out.push({ key: "prep_yield_good", tone: "positive", text: "Prep yield is dialed in — almost nothing going to waste." });
   }
 
-  // Pull in any HIGH issues the manager must see.
+  // Pull in any HIGH issues the manager must see — but skip ones that restate a
+  // topic a native indicator above already covers in tighter language (e.g. the
+  // pace_behind indicator + the demand dimension's "Sales pacing…" issue are the
+  // same fact twice; exact-text dedupe can't catch semantic twins).
+  const coveredTopics: Array<{ key: string; dup: RegExp }> = [
+    { key: "pace_behind", dup: /^sales pacing/i },
+    { key: "below_breakeven", dup: /^projected to lose/i },
+  ];
+  const hasIndicator = (k: string) => out.some((x) => x.key === k);
   for (const d of dims) {
     for (const iss of d.issues) {
-      if (iss.severity === "HIGH" && out.length < 8) out.push({ key: `issue_${d.key}`, tone: "concern", text: iss.action ? `${iss.message} — ${iss.action}` : iss.message });
+      if (iss.severity !== "HIGH" || out.length >= 8) continue;
+      if (coveredTopics.some((c) => hasIndicator(c.key) && c.dup.test(iss.message))) continue;
+      out.push({ key: `issue_${d.key}`, tone: "concern", text: iss.action ? `${iss.message} — ${iss.action}` : iss.message });
     }
   }
 

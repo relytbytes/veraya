@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { publish } from "@/lib/realtime";
+import twilio from "twilio";
 
 // POST /api/sms/inbound — Twilio inbound-message webhook (2-way SMS).
 //
@@ -8,7 +9,18 @@ import { publish } from "@/lib/realtime";
 // today and acts on CONFIRM / CANCEL replies, responding with TwiML.
 //
 // SETUP: in the Twilio console, set this URL as the messaging webhook for your
-// number. In production also enable request-signature validation (below).
+// number and set TWILIO_AUTH_TOKEN in your environment.
+
+async function verifyTwilioSignature(req: NextRequest): Promise<boolean> {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) return false; // no token configured → reject
+  const signature = req.headers.get("x-twilio-signature") ?? "";
+  const url = req.url;
+  const formData = await req.clone().formData();
+  const params: Record<string, string> = {};
+  formData.forEach((val, key) => { params[key] = String(val); });
+  return twilio.validateRequest(authToken, signature, url, params);
+}
 
 function twiml(message: string): Response {
   const body = message
@@ -28,6 +40,9 @@ const localToday = () => {
 };
 
 export async function POST(req: NextRequest) {
+  const valid = await verifyTwilioSignature(req);
+  if (!valid) return new Response("Forbidden", { status: 403 });
+
   let from = "", body = "";
   try {
     const form = await req.formData();
